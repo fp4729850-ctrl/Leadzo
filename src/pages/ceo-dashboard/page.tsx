@@ -211,8 +211,8 @@ export default function CeoDashboardPage() {
   return (
     <>
       <AuthLoading><div className="grid grid-cols-2 md:grid-cols-4 gap-4">{Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-28 rounded-2xl" />)}</div></AuthLoading>
-      <Unauthenticated><div className="flex flex-col items-center justify-center h-64 gap-4"><p className="text-muted-foreground text-sm">Sign in to view CEO Dashboard</p><SignInButton /></div></Unauthenticated>
-      <Authenticated><CeoDashboardInner /></Authenticated>
+      
+      <><CeoDashboardInner /></>
     </>
   );
 }

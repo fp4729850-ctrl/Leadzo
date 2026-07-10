@@ -497,13 +497,8 @@ export default function MarketIntelligencePage() {
       <AuthLoading>
         <div className="flex flex-col gap-4">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-32 rounded-2xl" />)}</div>
       </AuthLoading>
-      <Unauthenticated>
-        <div className="flex flex-col items-center justify-center h-64 gap-4">
-          <p className="text-muted-foreground text-sm">Sign in to use Market Intelligence Agent</p>
-          <SignInButton />
-        </div>
-      </Unauthenticated>
-      <Authenticated><MarketIntelligenceInner /></Authenticated>
+      
+      <><MarketIntelligenceInner /></>
     </>
   );
 }

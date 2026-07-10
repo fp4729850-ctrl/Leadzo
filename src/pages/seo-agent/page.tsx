@@ -197,7 +197,7 @@ export default function SeoAgentPage() {
             <p className="text-xs text-muted-foreground">AI-powered 5-step SEO pipeline</p>
           </div>
           <Badge className="ml-auto bg-chart-1/20 text-chart-1 border-chart-1/30">AI Powered</Badge>
-          <Authenticated>
+          <>
             {gscStatus?.connected ? (
               <button onClick={async () => { await disconnectGsc(); toast.success("Google Search Console disconnected"); }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-chart-3/40 bg-chart-3/10 text-chart-3 text-xs font-semibold cursor-pointer hover:bg-chart-3/20 transition-all">
                 <CheckCircle2 size={12} /> GSC Connected <Unlink size={11} className="ml-1 opacity-60" />
@@ -207,7 +207,7 @@ export default function SeoAgentPage() {
                 <Link size={12} /> Connect Google
               </button>
             )}
-          </Authenticated>
+          </>
         </div>
       </motion.div>
 

@@ -860,13 +860,8 @@ function CrmPageInner() {
 export default function CrmPage() {
   return (
     <>
-      <Authenticated><CrmPageInner /></Authenticated>
-      <Unauthenticated>
-        <div className="flex flex-col items-center justify-center h-full gap-4">
-          <p className="text-muted-foreground text-sm">Sign in to use the CRM Agent</p>
-          <SignInButton />
-        </div>
-      </Unauthenticated>
+      <><CrmPageInner /></>
+      
     </>
   );
 }

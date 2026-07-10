@@ -244,13 +244,8 @@ function LearningAgentInner() {
 export default function LearningAgentPage() {
   return (
     <>
-      <Authenticated><LearningAgentInner /></Authenticated>
-      <Unauthenticated>
-        <div className="flex flex-col items-center justify-center h-full gap-4">
-          <p className="text-muted-foreground text-sm">Sign in to use the Learning Agent</p>
-          <SignInButton />
-        </div>
-      </Unauthenticated>
+      <><LearningAgentInner /></>
+      
     </>
   );
 }

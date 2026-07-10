@@ -233,8 +233,8 @@ function GscDashboardInner() {
 
 export default function GscDashboardPage() {
   return (
-    <Authenticated>
+    <>
       <GscDashboardInner />
-    </Authenticated>
+    </>
   );
 }

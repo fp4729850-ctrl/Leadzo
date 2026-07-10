@@ -113,8 +113,8 @@ export default function SettingsPage() {
         </div>
       </motion.div>
       <AuthLoading><Skeleton className="h-40 w-full" /></AuthLoading>
-      <Unauthenticated><Card className="border-border bg-card/60 p-6 text-center"><p className="text-sm text-muted-foreground mb-3">Settings ke liye login karo</p><SignInButton /></Card></Unauthenticated>
-      <Authenticated><SettingsInner /></Authenticated>
+      
+      <><SettingsInner /></>
     </div>
   );
 }

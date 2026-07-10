@@ -297,18 +297,8 @@ function DashboardInner() {
 export default function DashboardPage() {
   return (
     <>
-      <Authenticated><DashboardInner /></Authenticated>
-      <Unauthenticated>
-        <div className="flex items-center justify-center h-full">
-          <div className="text-center space-y-3">
-            <div className="size-16 mx-auto rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-              <Brain size={28} className="text-primary-foreground" />
-            </div>
-            <h2 className="text-xl font-bold">Welcome to Leadzo AI</h2>
-            <p className="text-muted-foreground text-sm">Sign in to access your command center</p>
-          </div>
-        </div>
-      </Unauthenticated>
+      <><DashboardInner /></>
+      
     </>
   );
 }
