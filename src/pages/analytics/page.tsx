@@ -1,4 +1,4 @@
-import { useQuery } from "convex/react";
+import { useQuery } from "@/lib/convex-supabase-adapter.ts";
 import { api } from "@/convex/_generated/api.js";
 import { motion } from "motion/react";
 import {

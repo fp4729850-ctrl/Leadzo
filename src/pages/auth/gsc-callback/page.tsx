@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAction } from "convex/react";
+import { useAction } from "@/lib/convex-supabase-adapter.ts";
 import { api } from "@/convex/_generated/api.js";
 import { Loader2, CheckCircle2, XCircle } from "lucide-react";
 

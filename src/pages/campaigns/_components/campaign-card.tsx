@@ -1,6 +1,6 @@
 import type { Doc } from "@/convex/_generated/dataModel.d.ts";
 import React from "react";
-import { useMutation } from "convex/react";
+import { useMutation } from "@/lib/convex-supabase-adapter.ts";
 import { api } from "@/convex/_generated/api.js";
 import { Badge } from "@/components/ui/badge.tsx";
 import { Button } from "@/components/ui/button.tsx";

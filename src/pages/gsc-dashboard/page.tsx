@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "@/lib/convex-supabase-adapter.ts";
 import { api } from "@/convex/_generated/api.js";
-import { Authenticated, Unauthenticated } from "convex/react";
+import { Authenticated, Unauthenticated } from "@/lib/convex-supabase-adapter.ts";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/button.tsx";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card.tsx";

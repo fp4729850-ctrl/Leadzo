@@ -1,4 +1,4 @@
-import { useMutation } from "convex/react";
+import { useMutation } from "@/lib/convex-supabase-adapter.ts";
 import { api } from "@/convex/_generated/api.js";
 import type { Doc } from "@/convex/_generated/dataModel.d.ts";
 import { motion } from "motion/react";

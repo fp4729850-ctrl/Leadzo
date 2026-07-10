@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { useQuery, useMutation, useAction } from "convex/react";
+import { useQuery, useMutation, useAction } from "@/lib/convex-supabase-adapter.ts";
 import { api } from "@/convex/_generated/api.js";
 import type { Id, Doc } from "@/convex/_generated/dataModel.js";
-import { Authenticated, Unauthenticated } from "convex/react";
+import { Authenticated, Unauthenticated } from "@/lib/convex-supabase-adapter.ts";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import {

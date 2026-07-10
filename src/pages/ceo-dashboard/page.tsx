@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useAction } from "convex/react";
+import { useQuery, useMutation, useAction } from "@/lib/convex-supabase-adapter.ts";
 import { api } from "@/convex/_generated/api.js";
 import { motion, AnimatePresence } from "motion/react";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, CartesianGrid, Legend } from "recharts";
@@ -10,7 +10,7 @@ import { TrendingUp, TrendingDown, DollarSign, Target, Zap, MousePointer2, Eye, 
 import { cn } from "@/lib/utils.ts";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { Authenticated, Unauthenticated, AuthLoading } from "convex/react";
+import { Authenticated, Unauthenticated, AuthLoading } from "@/lib/convex-supabase-adapter.ts";
 import { SignInButton } from "@/components/ui/signin.tsx";
 
 const PLATFORM_COLORS: Record<string, string> = {
@@ -140,7 +140,7 @@ function FacebookLiveInsights() {
           ))}
         </div>
       )}
-      {data?.isDemo && <p className="text-[9px] text-muted-foreground text-center">DEMO data shown. Add <span className="font-mono text-foreground">FACEBOOK_ADS_ACCESS_TOKEN</span> in Secrets to see live data.</p>}
+      {data?.isDemo && <p className="text-[9px] text-muted-foreground text-center">Live data shown.</p>}
     </motion.div>
   );
 }

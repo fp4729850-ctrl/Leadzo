@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery, useMutation, useAction } from "convex/react";
+import { useQuery, useMutation, useAction } from "@/lib/convex-supabase-adapter.ts";
 import { api } from "@/convex/_generated/api.js";
 import { motion } from "motion/react";
 import { Mail, Upload, Send, Loader2, Sparkles, Copy, Check } from "lucide-react";
