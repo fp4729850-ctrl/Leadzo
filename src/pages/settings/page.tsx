@@ -114,7 +114,16 @@ export default function SettingsPage() {
       </motion.div>
       <AuthLoading><Skeleton className="h-40 w-full" /></AuthLoading>
       
-      <><SettingsInner /></>
+      <Authenticated>
+        <SettingsInner />
+      </Authenticated>
+
+      <Unauthenticated>
+        <div className="flex flex-col items-center justify-center p-8 border rounded-2xl bg-card gap-4 text-center">
+          <p className="text-sm text-muted-foreground">Sign in to manage your settings</p>
+          <SignInButton />
+        </div>
+      </Unauthenticated>
     </div>
   );
 }

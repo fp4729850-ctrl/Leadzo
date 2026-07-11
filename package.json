@@ -9,7 +9,9 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "prettier-fix": "prettier --write .",
-    "prettier-check": "prettier --check ."
+    "prettier-check": "prettier --check .",
+    "bypass-auth": "node bypass-auth.cjs",
+    "rewrite-imports": "node rewrite-imports.cjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

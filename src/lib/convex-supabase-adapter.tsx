@@ -158,6 +158,21 @@ export function useMutation(apiEndpoint: any) {
   
   return async (args: any = {}) => {
     if (!tableName) return null;
+
+    // Handle CEO Dashboard metrics seeding logic
+    if (mappingKey === 'adCampaigns.seedSampleData') {
+      const { count } = await supabase.from('ad_campaigns').select('*', { count: 'exact', head: true });
+      if (count && count > 0) return { status: 'skipped', reason: 'already seeded' };
+      
+      const sampleCampaigns = [
+        { name: "Google Search - High Intent Leads", spend: 450, revenue: 1200, impressions: 12000, clicks: 450, conversions: 45, platform: "google", status: "active" },
+        { name: "Facebook Retargeting - Add to Cart", spend: 320, revenue: 980, impressions: 24000, clicks: 800, conversions: 35, platform: "facebook", status: "active" },
+        { name: "Instagram Video - Branding 2026", spend: 500, revenue: 1500, impressions: 38000, clicks: 1200, conversions: 60, platform: "instagram", status: "active" }
+      ];
+      const { data, error } = await supabase.from('ad_campaigns').insert(sampleCampaigns).select();
+      if (error) throw error;
+      return data;
+    }
     
     const isDelete = method.toLowerCase().includes('delete') || 
                      method.toLowerCase().includes('remove') || 
@@ -168,6 +183,14 @@ export function useMutation(apiEndpoint: any) {
                      method === 'saveApiCredentials';
 
     const id = args.id || args._id || args.contactId || args.campaignId || args.analysisId;
+
+    // Clean undefined arguments and map them to null to prevent API failure
+    const cleanArgs = { ...args };
+    Object.keys(cleanArgs).forEach(key => {
+      if (cleanArgs[key] === undefined) {
+        cleanArgs[key] = null;
+      }
+    });
 
     if (isDelete) {
       if (!id) throw new Error(`DELETE operation on ${tableName} requires an ID.`);
@@ -181,30 +204,34 @@ export function useMutation(apiEndpoint: any) {
         // Update current authenticated user
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error("Not authenticated");
-        const { data, error } = await supabase.from(tableName).update(args).eq('id', user.id).select();
+        
+        // Clean ID params
+        delete cleanArgs.id;
+        delete cleanArgs._id;
+
+        const { data, error } = await supabase.from(tableName).update(cleanArgs).eq('id', user.id).select();
         if (error) throw error;
         return data?.[0] || null;
       }
       
       if (!id) {
         // Fallback to insert if update is called without ID
-        const { data, error } = await supabase.from(tableName).insert([args]).select();
+        const { data, error } = await supabase.from(tableName).insert([cleanArgs]).select();
         if (error) throw error;
         return data?.[0] || null;
       }
       
-      // Clean arguments before update
-      const updateData = { ...args };
-      delete updateData.id;
-      delete updateData._id;
+      // Clean ID params before update
+      delete cleanArgs.id;
+      delete cleanArgs._id;
       
-      const { data, error } = await supabase.from(tableName).update(updateData).eq('id', id).select();
+      const { data, error } = await supabase.from(tableName).update(cleanArgs).eq('id', id).select();
       if (error) throw error;
       return data?.[0] || null;
     }
     
     // Default: Insert / Upsert
-    const { data, error } = await supabase.from(tableName).upsert([args]).select();
+    const { data, error } = await supabase.from(tableName).upsert([cleanArgs]).select();
     if (error) throw error;
     return data?.[0] || null;
   };
@@ -227,18 +254,27 @@ export function useAction(apiEndpoint: any) {
   };
 }
 
+// Helper check to allow authentication bypass if default placeholder credentials are used
+const hasRealSupabaseConfigured = () => {
+  return import.meta.env.VITE_SUPABASE_URL && 
+         import.meta.env.VITE_SUPABASE_URL !== 'https://placeholder.supabase.co';
+};
+
 export function Authenticated({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useAuthContext();
+  if (!hasRealSupabaseConfigured()) return <>{children}</>;
   return isAuthenticated ? <>{children}</> : null;
 }
 
 export function Unauthenticated({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useAuthContext();
+  if (!hasRealSupabaseConfigured()) return null;
   return !isAuthenticated ? <>{children}</> : null;
 }
 
 export function AuthLoading({ children }: { children: ReactNode }) {
   const { isLoading } = useAuthContext();
+  if (!hasRealSupabaseConfigured()) return null;
   return isLoading ? <>{children}</> : null;
 }
 

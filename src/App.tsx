@@ -22,6 +22,7 @@ import SettingsPage from "./pages/settings/page.tsx";
 import LearningAgentPage from "./pages/learning-agent/page.tsx";
 import BulkCallingPage from "./pages/bulk-calling/page.tsx";
 import GscDashboardPage from "./pages/gsc-dashboard/page.tsx";
+import ScrapersPage from "./pages/scrapers/page.tsx";
 
 import { useServiceWorker } from "@/hooks/use-service-worker.ts";
 
@@ -52,6 +53,7 @@ export default function App() {
             <Route path="/learning-agent" element={<LearningAgentPage />} />
             <Route path="/bulk-calling" element={<BulkCallingPage />} />
             <Route path="/gsc-dashboard" element={<GscDashboardPage />} />
+            <Route path="/scrapers" element={<ScrapersPage />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
