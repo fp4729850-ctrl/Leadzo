@@ -76,6 +76,108 @@ const TABLE_MAPPINGS: Record<string, string> = {
   'users.updateCurrentUser': 'users',
 };
 
+// Helper to aggregate and calculate leads metrics dynamically
+function calculateLeadsMetrics(leads: any[]) {
+  const total = leads.length;
+  const converted = leads.filter((l: any) => l.status === 'Converted').length;
+  const conversionRate = total > 0 ? Math.round((converted / total) * 100) : 0;
+  
+  const totalScore = leads.reduce((sum: number, l: any) => sum + (Number(l.score) || 0), 0);
+  const avgScore = total > 0 ? Math.round(totalScore / total) : 0;
+  
+  const newLeads = leads.filter((l: any) => l.status === 'New').length;
+  const urgent = leads.filter((l: any) => l.isUrgent || l.is_urgent).length;
+  const scam = leads.filter((l: any) => l.isScam || l.is_scam).length;
+  const spam = leads.filter((l: any) => l.status === 'Spam').length;
+  
+  // Platform map
+  const platformMap: Record<string, number> = {
+    whatsapp: 0,
+    telegram: 0,
+    instagram: 0,
+    reddit: 0,
+    x: 0,
+    email: 0
+  };
+  // Intent map
+  const intentMap: Record<string, number> = {
+    BUY: 0,
+    SELL: 0,
+    NONE: 0
+  };
+  // Language map
+  const languageMap: Record<string, number> = {
+    hinglish: 0,
+    english: 0,
+    hindi: 0
+  };
+  
+  leads.forEach((l: any) => {
+    const p = String(l.platform || '').toLowerCase();
+    if (p in platformMap) platformMap[p]++;
+    else if (p) platformMap[p] = 1;
+    
+    const intent = String(l.intent || '').toUpperCase();
+    if (intent in intentMap) intentMap[intent]++;
+    
+    const lang = String(l.language || '').toLowerCase();
+    if (lang in languageMap) languageMap[lang]++;
+  });
+  
+  // dailyLeads (last 7 days counts)
+  const dailyLeads: { date: string, count: number }[] = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    dailyLeads.push({ date: dateStr, count: 0 });
+  }
+  
+  leads.forEach((l: any) => {
+    const createdDate = new Date(l.created_at || l.createdAt || Date.now());
+    const dateStr = createdDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const dayBucket = dailyLeads.find(d => d.date === dateStr);
+    if (dayBucket) {
+      dayBucket.count++;
+    }
+  });
+
+  // statusFunnel
+  const statuses = ['New', 'Contacted', 'Negotiating', 'Converted', 'Lost', 'Spam'];
+  const statusFunnel = statuses.map(status => ({
+    status,
+    count: leads.filter((l: any) => l.status === status).length
+  }));
+  
+  // scoreBuckets
+  const ranges = ['0-20', '21-40', '41-60', '61-80', '81-100'];
+  const scoreBuckets = ranges.map(range => {
+    const [min, max] = range.split('-').map(Number);
+    const count = leads.filter((l: any) => {
+      const score = Number(l.score) || 0;
+      return score >= min && score <= max;
+    }).length;
+    return { range, count };
+  });
+  
+  return {
+    total,
+    converted,
+    conversionRate,
+    avgScore,
+    newLeads,
+    urgent,
+    scam,
+    spam,
+    platformMap,
+    intentMap,
+    languageMap,
+    dailyLeads,
+    statusFunnel,
+    scoreBuckets
+  };
+}
+
 // Adapter to mimic Convex useQuery
 export function useQuery(apiEndpoint: any, args: any = {}): any {
   const queryStr = String(apiEndpoint).replace('api.', '');
@@ -108,6 +210,10 @@ export function useQuery(apiEndpoint: any, args: any = {}): any {
       if (error) {
         console.warn(`Supabase SELECT error for ${tableName}:`, error);
         return null;
+      }
+      
+      if (queryStr === 'leads.getMetrics') {
+        return calculateLeadsMetrics(data || []);
       }
       
       const isSingleObject = method.startsWith('get') || 
