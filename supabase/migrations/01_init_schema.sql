@@ -1,7 +1,7 @@
 -- Initial Supabase Schema for Leadzo
 -- Updated to include all tables and fields identified in code review
 
--- Ensure uuid-ossp is enabled for uuid_generate_v4()
+-- Ensure uuid-ossp is enabled for gen_random_uuid()
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Users table (extends Supabase auth.users)
@@ -16,7 +16,7 @@ CREATE TABLE public.users (
 
 -- Leads table
 CREATE TABLE public.leads (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   email TEXT,
@@ -38,7 +38,7 @@ CREATE TABLE public.leads (
 
 -- Campaigns table
 CREATE TABLE public.campaigns (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   type TEXT NOT NULL, -- e.g., 'whatsapp', 'email', 'social'
@@ -49,7 +49,7 @@ CREATE TABLE public.campaigns (
 
 -- Launched Campaigns table
 CREATE TABLE public.launched_campaigns (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
   campaign_id UUID REFERENCES public.campaigns(id) ON DELETE CASCADE,
   platform TEXT NOT NULL,
@@ -60,7 +60,7 @@ CREATE TABLE public.launched_campaigns (
 
 -- Messages table (Inbox chat history)
 CREATE TABLE public.messages (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
   lead_id UUID REFERENCES public.leads(id) ON DELETE CASCADE,
   content TEXT NOT NULL,
@@ -70,7 +70,7 @@ CREATE TABLE public.messages (
 
 -- CRM Contacts table (CRM page specific profiles)
 CREATE TABLE public.crm_contacts (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
   lead_id UUID REFERENCES public.leads(id) ON DELETE CASCADE,
   lifecycle_stage TEXT DEFAULT 'subscriber',
@@ -80,7 +80,7 @@ CREATE TABLE public.crm_contacts (
 
 -- CRM Sequences table
 CREATE TABLE public.sequences (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   steps JSONB NOT NULL, -- list of sequence step actions
@@ -90,7 +90,7 @@ CREATE TABLE public.sequences (
 
 -- CRM Sequence Enrollments table
 CREATE TABLE public.sequence_enrollments (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
   sequence_id UUID REFERENCES public.sequences(id) ON DELETE CASCADE,
   contact_id UUID REFERENCES public.crm_contacts(id) ON DELETE CASCADE,
@@ -101,7 +101,7 @@ CREATE TABLE public.sequence_enrollments (
 
 -- Ad Campaigns Insights table (CEO Dashboard)
 CREATE TABLE public.ad_campaigns (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   spend DECIMAL(10,2) DEFAULT 0,
@@ -116,7 +116,7 @@ CREATE TABLE public.ad_campaigns (
 
 -- Market Analyses table (Market Intelligence)
 CREATE TABLE public.market_analyses (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
   query TEXT NOT NULL,
   analysis_data JSONB NOT NULL,
@@ -125,7 +125,7 @@ CREATE TABLE public.market_analyses (
 
 -- Google Search Console Tokens/Sites connection
 CREATE TABLE public.gsc_tokens (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
   refresh_token TEXT NOT NULL,
   connected BOOLEAN DEFAULT true,
@@ -134,7 +134,7 @@ CREATE TABLE public.gsc_tokens (
 
 -- SEO Projects table (SEO Agent)
 CREATE TABLE public.seo_projects (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
   url TEXT NOT NULL,
   keywords TEXT[],
@@ -144,7 +144,7 @@ CREATE TABLE public.seo_projects (
 
 -- CEO Queries Q&A table
 CREATE TABLE public.ceo_queries (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
   question TEXT NOT NULL,
   answer TEXT NOT NULL,
@@ -153,7 +153,7 @@ CREATE TABLE public.ceo_queries (
 
 -- Creatives table (Creative Generation)
 CREATE TABLE public.creatives (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
   image_url TEXT NOT NULL,
@@ -163,7 +163,7 @@ CREATE TABLE public.creatives (
 
 -- Learning Agent Data table
 CREATE TABLE public.learning_agent_data (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
   metric_name TEXT,
   metric_value JSONB,
