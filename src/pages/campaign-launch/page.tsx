@@ -66,7 +66,7 @@ function PlatformCard({ platform, selected, onSelect }: { platform: typeof PLATF
   );
 }
 
-function SecretsPanel({ platform }: { platform: typeof PLATFORMS[number] }) {
+function SecretsPanel({ platform, onConnected }: { platform: typeof PLATFORMS[number]; onConnected?: () => void }) {
   const [copied, setCopied] = useState<string | null>(null);
   const checkFbSecrets = useAction(api.platformAds.checkFacebookSecretsConfigured);
   const [connected, setConnected] = useState<boolean | null>(null);
@@ -83,6 +83,12 @@ function SecretsPanel({ platform }: { platform: typeof PLATFORMS[number] }) {
     }, 500);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (connected) {
+      onConnected?.();
+    }
+  }, [connected, onConnected]);
 
   const copyKey = async (key: string) => { await navigator.clipboard.writeText(key); setCopied(key); setTimeout(() => setCopied(null), 1500); };
   const isConnected = isFbPlatform ? connected === true : null;
@@ -359,8 +365,8 @@ function CampaignLaunchInner() {
             {step === 0 && (
               <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex flex-col gap-4">
                 <h2 className="text-sm font-bold text-foreground flex items-center gap-2"><Globe size={14} className="text-primary" /> Choose Platform</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{PLATFORMS.map((p) => <PlatformCard key={p.value} platform={p} selected={selectedPlatform === p.value} onSelect={() => setSelectedPlatform(p.value)} />)}</div>
-                {selectedPlatform && platformMeta && <SecretsPanel platform={platformMeta} />}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{PLATFORMS.map((p) => <PlatformCard key={p.value} platform={p} selected={selectedPlatform === p.value} onSelect={() => { setSelectedPlatform(p.value); if (p.value === "instagram") { setStep(1); } }} />)}</div>
+                {selectedPlatform && platformMeta && platformMeta.value !== "instagram" && <SecretsPanel platform={platformMeta} onConnected={() => setStep(1)} />}
                 {(selectedPlatform === "facebook" || selectedPlatform === "instagram") && <FacebookBalancePanel />}
               </motion.div>
             )}
