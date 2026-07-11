@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { useQuery, useMutation } from "@/lib/convex-supabase-adapter.ts";
+import { useQuery, useMutation } from "@/lib/convex-supabase-adapter";
 import { api } from "@/convex/_generated/api.js";
-import { Authenticated, Unauthenticated, AuthLoading } from "@/lib/convex-supabase-adapter.ts";
+import { Authenticated, Unauthenticated, AuthLoading } from "@/lib/convex-supabase-adapter";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";

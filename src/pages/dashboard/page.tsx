@@ -1,8 +1,8 @@
-import { useQuery } from "@/lib/convex-supabase-adapter.ts";
+import { useQuery } from "@/lib/convex-supabase-adapter";
 import { api } from "@/convex/_generated/api.js";
 import type { Doc } from "@/convex/_generated/dataModel.d.ts";
 import { motion } from "motion/react";
-import { Authenticated, Unauthenticated } from "@/lib/convex-supabase-adapter.ts";
+import { Authenticated, Unauthenticated } from "@/lib/convex-supabase-adapter";
 import { useNavigate } from "react-router-dom";
 import {
   Layers, MessageSquareCode, BarChart4, LayoutDashboard,

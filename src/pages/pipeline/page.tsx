@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery, useMutation } from "@/lib/convex-supabase-adapter.ts";
+import { useQuery, useMutation } from "@/lib/convex-supabase-adapter";
 import { api } from "@/convex/_generated/api.js";
 import type { Doc } from "@/convex/_generated/dataModel.d.ts";
 import { motion, AnimatePresence } from "motion/react";

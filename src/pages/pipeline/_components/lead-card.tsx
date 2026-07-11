@@ -1,4 +1,4 @@
-import { useMutation } from "@/lib/convex-supabase-adapter.ts";
+import { useMutation } from "@/lib/convex-supabase-adapter";
 import { api } from "@/convex/_generated/api.js";
 import type { Doc } from "@/convex/_generated/dataModel.d.ts";
 import { cn } from "@/lib/utils.ts";

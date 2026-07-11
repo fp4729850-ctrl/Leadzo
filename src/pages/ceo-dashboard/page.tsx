@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useAction } from "@/lib/convex-supabase-adapter.ts";
+import { useQuery, useMutation, useAction } from "@/lib/convex-supabase-adapter";
 import { api } from "@/convex/_generated/api.js";
 import { motion, AnimatePresence } from "motion/react";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, CartesianGrid, Legend } from "recharts";
@@ -10,7 +10,7 @@ import { TrendingUp, TrendingDown, DollarSign, Target, Zap, MousePointer2, Eye, 
 import { cn } from "@/lib/utils.ts";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { Authenticated, Unauthenticated, AuthLoading } from "@/lib/convex-supabase-adapter.ts";
+import { Authenticated, Unauthenticated, AuthLoading } from "@/lib/convex-supabase-adapter";
 import { SignInButton } from "@/components/ui/signin.tsx";
 
 const PLATFORM_COLORS: Record<string, string> = {

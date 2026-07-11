@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
-import { useAction, useMutation, useQuery } from "@/lib/convex-supabase-adapter.ts";
+import { useAction, useMutation, useQuery } from "@/lib/convex-supabase-adapter";
 import { api } from "@/convex/_generated/api.js";
 import { motion, AnimatePresence } from "motion/react";
-import { Authenticated, Unauthenticated, AuthLoading } from "@/lib/convex-supabase-adapter.ts";
+import { Authenticated, Unauthenticated, AuthLoading } from "@/lib/convex-supabase-adapter";
 import { SignInButton } from "@/components/ui/signin.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Badge } from "@/components/ui/badge.tsx";

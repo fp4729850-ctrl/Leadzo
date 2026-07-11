@@ -1,7 +1,7 @@
 import { useQuery as useReactQuery, useMutation as useReactMutation } from '@tanstack/react-query';
-import { supabase } from './supabase.ts';
+import { supabase } from './supabase';
 import { ReactNode } from 'react';
-import { useAuthContext } from '@/components/providers/supabase-auth.tsx';
+import { useAuthContext } from '@/components/providers/supabase-auth';
 
 // Adapter to mimic Convex useQuery
 export function useQuery(apiEndpoint: any, args: any = {}) {

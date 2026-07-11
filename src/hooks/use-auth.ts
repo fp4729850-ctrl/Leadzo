@@ -1,4 +1,4 @@
-import { useAuthContext } from "@/components/providers/supabase-auth.tsx";
+import { useAuthContext } from "@/components/providers/supabase-auth";
 export { useAuthContext as useAuth };
 export const useUser = () => {
   const auth = useAuthContext();

@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { useQuery, useMutation, useAction } from "@/lib/convex-supabase-adapter.ts";
+import { useQuery, useMutation, useAction } from "@/lib/convex-supabase-adapter";
 import { api } from "@/convex/_generated/api.js";
 import { motion, AnimatePresence } from "motion/react";
 import { Phone, Upload, Loader2, Sparkles, Copy, Check, CheckCircle2, XCircle, AlertCircle, Settings, Play, Square, RefreshCw, Zap, PhoneCall, PhoneOff, Volume2 } from "lucide-react";
