@@ -55,7 +55,25 @@ CREATE TABLE public.launched_campaigns (
   platform TEXT NOT NULL,
   budget DECIMAL(10,2),
   status TEXT DEFAULT 'active',
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+  "name" TEXT,
+  "objective" TEXT,
+  "budgetType" TEXT,
+  "audience" JSONB,
+  "adHeadline" TEXT,
+  "adCopy" TEXT,
+  "ctaButton" TEXT,
+  "destinationUrl" TEXT,
+  "platformCampaignId" TEXT,
+  "errorMessage" TEXT,
+  "adMediaStorageId" TEXT,
+  "adMediaType" TEXT,
+  "adMediaName" TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+  /**
+   * Owner of the launched campaign – used for data‑isolation.
+   * Mirrors `user_id` for now but allows future admin‑on‑behalf launches.
+   */
+  owner_user_id UUID NOT NULL
 );
 
 -- Messages table (Inbox chat history)
