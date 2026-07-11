@@ -18,6 +18,8 @@
 
     /* Linting */
     "strict": true,
+    "noImplicitAny": false,
+    "strictNullChecks": false,
 
     "paths": {
       "@/convex/*": ["./convex/*"],

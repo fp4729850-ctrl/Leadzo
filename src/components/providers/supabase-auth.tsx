@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { Session, User } from '@supabase/supabase-js';
-import { supabase } from '@/lib/supabase.ts';
+import type { Session, User } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabase';
 
 type AuthContextType = {
   isAuthenticated: boolean;
