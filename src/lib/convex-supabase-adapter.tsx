@@ -212,7 +212,7 @@ export function useQuery(apiEndpoint: any, args: any = {}): any {
         return null;
       }
       
-      if (queryStr === 'leads.getMetrics') {
+      if (mappingKey === 'leads.getMetrics') {
         return calculateLeadsMetrics(data || []);
       }
       
