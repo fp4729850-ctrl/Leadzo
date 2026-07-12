@@ -47,6 +47,31 @@ function SetupPanel({ onTest }: { onTest: () => void }) {
   );
 }
 
+function MetaSetupPanel({ onTest }: { onTest: () => void }) {
+  return (
+    <div className="rounded-xl border border-[#25D366]/20 bg-[#25D366]/5 p-4 space-y-3">
+      <div className="flex items-start gap-3">
+        <Settings size={16} className="text-[#25D366] mt-0.5 shrink-0" />
+        <div className="space-y-2 flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-semibold text-foreground">Meta Official API Setup</p>
+            <Badge className="text-[9px] bg-[#25D366]/20 text-[#25D366] border-[#25D366]/30">Official Business</Badge>
+          </div>
+          <p className="text-xs text-muted-foreground">Meta Cloud API se approved templates bhejein.</p>
+          <div className="rounded-lg bg-background border border-border p-2.5 font-mono text-[10px] space-y-1 text-muted-foreground">
+            <p><span className="text-primary">META_WHATSAPP_API_TOKEN</span> = <span className="text-green-500">Configured in .env</span></p>
+            <p><span className="text-primary">META_WHATSAPP_PHONE_ID</span> = <span className="text-green-500">Configured in .env</span></p>
+          </div>
+          <div className="flex gap-3">
+            <a href="https://developers.facebook.com/" target="_blank" rel="noopener noreferrer" className="text-[11px] text-primary hover:underline font-semibold">→ Meta for Developers</a>
+            <button onClick={onTest} className="text-[11px] text-[#25D366] hover:underline font-semibold cursor-pointer">→ Test karo</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function TestPanel({ onClose }: { onClose: () => void }) {
   const testConnection = useAction(api.whatsappSender.testConnection);
   const [testNum, setTestNum] = useState("");
@@ -198,8 +223,10 @@ export default function WASenderPage() {
   const sendBulk = useAction(api.whatsappSender.sendBulk);
   const getStatus = useAction(api.whatsappSender.getInstanceStatus);
 
+  const [apiType, setApiType] = useState<"green" | "meta">("green");
   const [numbersRaw, setNumbersRaw] = useState("");
   const [message, setMessage] = useState("");
+  const [templateName, setTemplateName] = useState("");
   const [showGenerator, setShowGenerator] = useState(false);
   const [showTest, setShowTest] = useState(false);
   const [sending, setSending] = useState(false);
@@ -224,7 +251,8 @@ export default function WASenderPage() {
 
   const handleLaunch = async () => {
     if (numbers.length === 0) { toast.error("Koi number nahi hai"); return; }
-    if (!message.trim()) { toast.error("Message likhna zaroori hai"); return; }
+    if (apiType === "green" && !message.trim()) { toast.error("Message likhna zaroori hai"); return; }
+    if (apiType === "meta" && !templateName.trim()) { toast.error("Template name zaroori hai"); return; }
     stopRef.current = false;
     setSending(true);
     setResults(numbers.map((n) => ({ number: n, status: "pending" })));
@@ -233,7 +261,10 @@ export default function WASenderPage() {
       if (stopRef.current) break;
       setResults((prev) => { const next = [...prev]; next[i] = { ...next[i], status: "sending" }; return next; });
       try {
-        const res = await sendBulk({ numbers: [numbers[i]], message, delayMs: 0 });
+        const payload = apiType === "meta" 
+          ? { numbers: [numbers[i]], templateName, apiType: "meta", delayMs: 0 }
+          : { numbers: [numbers[i]], message, apiType: "green", delayMs: 0 };
+        const res = await sendBulk(payload);
         const r = res.results[0];
         setResults((prev) => { const next = [...prev]; next[i] = { number: numbers[i], status: r?.success ? "sent" : "failed", error: r?.error }; return next; });
       } catch (e) {
@@ -252,20 +283,39 @@ export default function WASenderPage() {
             <MessageSquare size={18} className="text-[#25D366]" />
           </div>
           <div>
-            <h1 className="text-xl font-bold tracking-tight font-serif">Personal WA Sender</h1>
-            <p className="text-sm text-muted-foreground">Green API — seedha app se bhejo, koi tab nahi</p>
+            <h1 className="text-xl font-bold tracking-tight font-serif">{apiType === "green" ? "Personal WA Sender" : "Official WA Sender"}</h1>
+            <p className="text-sm text-muted-foreground">{apiType === "green" ? "Green API — seedha app se bhejo, koi tab nahi" : "Meta Cloud API — Business verified messaging"}</p>
           </div>
         </div>
+        
+        {/* Toggle between Green API and Meta API */}
+        <div className="flex p-1 bg-muted/30 border border-border rounded-lg items-center text-xs font-semibold mr-auto lg:mr-0">
+          <button 
+            onClick={() => setApiType("green")} 
+            className={cn("px-3 py-1.5 rounded-md transition-all cursor-pointer", apiType === "green" ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground")}
+          >
+            Green API
+          </button>
+          <button 
+            onClick={() => setApiType("meta")} 
+            className={cn("px-3 py-1.5 rounded-md transition-all cursor-pointer", apiType === "meta" ? "bg-[#25D366] text-white shadow" : "text-muted-foreground hover:text-foreground")}
+          >
+            Meta API
+          </button>
+        </div>
+
         <div className="flex items-center gap-2">
-          {instanceStatus !== "unknown" && (
+          {instanceStatus !== "unknown" && apiType === "green" && (
             <Badge className={cn("text-[10px] gap-1", instanceStatus === "connected" ? "bg-[#25D366]/20 text-[#25D366] border-[#25D366]/30" : "bg-red-500/20 text-red-400 border-red-500/30")}>
               {instanceStatus === "connected" ? <CheckCircle2 size={9} /> : <XCircle size={9} />}
               {instanceStatus === "connected" ? "Connected" : "Disconnected"}
             </Badge>
           )}
-          <Button variant="secondary" size="sm" className="gap-1.5 text-xs cursor-pointer" onClick={checkStatus} disabled={checkingStatus}>
-            {checkingStatus ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />} Status
-          </Button>
+          {apiType === "green" && (
+            <Button variant="secondary" size="sm" className="gap-1.5 text-xs cursor-pointer" onClick={checkStatus} disabled={checkingStatus}>
+              {checkingStatus ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />} Status
+            </Button>
+          )}
           <Button variant="secondary" size="sm" className="gap-1.5 text-xs cursor-pointer" onClick={() => setShowTest(!showTest)}>
             <Settings size={13} /> Setup / Test
           </Button>
@@ -274,7 +324,7 @@ export default function WASenderPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="space-y-4">
-          <SetupPanel onTest={() => setShowTest(true)} />
+          {apiType === "meta" ? <MetaSetupPanel onTest={() => setShowTest(true)} /> : <SetupPanel onTest={() => setShowTest(true)} />}
           <AnimatePresence>
             {showTest && (
               <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>
@@ -299,17 +349,25 @@ export default function WASenderPage() {
               </div>
               <div className="rounded-xl border border-border bg-card p-4 space-y-3">
                 <div className="flex items-center justify-between">
-                  <Label className="text-sm font-semibold">Message</Label>
-                  <button onClick={() => setShowGenerator(!showGenerator)} className="text-[10px] text-primary font-semibold cursor-pointer hover:underline">{showGenerator ? "Hide" : "✶ AI Generate"}</button>
+                  <Label className="text-sm font-semibold">{apiType === "meta" ? "Template Name" : "Message"}</Label>
+                  {apiType === "green" && (
+                    <button onClick={() => setShowGenerator(!showGenerator)} className="text-[10px] text-primary font-semibold cursor-pointer hover:underline">
+                      {showGenerator ? "Hide" : "✶ AI Generate"}
+                    </button>
+                  )}
                 </div>
-                {showGenerator && (
+                {showGenerator && apiType === "green" && (
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="border border-border rounded-lg p-3 bg-muted/20">
                     <AiTemplatePanel campaignType="whatsapp" onSelect={(t) => { setMessage(t); setShowGenerator(false); }} />
                   </motion.div>
                 )}
-                <Textarea placeholder="Bhai, aaj USDT ke best rates hain!" rows={5} className="text-sm resize-none" value={message} onChange={(e) => setMessage(e.target.value)} />
+                {apiType === "meta" ? (
+                  <Input placeholder="jaspers_market_order_confirmation_v1" className="font-mono text-sm" value={templateName} onChange={(e) => setTemplateName(e.target.value)} />
+                ) : (
+                  <Textarea placeholder="Bhai, aaj USDT ke best rates hain!" rows={5} className="text-sm resize-none" value={message} onChange={(e) => setMessage(e.target.value)} />
+                )}
               </div>
-              <Button onClick={handleLaunch} disabled={numbers.length === 0 || !message.trim()} className="w-full cursor-pointer gap-2 bg-[#25D366] hover:bg-[#20bc5a] text-white">
+              <Button onClick={handleLaunch} disabled={numbers.length === 0 || (apiType === "meta" ? !templateName.trim() : !message.trim())} className="w-full cursor-pointer gap-2 bg-[#25D366] hover:bg-[#20bc5a] text-white">
                 <Play size={14} /> {`Auto Send to ${numbers.length} Number${numbers.length !== 1 ? "s" : ""}`}
               </Button>
             </>
