@@ -118,9 +118,9 @@ export default function AnalyticsPage() {
     );
   }
 
-  const platformData = Object.entries(metrics.platformMap).map(([name, value]) => ({ name, value }));
-  const intentData = Object.entries(metrics.intentMap).map(([name, value]) => ({ name, value }));
-  const langData = Object.entries(metrics.languageMap).map(([name, value]) => ({ name, value }));
+  const platformData = (metrics?.platformMap ? Object.entries(metrics.platformMap) : []).map(([name, value]) => ({ name, value }));
+  const intentData = (metrics?.intentMap ? Object.entries(metrics.intentMap) : []).map(([name, value]) => ({ name, value }));
+  const langData = (metrics?.languageMap ? Object.entries(metrics.languageMap) : []).map(([name, value]) => ({ name, value }));
 
   return (
     <div className="flex flex-col gap-6 min-h-0">
@@ -146,7 +146,7 @@ export default function AnalyticsPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <ChartCard title="Leads — Last 7 Days" delay={0.1}>
           <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={metrics.dailyLeads}>
+            <LineChart data={metrics?.dailyLeads || []}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis dataKey="date" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} allowDecimals={false} />
@@ -158,7 +158,7 @@ export default function AnalyticsPage() {
 
         <ChartCard title="Pipeline Funnel" delay={0.15}>
           <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={metrics.statusFunnel} layout="vertical">
+            <BarChart data={metrics?.statusFunnel || []} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
               <XAxis type="number" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} allowDecimals={false} />
               <YAxis type="category" dataKey="status" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} width={72} />
@@ -200,7 +200,7 @@ export default function AnalyticsPage() {
 
         <ChartCard title="Lead Score Distribution" delay={0.3}>
           <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={metrics.scoreBuckets}>
+            <BarChart data={metrics?.scoreBuckets || []}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis dataKey="range" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} allowDecimals={false} />

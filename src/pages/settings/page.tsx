@@ -17,9 +17,13 @@ function SettingsInner() {
   const saveCredentials = useMutation(api.users.saveApiCredentials);
   const [dfsLogin, setDfsLogin] = useState("");
   const [dfsPassword, setDfsPassword] = useState("");
+  const [waToken, setWaToken] = useState("");
+  const [waPhoneId, setWaPhoneId] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showWaToken, setShowWaToken] = useState(false);
   const [saving, setSaving] = useState(false);
   const hasCredentials = !!(user?.dataforseoLogin && user?.dataforseoPassword);
+  const hasWaCredentials = !!(user?.whatsappApiToken && user?.whatsappPhoneId);
 
   const handleSave = async () => {
     if (!dfsLogin || !dfsPassword) { toast.error("Email aur password dono enter karo"); return; }
@@ -29,9 +33,24 @@ function SettingsInner() {
     finally { setSaving(false); }
   };
 
+  const handleWaSave = async () => {
+    if (!waToken || !waPhoneId) { toast.error("Token aur Phone ID dono enter karo"); return; }
+    setSaving(true);
+    try { await saveCredentials({ whatsappApiToken: waToken, whatsappPhoneId: waPhoneId }); toast.success("WhatsApp credentials saved!"); setWaToken(""); setWaPhoneId(""); }
+    catch { toast.error("Save nahi hua"); }
+    finally { setSaving(false); }
+  };
+
   const handleRemove = async () => {
     setSaving(true);
-    try { await saveCredentials({ dataforseoLogin: undefined, dataforseoPassword: undefined }); toast.success("Credentials remove ho gaye"); }
+    try { await saveCredentials({ dataforseoLogin: null, dataforseoPassword: null }); toast.success("Credentials remove ho gaye"); }
+    catch { toast.error("Remove nahi hua"); }
+    finally { setSaving(false); }
+  };
+
+  const handleWaRemove = async () => {
+    setSaving(true);
+    try { await saveCredentials({ whatsappApiToken: null, whatsappPhoneId: null }); toast.success("WhatsApp credentials remove ho gaye"); }
     catch { toast.error("Remove nahi hua"); }
     finally { setSaving(false); }
   };
@@ -87,6 +106,52 @@ function SettingsInner() {
           )}
         </CardContent>
       </Card>
+
+      <Card className="border-border bg-card/60 backdrop-blur">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Search size={15} className="text-[#25D366]" /> Meta WhatsApp API
+            {hasWaCredentials ? (
+              <Badge className="ml-auto bg-chart-3/20 text-chart-3 border-chart-3/30 text-[9px]"><CheckCircle2 size={9} className="mr-1" /> Connected</Badge>
+            ) : (
+              <Badge className="ml-auto bg-muted/40 text-muted-foreground text-[9px]">Not Connected</Badge>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-xs text-muted-foreground leading-relaxed">Meta Official WhatsApp API se bulk marketing messages bhejen.</p>
+          {hasWaCredentials ? (
+            <div className="space-y-3">
+              <div className="p-3 rounded-lg border border-chart-3/30 bg-chart-3/5">
+                <p className="text-xs text-chart-3 font-semibold mb-0.5">Phone Number ID</p>
+                <p className="text-xs text-muted-foreground">{user.whatsappPhoneId}</p>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive hover:bg-destructive/10 text-xs" onClick={handleWaRemove} disabled={saving}>Remove Credentials</Button>
+                <Button size="sm" variant="ghost" className="text-xs" onClick={() => { setWaPhoneId(user.whatsappPhoneId ?? ""); setWaToken(user.whatsappApiToken ?? ""); }}>Update</Button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Permanent Access Token</label>
+                <div className="relative">
+                  <Input type={showWaToken ? "text" : "password"} placeholder="EAAMrqYVUp..." value={waToken} onChange={(e) => setWaToken(e.target.value)} className="bg-background/50 border-border text-sm pr-9" />
+                  <button type="button" onClick={() => setShowWaToken(!showWaToken)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer">
+                    {showWaToken ? <EyeOff size={14} /> : <Eye size={14} />}
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Phone Number ID</label>
+                <Input type="text" placeholder="12029158..." value={waPhoneId} onChange={(e) => setWaPhoneId(e.target.value)} className="bg-background/50 border-border text-sm" />
+              </div>
+              <Button onClick={handleWaSave} disabled={saving} className="bg-[#25D366] hover:bg-[#25D366]/80 text-primary-foreground text-xs" size="sm">{saving ? "Saving..." : "Save API Keys"}</Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <Card className="border-border bg-card/60 backdrop-blur">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm flex items-center gap-2"><Settings size={15} className="text-muted-foreground" /> Account Info</CardTitle>
@@ -95,6 +160,7 @@ function SettingsInner() {
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs"><span className="text-muted-foreground">Name</span><span className="text-foreground font-medium">{user.name ?? "—"}</span></div>
             <div className="flex items-center justify-between text-xs"><span className="text-muted-foreground">Email</span><span className="text-foreground font-medium">{user.email ?? "—"}</span></div>
+            <div className="flex items-center justify-between text-xs"><span className="text-muted-foreground">Leadzo Credits (Wallet)</span><span className="text-foreground font-bold text-primary">{user.credits ?? 0}</span></div>
           </div>
         </CardContent>
       </Card>
@@ -112,18 +178,7 @@ export default function SettingsPage() {
           <p className="text-xs text-muted-foreground">API credentials aur account manage karo</p>
         </div>
       </motion.div>
-      <AuthLoading><Skeleton className="h-40 w-full" /></AuthLoading>
-      
-      <Authenticated>
-        <SettingsInner />
-      </Authenticated>
-
-      <Unauthenticated>
-        <div className="flex flex-col items-center justify-center p-8 border rounded-2xl bg-card gap-4 text-center">
-          <p className="text-sm text-muted-foreground">Sign in to manage your settings</p>
-          <SignInButton />
-        </div>
-      </Unauthenticated>
+      <SettingsInner />
     </div>
   );
 }

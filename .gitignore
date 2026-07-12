@@ -28,3 +28,6 @@ tsconfig.tsbuildinfo
 
 # Environment variables
 .env*
+
+update-supabase.js
+resend.js

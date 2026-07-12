@@ -2,8 +2,10 @@ import { Outlet, NavLink, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import {
   Trophy, Layers, MessageSquareCode, BarChart4, Settings2,
-  Send, Mail, Camera, Search, Zap, LayoutDashboard, BarChart3, Wand2, Rocket, SlidersHorizontal, Users, Settings, Brain, Phone, TrendingUp,
+  Send, Mail, Camera, Search, Zap, LayoutDashboard, BarChart3, Wand2, Rocket, SlidersHorizontal, Users, Settings, Brain, Phone, TrendingUp, LogIn, LogOut
 } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth.ts";
+import { Button } from "@/components/ui/button.tsx";
 import { cn } from "@/lib/utils.ts";
 import { Badge } from "@/components/ui/badge.tsx";
 import { Separator } from "@/components/ui/separator.tsx";
@@ -36,6 +38,7 @@ import InstallBanner from "@/components/install-banner.tsx";
 
 export default function AppLayout() {
   const location = useLocation();
+  const { user, signin, signout } = useAuth();
 
   const comingSoon = (e: React.MouseEvent, label: string) => {
     e.preventDefault();
@@ -110,9 +113,22 @@ export default function AppLayout() {
         </nav>
 
         <Separator className="bg-sidebar-border" />
-        <div className="px-4 py-3 flex items-center gap-2">
-          <Zap size={12} className="text-chart-4" />
-          <span className="text-xs text-sidebar-foreground/40">PraisonAI Agents</span>
+        <div className="p-4 flex flex-col gap-2">
+          <div className="flex items-center gap-2">
+            <Zap size={12} className="text-chart-4" />
+            <span className="text-xs text-sidebar-foreground/40">PraisonAI Agents</span>
+          </div>
+          {user ? (
+            <Button variant="outline" size="sm" onClick={signout} className="w-full justify-start text-xs h-8 border-sidebar-border bg-sidebar-accent/50 hover:bg-sidebar-accent text-sidebar-foreground">
+              <LogOut size={14} className="mr-2" />
+              Logout ({user.email?.split('@')[0]})
+            </Button>
+          ) : (
+            <Button size="sm" onClick={signin} className="w-full justify-start text-xs h-8 bg-primary hover:bg-primary/90 text-primary-foreground">
+              <LogIn size={14} className="mr-2" />
+              Login with Supabase
+            </Button>
+          )}
         </div>
       </aside>
 
@@ -124,10 +140,20 @@ export default function AppLayout() {
             <Trophy size={15} className="text-primary-foreground" />
           </div>
           <span className="font-extrabold text-sm tracking-tight font-serif">Leadzo AI</span>
-          <div className="flex items-center gap-1 ml-1">
+          <div className="flex items-center gap-1 ml-1 mr-auto">
             <span className="size-1.5 rounded-full bg-chart-3 animate-pulse" />
-            <span className="text-[10px] text-muted-foreground">AI Active</span>
+            <span className="text-[10px] text-muted-foreground hidden sm:inline">AI Active</span>
           </div>
+          {user ? (
+            <Button variant="ghost" size="icon" onClick={signout} className="size-8 rounded-lg shrink-0" title="Logout">
+              <LogOut size={16} className="text-muted-foreground" />
+            </Button>
+          ) : (
+            <Button size="sm" onClick={signin} className="h-8 text-xs rounded-lg shrink-0 px-3 bg-primary hover:bg-primary/90">
+              <LogIn size={14} className="mr-2 hidden sm:inline" />
+              Login
+            </Button>
+          )}
         </header>
 
         {/* Mobile horizontal nav */}
