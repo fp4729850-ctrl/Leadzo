@@ -16,17 +16,17 @@ serve(async (req) => {
 
     // Construct a highly visual conceptual prompt
     const shortDesc = (websiteDescription || '').substring(0, 150);
-    const prompt = `A highly engaging, abstract, and conceptual 3D illustration representing: ${businessName} - ${shortDesc}.
-Core Theme: ${adHeadline || 'Premium Services'}.
-Style: Modern SaaS landing page aesthetic, futuristic tech vibe, glowing neon accents, 3D digital art, clean studio lighting.
-Subjects: Floating 3D icons, blockchain or data nodes, digital screens, no generic people.
-CRITICAL: Absolutely NO TEXT, NO ALPHABETS, NO WORDS, NO LETTERS, NO LOGOS.`
+    const shortHeadline = (adHeadline || 'Premium Services').substring(0, 30);
+    const prompt = `A highly engaging 3D illustration for: ${businessName} - ${shortDesc}.
+Core Theme: SaaS landing page, futuristic tech vibe, glowing neon accents, clean studio lighting.
+Subjects: Floating 3D icons, data nodes, digital screens.
+Typography: In the center, clear bold 3D text perfectly spelling exactly: "${shortHeadline}".`
 
     if (!openAIKey) {
       console.warn("OPENAI_API_KEY is not set. Using free Pollinations AI fallback.")
       const encodedPrompt = encodeURIComponent(prompt)
       const randomSeed = Math.floor(Math.random() * 1000000)
-      const freeImageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true&seed=${randomSeed}`
+      const freeImageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&seed=${randomSeed}`
       
       return new Response(JSON.stringify({ 
         success: true, 
