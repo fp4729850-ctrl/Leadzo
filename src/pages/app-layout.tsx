@@ -61,8 +61,8 @@ export default function AppLayout() {
         {/* Logo */}
         <div className="px-4 py-5">
           <div className="flex items-center gap-3">
-            <div className="size-9 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shrink-0">
-              <Trophy size={18} className="text-primary-foreground" />
+            <div className="size-9 rounded-xl overflow-hidden shrink-0 border border-border">
+              <img src="/leadzo-logo.png" alt="Leadzo Logo" className="w-full h-full object-cover" />
             </div>
             <div>
               <p className="font-extrabold text-sm tracking-tight text-sidebar-foreground font-serif">
@@ -136,8 +136,8 @@ export default function AppLayout() {
       <div className="flex flex-col flex-1 min-w-0">
         {/* Topbar */}
         <header className="flex items-center gap-3 px-4 md:px-6 h-14 border-b border-border bg-background/80 backdrop-blur-sm shrink-0 md:hidden">
-          <div className="size-8 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-            <Trophy size={15} className="text-primary-foreground" />
+          <div className="size-8 rounded-xl overflow-hidden border border-border">
+            <img src="/leadzo-logo.png" alt="Leadzo Logo" className="w-full h-full object-cover" />
           </div>
           <span className="font-extrabold text-sm tracking-tight font-serif">Leadzo AI</span>
           <div className="flex items-center gap-1 ml-1 mr-auto">
