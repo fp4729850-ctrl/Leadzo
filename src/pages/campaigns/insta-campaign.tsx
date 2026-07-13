@@ -18,6 +18,7 @@ import CampaignHistoryList from "./_components/campaign-history.tsx";
 function AiTemplatePanel({ onSelect }: { onSelect: (t: string) => void }) {
   const generate = useAction(api.campaignAi.generateTemplate);
   const [goal, setGoal] = useState("");
+  const [senderName, setSenderName] = useState("");
   const [language, setLanguage] = useState("hinglish");
   const [tone, setTone] = useState("friendly");
   const [loading, setLoading] = useState(false);
@@ -28,7 +29,8 @@ function AiTemplatePanel({ onSelect }: { onSelect: (t: string) => void }) {
     if (!goal.trim()) { toast.error("Goal likhna zaroori hai"); return; }
     setLoading(true); setTemplates([]);
     try {
-      const res = await generate({ type: "instagram", prompt: goal, language, tone, count: 3 });
+      const fullPrompt = senderName.trim() ? `My Name/Brand is: ${senderName}. Goal: ${goal}` : goal;
+      const res = await generate({ type: "instagram", prompt: fullPrompt, language, tone, count: 3 });
       setTemplates(res);
     } catch { toast.error("Failed."); }
     finally { setLoading(false); }
@@ -36,6 +38,7 @@ function AiTemplatePanel({ onSelect }: { onSelect: (t: string) => void }) {
 
   return (
     <div className="space-y-3">
+      <Input placeholder="Your Username / Brand Name (Optional)" className="h-8 text-xs font-mono" value={senderName} onChange={(e) => setSenderName(e.target.value)} />
       <Textarea placeholder="Campaign goal..." rows={2} className="text-xs resize-none" value={goal} onChange={(e) => setGoal(e.target.value)} />
       <div className="flex gap-2">
         <Select value={language} onValueChange={setLanguage}>
