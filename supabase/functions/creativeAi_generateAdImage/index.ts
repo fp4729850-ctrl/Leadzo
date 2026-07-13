@@ -14,12 +14,13 @@ serve(async (req) => {
     const { businessName, adHeadline, adCopy, platform, objective, websiteDescription } = await req.json()
     const openAIKey = Deno.env.get("OPENAI_API_KEY")
 
-    // Construct a highly visual prompt
+    // Construct a highly visual conceptual prompt
     const shortDesc = (websiteDescription || '').substring(0, 150);
-    const prompt = `A professional, modern, and clean commercial photograph representing: ${shortDesc}. 
-Theme: ${adHeadline || 'Premium Services'}. 
-Style: High-resolution marketing visual, vibrant colors, minimalist. 
-CRITICAL: Absolutely NO TEXT, NO WORDS, NO LETTERS, NO LOGOS in the image.`
+    const prompt = `A highly engaging, abstract, and conceptual 3D illustration representing: ${businessName} - ${shortDesc}.
+Core Theme: ${adHeadline || 'Premium Services'}.
+Style: Modern SaaS landing page aesthetic, futuristic tech vibe, glowing neon accents, 3D digital art, clean studio lighting.
+Subjects: Floating 3D icons, blockchain or data nodes, digital screens, no generic people.
+CRITICAL: Absolutely NO TEXT, NO ALPHABETS, NO WORDS, NO LETTERS, NO LOGOS.`
 
     if (!openAIKey) {
       console.warn("OPENAI_API_KEY is not set. Using free Pollinations AI fallback.")
