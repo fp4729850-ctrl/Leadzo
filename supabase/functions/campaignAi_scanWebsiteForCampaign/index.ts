@@ -77,8 +77,8 @@ Respond ONLY with a JSON object containing EXACTLY these keys:
 
     const userPrompt = `URL: ${url}\n\nWebsite Text:\n${text}`
 
-    const callGemini = async () => {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${geminiKey}`, {
+    const callGeminiModel = async (model: string) => {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -89,10 +89,24 @@ Respond ONLY with a JSON object containing EXACTLY these keys:
       })
       if (!response.ok) {
         const errText = await response.text();
-        throw new Error(`Gemini request failed: ${response.status} ${errText}`)
+        throw new Error(`Gemini ${model} failed: ${response.status} ${errText}`)
       }
       const data = await response.json()
       return data.candidates[0].content.parts[0].text
+    }
+
+    const callGemini = async () => {
+      // Try multiple models in order of preference
+      const models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
+      let lastError: any = null;
+      for (const model of models) {
+        try {
+          return await callGeminiModel(model);
+        } catch (e) {
+          lastError = e;
+        }
+      }
+      throw lastError;
     }
 
     const callOpenAI = async () => {
