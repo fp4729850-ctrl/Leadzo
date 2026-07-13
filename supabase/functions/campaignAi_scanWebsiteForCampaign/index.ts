@@ -14,27 +14,26 @@ serve(async (req) => {
     const { url } = await req.json()
     if (!url) throw new Error("URL is required")
 
-    // Fetch the website HTML
-    let html = ""
+    // Fetch the website using Jina Reader API to render JS and extract clean markdown text
+    let text = ""
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
-      const res = await fetch(url, { signal: controller.signal });
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+      const res = await fetch(`https://r.jina.ai/${url}`, { 
+        signal: controller.signal,
+        headers: {
+          "Accept": "text/plain"
+        }
+      });
       clearTimeout(timeoutId);
       if (!res.ok) throw new Error(`HTTP error ${res.status}`);
-      html = await res.text()
+      text = await res.text()
     } catch (e: any) {
-      throw new Error(`Failed to fetch website: ${e.message}`)
+      throw new Error(`Failed to read website content: ${e.message}`)
     }
 
-    // Very basic text extraction (strip script, style, and html tags)
-    let text = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, ' ')
-    text = text.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, ' ')
-    text = text.replace(/<[^>]+>/g, ' ')
-    text = text.replace(/\s+/g, ' ').trim()
-    
-    // Truncate to first 5000 characters to save tokens/avoid limits
-    text = text.substring(0, 5000)
+    // Clean up text if needed and truncate to save tokens
+    text = text.substring(0, 6000)
 
     const openAIKey = Deno.env.get("OPENAI_API_KEY")
     const geminiKey = Deno.env.get("GEMINI_API_KEY")
@@ -56,7 +55,7 @@ Respond ONLY with a JSON object containing EXACTLY these keys:
     const userPrompt = `URL: ${url}\n\nWebsite Text:\n${text}`
 
     const callGemini = async () => {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${geminiKey}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -65,7 +64,10 @@ Respond ONLY with a JSON object containing EXACTLY these keys:
           generationConfig: { responseMimeType: "application/json" }
         })
       })
-      if (!response.ok) throw new Error("Gemini request failed")
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Gemini request failed: ${response.status} ${errText}`)
+      }
       const data = await response.json()
       return data.candidates[0].content.parts[0].text
     }
@@ -93,7 +95,15 @@ Respond ONLY with a JSON object containing EXACTLY these keys:
 
     let result = ""
     if (geminiKey) {
-      try { result = await callGemini() } catch { if (openAIKey) result = await callOpenAI() }
+      try { 
+        result = await callGemini() 
+      } catch (geminiError: any) { 
+        if (openAIKey) {
+          result = await callOpenAI() 
+        } else {
+          throw new Error(`Gemini API failed: ${geminiError.message}`)
+        }
+      }
     } else if (openAIKey) {
       result = await callOpenAI()
     } else {
@@ -111,8 +121,21 @@ Respond ONLY with a JSON object containing EXACTLY these keys:
       })
     }
 
+    // Robust JSON extraction
+    let cleanResult = result.trim();
+    const jsonMatch = cleanResult.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      cleanResult = jsonMatch[0];
+    }
+
     // Ensure it's valid JSON and wrap in success
-    const parsedResult = JSON.parse(result)
+    let parsedResult;
+    try {
+      parsedResult = JSON.parse(cleanResult);
+    } catch (parseError: any) {
+      throw new Error(`Failed to parse AI response: ${parseError.message}. Response was: ${result.substring(0, 100)}...`);
+    }
+
     parsedResult.success = true
     parsedResult.destinationUrl = url
 
