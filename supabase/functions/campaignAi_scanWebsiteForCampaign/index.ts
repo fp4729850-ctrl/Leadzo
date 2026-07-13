@@ -1,6 +1,15 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+}
+
 serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders })
+  }
+
   try {
     const { url } = await req.json()
     if (!url) throw new Error("URL is required")
@@ -108,12 +117,12 @@ Respond ONLY with a JSON object containing EXACTLY these keys:
     parsedResult.destinationUrl = url
 
     return new Response(JSON.stringify(parsedResult), {
-      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+      headers: { ...corsHeaders, "Content-Type": "application/json" }
     })
   } catch (error: any) {
     return new Response(JSON.stringify({ success: false, error: error.message }), { 
       status: 400,
-      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } 
+      headers: { ...corsHeaders, "Content-Type": "application/json" } 
     })
   }
 })
