@@ -85,6 +85,9 @@ export default function InstaCampaignPage() {
   
   const [serverStatus, setServerStatus] = useState<"checking" | "connected" | "disconnected">("checking");
   const [progress, setProgress] = useState({ total: 0, current: 0, status: "" });
+  
+  const [igUsername, setIgUsername] = useState("");
+  const [igPassword, setIgPassword] = useState("");
 
   // Poll IG server status
   useQuery(api.campaigns.list, { type: "instagram" }); // Just to keep imports happy if unused
@@ -100,11 +103,28 @@ export default function InstaCampaignPage() {
   };
 
   const loginServer = async () => {
+    if (!igUsername || !igPassword) {
+      toast.error("Pehle apna Instagram Username aur Password dalein!");
+      return;
+    }
     try {
-      await fetch("http://localhost:3002/api/login", { method: "POST" });
-      toast.info("Browser opened. Please log in.");
+      setServerStatus("checking");
+      const res = await fetch("http://localhost:3002/api/login", { 
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: igUsername, password: igPassword })
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.info("Logging into Instagram...");
+        setTimeout(checkStatus, 10000); // Check status after 10s
+      } else {
+        toast.error("Login request failed");
+        setServerStatus("disconnected");
+      }
     } catch {
       toast.error("Ensure ig-server is running on port 3002");
+      setServerStatus("disconnected");
     }
   };
 
@@ -201,6 +221,32 @@ export default function InstaCampaignPage() {
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="space-y-4">
+          <div className="rounded-xl border border-border bg-card p-4 space-y-3 shadow-sm">
+            <div className="flex items-center gap-2 pb-2 border-b border-border">
+              <Camera size={16} className="text-[#E1306C]" />
+              <Label className="text-sm font-semibold">Your Instagram Account</Label>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Instagram ID</Label>
+                <Input placeholder="username" className="h-8 text-xs font-mono bg-muted/50" value={igUsername} onChange={(e) => setIgUsername(e.target.value)} disabled={serverStatus === "connected"} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Password</Label>
+                <Input type="password" placeholder="••••••••" className="h-8 text-xs font-mono bg-muted/50" value={igPassword} onChange={(e) => setIgPassword(e.target.value)} disabled={serverStatus === "connected"} />
+              </div>
+            </div>
+            <Button 
+              onClick={loginServer} 
+              disabled={serverStatus === "connected" || serverStatus === "checking"} 
+              size="sm" 
+              className="w-full h-8 text-xs cursor-pointer"
+              variant={serverStatus === "connected" ? "secondary" : "default"}
+            >
+              {serverStatus === "checking" ? "Logging in..." : serverStatus === "connected" ? "Account Connected" : "Login & Connect Server"}
+            </Button>
+          </div>
+
           <div className="rounded-xl border border-border bg-card p-4 space-y-3">
             <div className="flex items-center justify-between">
               <Label className="text-sm font-semibold">Target Influencer Handles</Label>
