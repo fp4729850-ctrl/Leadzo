@@ -14,24 +14,18 @@ serve(async (req) => {
     const { businessName, adHeadline, adCopy, platform, objective, websiteDescription } = await req.json()
     const openAIKey = Deno.env.get("OPENAI_API_KEY")
 
-    // Construct a highly detailed prompt
-    const prompt = `Create a high-quality, professional advertisement image for a ${platform || 'digital'} campaign. 
-The objective of the campaign is ${objective || 'Brand Awareness'}.
-Business Name: ${businessName || 'A modern company'}.
-Business Details/Website Info: ${websiteDescription || 'A professional enterprise.'}.
-Ad Headline Concept: "${adHeadline || 'Premium Services'}". 
-Ad Copy/Vibe: "${adCopy || 'High converting, professional, engaging'}". 
-
-Visual Requirements:
-- The image MUST NOT contain any actual text, words, or letters (no logos with text).
-- It should be a stunning, high-resolution, modern marketing visual.
-- Use a compelling, clean, and vibrant aesthetic suitable for social media advertising.
-- Focus on showing the emotional benefit, product concept, or target audience engaging with the concept.`
+    // Construct a highly visual prompt
+    const shortDesc = (websiteDescription || '').substring(0, 150);
+    const prompt = `A professional, modern, and clean commercial photograph representing: ${shortDesc}. 
+Theme: ${adHeadline || 'Premium Services'}. 
+Style: High-resolution marketing visual, vibrant colors, minimalist. 
+CRITICAL: Absolutely NO TEXT, NO WORDS, NO LETTERS, NO LOGOS in the image.`
 
     if (!openAIKey) {
       console.warn("OPENAI_API_KEY is not set. Using free Pollinations AI fallback.")
       const encodedPrompt = encodeURIComponent(prompt)
-      const freeImageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true`
+      const randomSeed = Math.floor(Math.random() * 1000000)
+      const freeImageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true&seed=${randomSeed}`
       
       return new Response(JSON.stringify({ 
         success: true, 
