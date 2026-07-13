@@ -236,6 +236,7 @@ function CampaignLaunchInner() {
   const [adMediaStorageId, setAdMediaStorageId] = useState<string | null>(null);
   const [uploadingMedia, setUploadingMedia] = useState(false);
   const mediaInputRef = useRef<HTMLInputElement>(null);
+  const [customImagePrompt, setCustomImagePrompt] = useState("");
   const [generatingAiImage, setGeneratingAiImage] = useState(false);
   const [aiGeneratedImageUrl, setAiGeneratedImageUrl] = useState<string | null>(null);
 
@@ -282,7 +283,8 @@ function CampaignLaunchInner() {
         adCopy: adCopy || "", 
         platform: selectedPlatform || "facebook", 
         objective: objective || "Brand Awareness",
-        websiteDescription: scanResult?.description || ""
+        websiteDescription: scanResult?.description || "",
+        customPrompt: customImagePrompt
       });
       setAiGeneratedImageUrl(result.imageUrl);
       setAdMediaStorageId(result.storageId);
@@ -433,10 +435,11 @@ function CampaignLaunchInner() {
                           <button onClick={() => { setAiGeneratedImageUrl(null); setAdMediaPreview(null); setAdMediaStorageId(null); }} className="absolute top-2 right-2 size-6 bg-black/60 hover:bg-black/80 rounded-full flex items-center justify-center text-white cursor-pointer"><X size={11} /></button>
                         </div>
                       )}
-                      <Button onClick={handleGenerateAiImage} disabled={generatingAiImage} size="sm" className="rounded-xl gap-2 bg-purple-600 hover:bg-purple-700 text-white border-0">
+                      <Button onClick={handleGenerateAiImage} disabled={generatingAiImage} size="sm" className="rounded-xl gap-2 bg-purple-600 hover:bg-purple-700 text-white border-0 w-full">
                         {generatingAiImage ? <><Loader2 size={13} className="animate-spin" /> AI Image Bana Raha Hai... (~10 sec)</> : <><Sparkles size={13} /> AI Se Ad Image Generate Karo</>}
                       </Button>
-                      <p className="text-[10px] text-muted-foreground text-center">Requires <span className="font-bold text-foreground">OPENAI_API_KEY</span> in Secrets tab \u00b7 Uses gpt-image-2 model</p>
+                      <input value={customImagePrompt} onChange={(e) => setCustomImagePrompt(e.target.value)} placeholder="Custom Prompt (optional) e.g. Show a 3D robot holding a coin" className="w-full mt-2 rounded-lg border border-purple-500/30 bg-purple-500/5 px-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-purple-500/50" />
+                      <p className="text-[10px] text-muted-foreground text-center mt-1">Requires <span className="font-bold text-foreground">OPENAI_API_KEY</span> in Secrets tab \u00b7 Uses gpt-image-2 model</p>
                     </div>
                     {!adMedia && !aiGeneratedImageUrl ? (
                       <div onClick={() => mediaInputRef.current?.click()} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const file = e.dataTransfer.files[0]; if (file) handleMediaSelect(file); }} className="flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-border hover:border-primary/50 bg-muted/20 hover:bg-primary/5 transition-all cursor-pointer py-6 px-4">
