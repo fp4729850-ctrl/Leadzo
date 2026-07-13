@@ -80,6 +80,7 @@ export default function InstaCampaignPage() {
   const createCampaign = useMutation(api.campaigns.create);
   const [handlesRaw, setHandlesRaw] = useState("");
   const [message, setMessage] = useState("");
+  const [maxFollowers, setMaxFollowers] = useState(20);
   const [launching, setLaunching] = useState(false);
   const [showGenerator, setShowGenerator] = useState(false);
   
@@ -153,7 +154,7 @@ export default function InstaCampaignPage() {
         const scrapeRes = await fetch("http://localhost:3002/api/scrape-followers", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ handle: influencer, maxCount: 20 }) // Limiting to 20 per influencer for safety
+          body: JSON.stringify({ handle: influencer, maxCount: maxFollowers }) 
         });
         
         if (!scrapeRes.ok) throw new Error("Scrape failed");
@@ -248,11 +249,17 @@ export default function InstaCampaignPage() {
           </div>
 
           <div className="rounded-xl border border-border bg-card p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <Label className="text-sm font-semibold">Target Influencer Handles</Label>
-              <div className="flex gap-2 items-center">
-                <Button variant="outline" size="sm" className="h-6 text-[10px]" onClick={() => setHandlesRaw(prev => prev ? prev + "\n@username" : "@username")}>+ Add User</Button>
-                <Badge variant="secondary" className="text-[10px]">{handles.length} targets</Badge>
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-semibold">Target Influencer Handles</Label>
+                <div className="flex gap-2 items-center">
+                  <Button variant="outline" size="sm" className="h-6 text-[10px]" onClick={() => setHandlesRaw(prev => prev ? prev + "\n@username" : "@username")}>+ Add User</Button>
+                  <Badge variant="secondary" className="text-[10px]">{handles.length} targets</Badge>
+                </div>
+              </div>
+              <div className="flex items-center justify-between bg-muted/40 p-2 rounded border border-border">
+                <Label className="text-[11px] text-muted-foreground font-medium">Followers to extract per target:</Label>
+                <Input type="number" min={1} max={100} className="h-6 w-16 text-xs text-center p-0" value={maxFollowers} onChange={(e) => setMaxFollowers(Number(e.target.value) || 20)} />
               </div>
             </div>
             <Textarea placeholder="@crypto_rahul\n@usdt_india" rows={5} className="font-mono text-xs resize-none" value={handlesRaw} onChange={(e) => setHandlesRaw(e.target.value)} />
