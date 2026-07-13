@@ -13,13 +13,17 @@ serve(async (req) => {
   try {
     const { url } = await req.json()
     if (!url) throw new Error("URL is required")
+    let targetUrl = url;
+    if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
+      targetUrl = 'https://' + targetUrl;
+    }
 
     // Fetch the website using Jina Reader API to render JS and extract clean markdown text
     let text = ""
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
-      const res = await fetch(`https://r.jina.ai/${url}`, { 
+      const res = await fetch(`https://r.jina.ai/${targetUrl}`, { 
         signal: controller.signal,
         headers: {
           "Accept": "text/plain"
