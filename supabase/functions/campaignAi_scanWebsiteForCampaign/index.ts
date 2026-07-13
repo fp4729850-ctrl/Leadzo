@@ -18,25 +18,44 @@ serve(async (req) => {
       targetUrl = 'https://' + targetUrl;
     }
 
-    // Fetch the website using Jina Reader API to render JS and extract clean markdown text
+    // --- Smart Dual Scraping: Try Jina Reader first, fallback to direct HTML fetch ---
     let text = ""
+
+    // Method 1: Jina Reader API (best for JS-rendered SPAs)
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
       const res = await fetch(`https://r.jina.ai/${targetUrl}`, { 
         signal: controller.signal,
-        headers: {
-          "Accept": "text/plain"
-        }
+        headers: { "Accept": "text/plain" }
       });
       clearTimeout(timeoutId);
-      if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+      if (!res.ok) throw new Error(`Jina HTTP ${res.status}`);
       text = await res.text()
-    } catch (e: any) {
-      throw new Error(`Failed to read website content: ${e.message}`)
+      if (text.trim().length < 50) throw new Error("Jina returned too little text");
+    } catch (_jinaErr) {
+      // Method 2: Direct HTML Fetch fallback
+      try {
+        const controller2 = new AbortController();
+        const timeoutId2 = setTimeout(() => controller2.abort(), 10000);
+        const res2 = await fetch(targetUrl, { 
+          signal: controller2.signal,
+          headers: { "User-Agent": "Mozilla/5.0 (compatible; LeadzoBot/1.0)" }
+        });
+        clearTimeout(timeoutId2);
+        if (!res2.ok) throw new Error(`Direct fetch HTTP ${res2.status}`);
+        let html = await res2.text();
+        // Strip scripts, styles, and HTML tags to get plain text
+        html = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, ' ');
+        html = html.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, ' ');
+        html = html.replace(/<[^>]+>/g, ' ');
+        text = html.replace(/\s+/g, ' ').trim();
+      } catch (directErr: any) {
+        throw new Error(`Could not read website with either method: ${directErr.message}`);
+      }
     }
 
-    // Clean up text if needed and truncate to save tokens
+    // Truncate to save tokens
     text = text.substring(0, 6000)
 
     const openAIKey = Deno.env.get("OPENAI_API_KEY")
