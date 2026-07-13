@@ -96,8 +96,8 @@ Respond ONLY with a JSON object containing EXACTLY these keys:
     }
 
     const callGemini = async () => {
-      // Try multiple models in order of preference
-      const models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
+      // Try multiple models — stable IDs first, then latest alias
+      const models = ["gemini-2.0-flash-001", "gemini-2.0-flash-lite-001", "gemini-flash-latest", "gemini-2.5-flash"];
       let lastError: any = null;
       for (const model of models) {
         try {
