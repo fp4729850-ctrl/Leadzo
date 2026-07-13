@@ -79,45 +79,132 @@ export default function InstaCampaignPage() {
   const [message, setMessage] = useState("");
   const [launching, setLaunching] = useState(false);
   const [showGenerator, setShowGenerator] = useState(false);
+  
+  const [serverStatus, setServerStatus] = useState<"checking" | "connected" | "disconnected">("checking");
+  const [progress, setProgress] = useState({ total: 0, current: 0, status: "" });
+
+  // Poll IG server status
+  useQuery(api.campaigns.list, { type: "instagram" }); // Just to keep imports happy if unused
+  
+  const checkStatus = async () => {
+    try {
+      const res = await fetch("http://localhost:3002/api/status");
+      const data = await res.json();
+      setServerStatus(data.status === "connected" ? "connected" : "disconnected");
+    } catch {
+      setServerStatus("disconnected");
+    }
+  };
+
+  const loginServer = async () => {
+    try {
+      await fetch("http://localhost:3002/api/login", { method: "POST" });
+      toast.info("Browser opened. Please log in.");
+    } catch {
+      toast.error("Ensure ig-server is running on port 3002");
+    }
+  };
+
+  // Check status on mount
+  useState(() => {
+    checkStatus();
+    const int = setInterval(checkStatus, 5000);
+    return () => clearInterval(int);
+  });
 
   const handles = handlesRaw.split(/[\n,]+/).map((h) => h.trim().replace(/^@/, "")).filter((h) => h.length > 0);
 
   const handleLaunch = async () => {
-    if (handles.length === 0) { toast.error("Koi handle nahi hai"); return; }
+    if (handles.length === 0) { toast.error("Koi target handle nahi hai"); return; }
     if (!message.trim()) { toast.error("DM message likhna zaroori hai"); return; }
+    if (serverStatus !== "connected") { toast.error("Pehle Instagram Server se connect karein"); return; }
+    
     setLaunching(true);
+    setProgress({ total: 0, current: 0, status: "Scraping followers..." });
+    let totalSent = 0;
+    
     try {
-      await createCampaign({ type: "instagram", prompt: message, totalRecipients: handles.length });
-      toast.success(`Insta DM campaign launched for ${handles.length} handles!`);
+      for (const influencer of handles) {
+        setProgress(p => ({ ...p, status: `Scraping followers for @${influencer}...` }));
+        
+        const scrapeRes = await fetch("http://localhost:3002/api/scrape-followers", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ handle: influencer, maxCount: 20 }) // Limiting to 20 per influencer for safety
+        });
+        
+        if (!scrapeRes.ok) throw new Error("Scrape failed");
+        const data = await scrapeRes.json();
+        const followers = data.followers || [];
+        
+        setProgress(p => ({ total: p.total + followers.length, current: p.current, status: `Sending DMs...` }));
+        
+        for (const follower of followers) {
+          setProgress(p => ({ ...p, status: `Sending to @${follower}...` }));
+          
+          await fetch("http://localhost:3002/api/send-dm", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username: follower, message })
+          });
+          
+          totalSent++;
+          setProgress(p => ({ ...p, current: totalSent }));
+          
+          // Delay to prevent ban
+          await new Promise(r => setTimeout(r, 8000));
+        }
+      }
+      
+      await createCampaign({ type: "instagram", prompt: message, totalRecipients: totalSent });
+      toast.success(`Insta DM campaign finished! Sent to ${totalSent} followers.`);
       setHandlesRaw(""); setMessage("");
-    } catch { toast.error("Launch failed"); }
-    finally { setLaunching(false); }
+    } catch (e: any) { 
+      toast.error(`Error: ${e.message}`); 
+    } finally { 
+      setLaunching(false); 
+      setProgress({ total: 0, current: 0, status: "" });
+    }
   };
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center gap-3">
-        <div className="size-10 rounded-xl bg-[#E1306C]/10 border border-[#E1306C]/20 flex items-center justify-center">
-          <Camera size={18} className="text-[#E1306C]" />
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="size-10 rounded-xl bg-[#E1306C]/10 border border-[#E1306C]/20 flex items-center justify-center">
+            <Camera size={18} className="text-[#E1306C]" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold tracking-tight font-serif">Insta DM Campaign</h1>
+            <p className="text-sm text-muted-foreground">Bulk Instagram DMs with AI-personalized messages</p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-xl font-bold tracking-tight font-serif">Insta DM Campaign</h1>
-          <p className="text-sm text-muted-foreground">Bulk Instagram DMs with AI-personalized messages</p>
+        <div className="flex items-center gap-3 bg-muted/30 px-3 py-1.5 rounded-lg border border-border">
+          <div className={cn("size-2 rounded-full", serverStatus === "connected" ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" : "bg-red-500")} />
+          <span className="text-xs font-medium">{serverStatus === "connected" ? "Server: Connected" : "Server: Disconnected"}</span>
+          <Button variant="outline" size="sm" className="h-6 text-[10px]" onClick={serverStatus === "connected" ? checkStatus : loginServer}>
+            {serverStatus === "connected" ? "Check Status" : "Login to Server"}
+          </Button>
         </div>
       </div>
+      
       <div className="rounded-xl border border-[#E1306C]/20 bg-[#E1306C]/5 p-4 flex gap-3 items-start">
         <AtSign size={16} className="text-[#E1306C] shrink-0 mt-0.5" />
         <div>
           <p className="text-xs font-semibold">Influencer Targeting</p>
-          <p className="text-xs text-muted-foreground mt-0.5">Paste crypto/finance influencer handles. AI generates personalized DMs.</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Paste crypto/finance influencer handles. AI will scrape their followers and generate personalized DMs for each follower.</p>
         </div>
       </div>
+      
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="space-y-4">
           <div className="rounded-xl border border-border bg-card p-4 space-y-3">
             <div className="flex items-center justify-between">
-              <Label className="text-sm font-semibold">Instagram Handles</Label>
-              <Badge variant="secondary" className="text-[10px]">{handles.length} handles</Badge>
+              <Label className="text-sm font-semibold">Target Influencer Handles</Label>
+              <div className="flex gap-2 items-center">
+                <Button variant="outline" size="sm" className="h-6 text-[10px]" onClick={() => setHandlesRaw(prev => prev ? prev + "\n@username" : "@username")}>+ Add User</Button>
+                <Badge variant="secondary" className="text-[10px]">{handles.length} targets</Badge>
+              </div>
             </div>
             <Textarea placeholder="@crypto_rahul\n@usdt_india" rows={5} className="font-mono text-xs resize-none" value={handlesRaw} onChange={(e) => setHandlesRaw(e.target.value)} />
             <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground">
@@ -127,7 +214,7 @@ export default function InstaCampaignPage() {
           </div>
           <div className="rounded-xl border border-border bg-card p-4 space-y-3">
             <div className="flex items-center justify-between">
-              <Label className="text-sm font-semibold">DM Message</Label>
+              <Label className="text-sm font-semibold">DM Message Template</Label>
               <button onClick={() => setShowGenerator(!showGenerator)} className="text-[10px] text-primary font-semibold cursor-pointer hover:underline">{showGenerator ? "Hide" : "✶ AI Generate"}</button>
             </div>
             {showGenerator && (
@@ -135,11 +222,14 @@ export default function InstaCampaignPage() {
                 <AiTemplatePanel onSelect={(t) => { setMessage(t); setShowGenerator(false); }} />
               </motion.div>
             )}
-            <Textarea placeholder="Hey! USDT ke best rates de raha hoon aaj" rows={5} className="text-sm resize-none" value={message} onChange={(e) => setMessage(e.target.value)} />
+            <Textarea placeholder="Hey! USDT ke best rates de raha hoon aaj\n\n(Tip: AI will send this message to the followers of the targets above)" rows={5} className="text-sm resize-none" value={message} onChange={(e) => setMessage(e.target.value)} />
           </div>
-          <Button onClick={handleLaunch} disabled={launching || handles.length === 0 || !message.trim()} className="w-full cursor-pointer gap-2 bg-gradient-to-r from-[#E1306C] to-[#F77737] hover:opacity-90 text-white border-0">
-            <Send size={14} />
-            {launching ? "Launching..." : `Launch Insta Campaign (${handles.length} handles)`}
+          <Button onClick={handleLaunch} disabled={launching || handles.length === 0 || !message.trim() || serverStatus !== "connected"} className="w-full cursor-pointer gap-2 bg-gradient-to-r from-[#E1306C] to-[#F77737] hover:opacity-90 text-white border-0 flex-col py-6">
+            <div className="flex items-center gap-2">
+              <Send size={14} />
+              {launching ? "Running Campaign..." : `Launch Insta Campaign (${handles.length} targets)`}
+            </div>
+            {launching && <span className="text-[10px] opacity-80">{progress.status} ({progress.current}/{progress.total || '?'})</span>}
           </Button>
         </div>
         <div className="space-y-3">
