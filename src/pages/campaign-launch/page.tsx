@@ -276,7 +276,14 @@ function CampaignLaunchInner() {
     if (!adHeadline && !campaignName) { toast.error("Please fill in the Ad Headline first (Step 2)"); return; }
     setGeneratingAiImage(true); setAiGeneratedImageUrl(null);
     try {
-      const result = await generateAdImage({ businessName: scanResult?.businessName ?? campaignName ?? "Business", adHeadline: adHeadline || campaignName, adCopy: adCopy || "", platform: selectedPlatform || "facebook", objective: objective || "Brand Awareness" });
+      const result = await generateAdImage({ 
+        businessName: scanResult?.businessName ?? campaignName ?? "Business", 
+        adHeadline: adHeadline || campaignName, 
+        adCopy: adCopy || "", 
+        platform: selectedPlatform || "facebook", 
+        objective: objective || "Brand Awareness",
+        websiteDescription: scanResult?.description || ""
+      });
       setAiGeneratedImageUrl(result.imageUrl);
       setAdMediaStorageId(result.storageId);
       setAdMedia(null);

@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { businessName, adHeadline, adCopy, platform, objective } = await req.json()
+    const { businessName, adHeadline, adCopy, platform, objective, websiteDescription } = await req.json()
     const openAIKey = Deno.env.get("OPENAI_API_KEY")
 
     if (!openAIKey) {
@@ -28,7 +28,8 @@ serve(async (req) => {
     // Construct a highly detailed prompt for DALL-E 3
     const prompt = `Create a high-quality, professional advertisement image for a ${platform || 'digital'} campaign. 
 The objective of the campaign is ${objective || 'Brand Awareness'}. 
-Business Name: ${businessName || 'A modern company'}. 
+Business Name: ${businessName || 'A modern company'}.
+Business Details/Website Info: ${websiteDescription || 'A professional enterprise.'}.
 Ad Headline Concept: "${adHeadline || 'Premium Services'}". 
 Ad Copy/Vibe: "${adCopy || 'High converting, professional, engaging'}". 
 
