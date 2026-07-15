@@ -138,11 +138,12 @@ export default function SeoAgentPage() {
     const captureGscToken = async (session: any) => {
       if (session?.provider_token) {
         if (!session.provider_refresh_token) {
+          toast.error("Google didn't provide a Refresh Token. Only Access Token received.");
           console.warn("No provider_refresh_token in session. Google might not have issued one.");
-          return;
+          // Don't return, let's try to save the access token as a fallback so they can at least generate a report once
         }
         try {
-          const refreshToken = session.provider_refresh_token;
+          const refreshToken = session.provider_refresh_token || session.provider_token;
           const { data: existing } = await supabase.from('gsc_tokens').select('id').eq('user_id', session.user.id).single();
           let error;
           if (existing) {
@@ -158,7 +159,7 @@ export default function SeoAgentPage() {
             toast.success("Google Search Console Connected Successfully!");
           } else {
             console.error("Failed to save GSC token:", error);
-            toast.error("Failed to save GSC token to database.");
+            toast.error(`Failed to save GSC token: ${error.message || error.details || JSON.stringify(error)}`);
           }
         } catch (e) {
           console.error("Auth state change error:", e);

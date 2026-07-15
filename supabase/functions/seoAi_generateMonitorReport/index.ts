@@ -29,23 +29,30 @@ serve(async (req) => {
         if (user) {
           const { data: tokenData } = await supabase.from('gsc_tokens').select('refresh_token').eq('user_id', user.id).single()
           if (tokenData?.refresh_token) {
-            // Exchange refresh token for fresh access token
-            const clientId = Deno.env.get('GOOGLE_CLIENT_ID')
-            const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET')
-            if (clientId && clientSecret) {
-              const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
-                method: "POST",
-                headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                body: new URLSearchParams({
-                  client_id: clientId,
-                  client_secret: clientSecret,
-                  refresh_token: tokenData.refresh_token,
-                  grant_type: "refresh_token"
-                })
-              });
-              if (tokenRes.ok) {
-                const freshTokens = await tokenRes.json();
-                googleToken = freshTokens.access_token;
+            // Check if it's already an access token (usually starts with ya29.)
+            if (tokenData.refresh_token.startsWith('ya29.')) {
+              googleToken = tokenData.refresh_token;
+            } else {
+              // Exchange refresh token for fresh access token
+              const clientId = Deno.env.get('GOOGLE_CLIENT_ID')
+              const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET')
+              if (clientId && clientSecret) {
+                const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                  body: new URLSearchParams({
+                    client_id: clientId,
+                    client_secret: clientSecret,
+                    refresh_token: tokenData.refresh_token,
+                    grant_type: "refresh_token"
+                  })
+                });
+                if (tokenRes.ok) {
+                  const freshTokens = await tokenRes.json();
+                  googleToken = freshTokens.access_token;
+                } else {
+                   console.error("Failed to refresh Google token:", await tokenRes.text());
+                }
               }
             }
           }
