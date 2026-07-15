@@ -32,7 +32,7 @@ function SetupPanel({ onTest }: { onTest: () => void }) {
   const checkStatus = async () => {
     if (!user) return;
     try {
-      const res = await fetch(`http://187.127.186.10:3001/api/status/${user.id}`);
+      const res = await fetch(`https://srv1780011.hstgr.cloud/api/status/${user.id}`);
       const data = await res.json();
       setStatus(data.status);
       if (data.qrCode) setQrCode(data.qrCode);
@@ -55,7 +55,7 @@ function SetupPanel({ onTest }: { onTest: () => void }) {
     }
     setLoading(true);
     try {
-      await fetch(`http://187.127.186.10:3001/api/connect`, {
+      await fetch(`https://srv1780011.hstgr.cloud/api/connect`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: user.id })
@@ -228,7 +228,7 @@ function TemplateCreatorPanel({ onClose, onCreated, billingMode }: { onClose: ()
           <div className="space-y-2">
             <Label className="text-[10px] text-muted-foreground font-semibold">Website Button (Optional)</Label>
             <Input placeholder="Button Text (e.g. Buy Now)" className="font-mono text-xs h-7 bg-background" value={urlText} onChange={(e) => setUrlText(e.target.value)} />
-            <Input placeholder="URL (e.g. https://site.com)" className="font-mono text-xs h-7 bg-background" value={urlLink} onChange={(e) => setUrlLink(e.target.value)} />
+            <Input placeholder="URL (e.g. https://wa-sender.in)" className="font-mono text-xs h-7 bg-background" value={urlLink} onChange={(e) => setUrlLink(e.target.value)} />
           </div>
           <div className="space-y-2">
             <Label className="text-[10px] text-muted-foreground font-semibold">Call Button (Optional)</Label>
@@ -383,7 +383,7 @@ export default function WASenderPage() {
 
     if (apiType === "green") {
       try {
-        const res = await fetch('http://187.127.186.10:3001/api/send', {
+        const res = await fetch('https://srv1780011.hstgr.cloud/api/send', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ userId: user?.id, numbers, message })
