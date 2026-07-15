@@ -1,0 +1,1 @@
+ALTER TABLE public.gsc_tokens DROP CONSTRAINT IF EXISTS gsc_tokens_user_id_fkey; ALTER TABLE public.gsc_tokens ADD CONSTRAINT gsc_tokens_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
