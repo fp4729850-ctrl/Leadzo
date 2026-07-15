@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useAction } from "@/lib/convex-supabase-adapter";
 import { api } from "@/convex/_generated/api.js";
 import { motion } from "motion/react";
@@ -130,11 +130,11 @@ export default function InstaCampaignPage() {
   };
 
   // Check status on mount
-  useState(() => {
+  useEffect(() => {
     checkStatus();
     const int = setInterval(checkStatus, 5000);
     return () => clearInterval(int);
-  });
+  }, []);
 
   const handles = handlesRaw.split(/[\n,]+/).map((h) => h.trim().replace(/^@/, "")).filter((h) => h.length > 0);
 

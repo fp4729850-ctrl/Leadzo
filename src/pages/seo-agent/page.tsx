@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useAction, useMutation, useQuery } from "@/lib/convex-supabase-adapter";
 import { api } from "@/convex/_generated/api.js";
 import { Authenticated } from "@/lib/convex-supabase-adapter";
+import { supabase } from "@/lib/supabase";
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
@@ -14,7 +15,7 @@ import {
   Search, Globe, BarChart2, FileText, Rocket, Activity,
   ChevronRight, CheckCircle2, Loader2, AlertTriangle,
   TrendingUp, TrendingDown, Minus, RefreshCw,
-  BookOpen, Target, Zap, Eye, Link, Unlink,
+  BookOpen, Target, Zap, Eye, Link, Unlink, Send,
 } from "lucide-react";
 import { cn } from "@/lib/utils.ts";
 
@@ -68,24 +69,36 @@ export default function SeoAgentPage() {
   const [publishLoading, setPublishLoading] = useState(false);
   const [autoRunning, setAutoRunning] = useState(false);
   const [autoStep, setAutoStep] = useState("");
+  const [webhookUrl, setWebhookUrl] = useState("");
+  const [publishingToWebhook, setPublishingToWebhook] = useState(false);
 
   const crawlAndAudit = useAction(api.seoAi.crawlAndAudit);
   const researchKeywords = useAction(api.seoAi.researchKeywords);
   const generateContent = useAction(api.seoAi.generateContent);
   const generatePublishPlan = useAction(api.seoAi.generatePublishPlan);
   const generateMonitorReport = useAction(api.seoAi.generateMonitorReport);
+  const autoPublishWebhook = useAction(api.seoAi.autoPublishWebhook);
   const disconnectGsc = useMutation(api.gsc.disconnectGsc);
   const gscStatus = useQuery(api.gsc.getGscStatus, {});
   const getGscOAuthUrl = useAction(api.gscActions.getGscOAuthUrl);
 
   const connectGsc = async () => {
-    const redirectUri = `${window.location.origin}/auth/gsc-callback`;
-    const result = await getGscOAuthUrl({ redirectUri });
-    if (!result.url) {
-      toast.error(result.error ?? "Google OAuth not configured. Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in Secrets tab.");
-      return;
+    // Redirect to Supabase Google Auth requesting GSC scope
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        scopes: 'https://www.googleapis.com/auth/webmasters.readonly',
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        },
+        redirectTo: `${window.location.origin}/seo-agent`
+      },
+    });
+    
+    if (error) {
+      toast.error(error.message);
     }
-    window.location.href = result.url;
   };
 
   const markComplete = (step: StepId) => setCompletedSteps((prev) => new Set([...prev, step]));
@@ -125,6 +138,34 @@ export default function SeoAgentPage() {
     finally { setLoading(false); }
   };
 
+  const handlePublishToLeadzo = async () => {
+    if (!contentData) { toast.error("No content to publish"); return; }
+    setPublishingToWebhook(true); // Reusing state for loading
+    try {
+      // Empty webhookUrl tells the backend to only save to internal blog
+      const res = await autoPublishWebhook({ webhookUrl: "", contentData, url });
+      toast.success(res?.message || "Published to Leadzo Blog!");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to publish");
+    } finally {
+      setPublishingToWebhook(false);
+    }
+  };
+
+  const handleAutoPublish = async () => {
+    if (!webhookUrl) { toast.error("Please enter a Webhook URL first (e.g., Make.com)"); return; }
+    if (!contentData) { toast.error("No content to publish"); return; }
+    setPublishingToWebhook(true);
+    try {
+      const res = await autoPublishWebhook({ webhookUrl, contentData, url });
+      toast.success(res?.message || "Successfully sent to Webhook!");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to send to Webhook");
+    } finally {
+      setPublishingToWebhook(false);
+    }
+  };
+
   const runPublishPlan = async () => {
     if (!url) { toast.error("Enter website URL first"); return; }
     if (!niche) { toast.error("Business Niche enter karo"); return; }
@@ -133,7 +174,9 @@ export default function SeoAgentPage() {
       const allKeywords = keywordClusters.flatMap((c) => c.keywords.map((k) => k.term));
       const result = await generatePublishPlan({ url, niche, keywords: allKeywords.length > 0 ? allKeywords : [niche] });
       setPublishPlan(result.weeks); markComplete("publish"); toast.success("AI Publish Plan ready!");
-    } catch { toast.error("Plan generation failed."); }
+    } catch (err: any) { 
+      toast.error(err?.message || "Plan generation failed."); 
+    }
     finally { setPublishLoading(false); }
   };
 
@@ -141,8 +184,15 @@ export default function SeoAgentPage() {
     if (!url) { toast.error("Enter website URL first"); return; }
     setLoading(true); setActiveStep("monitor");
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const providerToken = session?.provider_token;
+      
       const allKeywords = keywordClusters.flatMap((c) => c.keywords.map((k) => k.term));
-      const result = await generateMonitorReport({ url, keywords: allKeywords.length > 0 ? allKeywords : [niche] });
+      const result = await generateMonitorReport({ 
+        url, 
+        keywords: allKeywords.length > 0 ? allKeywords : [niche],
+        googleToken: providerToken 
+      });
       setMonitorData(result); markComplete("monitor"); toast.success("Monitor report ready!");
     } catch { toast.error("Monitoring failed."); }
     finally { setLoading(false); }
@@ -345,7 +395,31 @@ export default function SeoAgentPage() {
                       <div className="p-3 rounded-lg border border-border bg-background/40"><p className="text-[10px] font-semibold text-muted-foreground mb-0.5">META TITLE</p><p className="text-sm text-foreground">{contentData.metaTitle}</p></div>
                       <div className="p-3 rounded-lg border border-border bg-background/40"><p className="text-[10px] font-semibold text-muted-foreground mb-0.5">META DESCRIPTION</p><p className="text-sm text-foreground">{contentData.metaDescription}</p></div>
                     </div>
-                    <div className="p-4 rounded-lg border border-border bg-background/40"><p className="text-[10px] font-bold text-muted-foreground mb-2 flex items-center gap-1.5"><FileText size={10} /> BLOG CONTENT PREVIEW</p><div className="text-xs text-muted-foreground whitespace-pre-line leading-relaxed max-h-64 overflow-y-auto">{contentData.content}</div></div>
+                    <div className="p-4 rounded-lg border border-border bg-background/40"><p className="text-[10px] font-bold text-muted-foreground mb-2 flex items-center gap-1.5"><FileText size={10} /> BLOG CONTENT PREVIEW</p><div className="text-xs text-muted-foreground whitespace-pre-line leading-relaxed max-h-64 overflow-y-auto" dangerouslySetInnerHTML={{ __html: contentData.content }} /></div>
+                    
+                    <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Internal Publish */}
+                      <div className="p-4 rounded-lg border border-primary/20 bg-primary/5 space-y-3">
+                        <p className="text-xs font-bold text-primary flex items-center gap-1.5"><FileText size={12} /> Publish to Leadzo Blog</p>
+                        <p className="text-[10px] text-muted-foreground leading-tight">Publish this post directly to your own leadzoai.com/blog page for SEO ranking.</p>
+                        <Button size="sm" onClick={handlePublishToLeadzo} disabled={publishingToWebhook} className="w-full h-8 bg-primary hover:bg-primary/90 text-white shadow-sm mt-2">
+                          {publishingToWebhook ? <Loader2 size={12} className="animate-spin mr-1.5" /> : <Send size={12} className="mr-1.5" />} Publish to Leadzo
+                        </Button>
+                      </div>
+
+                      {/* External Webhook */}
+                      <div className="p-4 rounded-lg border border-chart-2/20 bg-chart-2/5 space-y-3">
+                        <p className="text-xs font-bold text-chart-2 flex items-center gap-1.5"><Zap size={12} /> Push to Client Webhook</p>
+                        <p className="text-[10px] text-muted-foreground leading-tight">Send this post to external CMS (WordPress, Shopify) via Make.com or Zapier.</p>
+                        <div className="flex items-center gap-2 mt-2">
+                          <Input value={webhookUrl} onChange={(e) => setWebhookUrl(e.target.value)} placeholder="https://hook.make.com/..." className="h-8 text-xs flex-1 bg-background" />
+                          <Button size="sm" onClick={handleAutoPublish} disabled={publishingToWebhook || !webhookUrl} className="h-8 bg-chart-2 hover:bg-chart-2/90 text-white shadow-sm">
+                            Push
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+
                     <Button size="sm" onClick={() => { markComplete("content"); setActiveStep("publish"); if (publishPlan.length === 0) setTimeout(() => runPublishPlan(), 100); }} className="bg-chart-4/20 text-chart-4 hover:bg-chart-4/30">Next: Publish Plan <ChevronRight size={12} className="ml-1" /></Button>
                   </motion.div>
                 )}
@@ -392,9 +466,14 @@ export default function SeoAgentPage() {
             <Card className="border-border bg-card/60 backdrop-blur">
               <CardHeader className="pb-3"><CardTitle className="text-sm flex items-center gap-2"><Activity size={15} className="text-chart-3" /> Monitor & Track Rankings</CardTitle></CardHeader>
               <CardContent className="space-y-4">
-                <Button onClick={runMonitor} disabled={loading} className="bg-chart-3 hover:bg-chart-3/80 text-white">
-                  {loading ? <><Loader2 size={14} className="animate-spin mr-2" /> Analyzing...</> : <><RefreshCw size={14} className="mr-2" /> Generate Report</>}
-                </Button>
+                <div className="flex items-center gap-3">
+                  <Button onClick={runMonitor} disabled={loading} className="bg-chart-3 hover:bg-chart-3/80 text-white">
+                    {loading ? <><Loader2 size={14} className="animate-spin mr-2" /> Analyzing...</> : <><RefreshCw size={14} className="mr-2" /> Generate Report</>}
+                  </Button>
+                  <Button onClick={connectGsc} variant="outline" className="border-chart-3 text-chart-3 hover:bg-chart-3/10">
+                    <Activity size={14} className="mr-2" /> Connect Google Search Console
+                  </Button>
+                </div>
                 {monitorData && (
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

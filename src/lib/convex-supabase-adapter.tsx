@@ -366,10 +366,32 @@ export function useAction(apiEndpoint: any) {
     const { data, error } = await supabase.functions.invoke(functionRoute, {
       body: args
     });
+    
     if (error) {
       console.warn(`Supabase Edge Function invocation failed for ${functionRoute}:`, error);
-      throw error;
+      
+      // Try to extract the real error message that our Edge Function sent (e.g. 400 Bad Request JSON)
+      let realErrorMsg = error.message;
+      
+      try {
+         // Supabase FunctionsHttpError sometimes puts the response body in error.context
+         if (error.context && typeof error.context.json === 'function') {
+            const errBody = await error.context.json();
+            if (errBody && errBody.error) {
+               realErrorMsg = errBody.error;
+            }
+         }
+      } catch (e) {
+         // Ignore parsing errors
+      }
+      
+      throw new Error(realErrorMsg);
     }
+    
+    if (data && data.error) {
+      throw new Error(data.error);
+    }
+    
     return data;
   };
 }

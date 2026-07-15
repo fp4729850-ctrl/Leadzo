@@ -23,6 +23,8 @@ import LearningAgentPage from "./pages/learning-agent/page.tsx";
 import BulkCallingPage from "./pages/bulk-calling/page.tsx";
 import GscDashboardPage from "./pages/gsc-dashboard/page.tsx";
 import ScrapersPage from "./pages/scrapers/page.tsx";
+import BlogListingPage from "./pages/blog/page.tsx";
+import BlogArticlePage from "./pages/blog/article.tsx";
 
 import { useServiceWorker } from "@/hooks/use-service-worker.ts";
 
@@ -34,6 +36,8 @@ export default function App() {
         <Routes>
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/auth/gsc-callback" element={<GscCallback />} />
+          <Route path="/blog" element={<BlogListingPage />} />
+          <Route path="/blog/:slug" element={<BlogArticlePage />} />
           <Route element={<AppLayout />}>
             <Route path="/" element={<DashboardPage />} />
             <Route path="/pipeline" element={<PipelinePage />} />
