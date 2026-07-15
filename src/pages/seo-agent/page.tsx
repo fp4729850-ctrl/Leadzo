@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAction, useMutation, useQuery } from "@/lib/convex-supabase-adapter";
 import { api } from "@/convex/_generated/api.js";
 import { Authenticated } from "@/lib/convex-supabase-adapter";
@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge.tsx";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card.tsx";
 import { Progress } from "@/components/ui/progress.tsx";
 import { Separator } from "@/components/ui/separator.tsx";
+import { Switch } from "@/components/ui/switch.tsx";
 import { toast } from "sonner";
 import {
   Search, Globe, BarChart2, FileText, Rocket, Activity,
@@ -71,6 +72,9 @@ export default function SeoAgentPage() {
   const [autoStep, setAutoStep] = useState("");
   const [webhookUrl, setWebhookUrl] = useState("");
   const [publishingToWebhook, setPublishingToWebhook] = useState(false);
+  const [autopilotActive, setAutopilotActive] = useState(false);
+  const [autopilotId, setAutopilotId] = useState<string | null>(null);
+  const [autopilotLoading, setAutopilotLoading] = useState(false);
 
   const crawlAndAudit = useAction(api.seoAi.crawlAndAudit);
   const researchKeywords = useAction(api.seoAi.researchKeywords);
@@ -102,6 +106,100 @@ export default function SeoAgentPage() {
   };
 
   const markComplete = (step: StepId) => setCompletedSteps((prev) => new Set([...prev, step]));
+
+  useEffect(() => {
+    const loadAutopilotSettings = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        
+        const { data, error } = await supabase
+          .from("seo_autopilot_settings")
+          .select("*")
+          .eq("user_id", user.id)
+          .single();
+          
+        if (data && !error) {
+          setAutopilotActive(data.is_active);
+          setAutopilotId(data.id);
+          if (data.publish_plan && data.publish_plan.length > 0) {
+            setPublishPlan(data.publish_plan);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load autopilot settings", err);
+      }
+    };
+    loadAutopilotSettings();
+  }, []);
+
+  const toggleAutopilot = async (checked: boolean) => {
+    if (checked && (!url || !niche)) {
+      toast.error("Please enter Website URL and Business Niche first!");
+      return;
+    }
+    
+    setAutopilotLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not logged in");
+
+      if (autopilotId) {
+        // Update existing
+        const { error } = await supabase
+          .from("seo_autopilot_settings")
+          .update({ 
+            is_active: checked,
+            url: url || "",
+            niche: niche || "",
+            publish_plan: publishPlan
+          })
+          .eq("id", autopilotId);
+        if (error) throw error;
+      } else {
+        // Create new
+        const { data, error } = await supabase
+          .from("seo_autopilot_settings")
+          .insert({
+            user_id: user.id,
+            url: url || "",
+            niche: niche || "",
+            is_active: checked,
+            publish_plan: publishPlan
+          })
+          .select()
+          .single();
+        if (error) throw error;
+        if (data) setAutopilotId(data.id);
+      }
+      
+      setAutopilotActive(checked);
+      toast.success(checked ? "Autopilot Activated! 🚀" : "Autopilot Paused ⏸️");
+    } catch (err: any) {
+      toast.error("Failed to toggle Autopilot: " + err.message);
+    } finally {
+      setAutopilotLoading(false);
+    }
+  };
+
+  const runAutopilotNow = async () => {
+    toast.info("Triggering Autopilot Background Worker...");
+    try {
+      const res = await fetch("https://stbqeiapgdaklktrlrjm.supabase.co/functions/v1/seoAi_cronWorker", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        }
+      });
+      if (res.ok) {
+        toast.success("Autopilot executed successfully! Check your blog.");
+      } else {
+        throw new Error("Worker failed");
+      }
+    } catch (err: any) {
+      toast.error("Failed to trigger worker");
+    }
+  };
 
   const runCrawl = async () => {
     if (!url) { toast.error("Enter website URL first"); return; }
@@ -248,6 +346,15 @@ export default function SeoAgentPage() {
             <p className="text-xs text-muted-foreground">AI-powered 5-step SEO pipeline</p>
           </div>
           <Badge className="ml-auto bg-chart-1/20 text-chart-1 border-chart-1/30">AI Powered</Badge>
+          <div className="flex items-center gap-2 ml-4 mr-2 bg-card/60 px-3 py-1.5 rounded-lg border border-border">
+            <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">Autopilot</span>
+            <Switch 
+              checked={autopilotActive} 
+              onCheckedChange={toggleAutopilot} 
+              disabled={autopilotLoading}
+              className={autopilotActive ? "data-[state=checked]:bg-chart-3" : ""}
+            />
+          </div>
           <>
             {gscStatus?.connected ? (
               <button onClick={async () => { await disconnectGsc(); toast.success("Google Search Console disconnected"); }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-chart-3/40 bg-chart-3/10 text-chart-3 text-xs font-semibold cursor-pointer hover:bg-chart-3/20 transition-all">
@@ -436,25 +543,61 @@ export default function SeoAgentPage() {
               <CardContent className="space-y-3">
                 <p className="text-xs text-muted-foreground">AI-generated 3-month SEO calendar based on your site, niche & keywords.</p>
                 <Button onClick={runPublishPlan} disabled={publishLoading} className="bg-chart-2 hover:bg-chart-2/80 text-white">
+                <Button onClick={runPublishPlan} disabled={publishLoading} className="bg-chart-2 hover:bg-chart-2/80 text-white w-full">
                   {publishLoading ? <><Loader2 size={14} className="animate-spin mr-2" /> Generating Plan...</> : <><Rocket size={14} className="mr-2" /> {publishPlan.length > 0 ? "Regenerate Plan" : "Generate AI Plan"}</>}
                 </Button>
                 {publishPlan.length > 0 && (
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-2">
-                    {publishPlan.map((item, i) => {
-                      const typeColors: Record<string, string> = { content: "bg-primary/10 text-primary border-primary/20", technical: "bg-chart-4/10 text-chart-4 border-chart-4/20", offpage: "bg-chart-3/10 text-chart-3 border-chart-3/20", social: "bg-chart-1/10 text-chart-1 border-chart-1/20", analytics: "bg-muted/30 text-muted-foreground border-border" };
-                      const priorityClr = item.priority === "High" ? "text-destructive" : item.priority === "Medium" ? "text-chart-4" : "text-muted-foreground";
-                      return (
-                        <motion.div key={i} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.04 }} className="flex items-start gap-3 p-3 rounded-lg border border-border bg-background/40">
-                          <div className="size-6 rounded-full bg-chart-2/20 text-chart-2 flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">{i + 1}</div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1 flex-wrap"><p className="text-[10px] font-bold text-chart-2">{item.week}</p><span className={cn("text-[9px] px-1.5 py-0.5 rounded border font-semibold capitalize", typeColors[item.type] ?? typeColors["analytics"])}>{item.type}</span><span className={cn("text-[9px] font-bold", priorityClr)}>{item.priority}</span></div>
-                            <p className="text-xs text-foreground mb-1">{item.task}</p>
-                            {item.keywords.length > 0 && <div className="flex flex-wrap gap-1">{item.keywords.map((kw) => <span key={kw} className="text-[9px] bg-primary/10 text-primary px-1.5 py-0.5 rounded">{kw}</span>)}</div>}
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+                    <p className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                      <Target size={16} className="text-chart-1" />
+                      3-Month Content Strategy
+                      
+                      {autopilotActive && (
+                         <Badge variant="outline" className="ml-auto bg-chart-3/10 text-chart-3 border-chart-3/20">
+                            Autopilot Active 🚀
+                         </Badge>
+                      )}
+                    </p>
+                    <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                      {publishPlan.map((item, idx) => (
+                        <div key={idx} className={`p-4 rounded-xl border ${item.published ? 'border-chart-3/40 bg-chart-3/5' : 'border-border/50 bg-background/50'} relative group hover:border-chart-1/40 transition-colors`}>
+                          <div className="flex justify-between items-start mb-2">
+                            <div className="flex items-center gap-2">
+                              <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20">{item.week}</Badge>
+                              <Badge variant="outline" className="border-border text-muted-foreground">{item.type}</Badge>
+                            </div>
+                            <Badge variant="outline" className={cn(
+                              item.priority === "High" ? "bg-chart-4/10 text-chart-4 border-chart-4/20" :
+                                item.priority === "Medium" ? "bg-chart-2/10 text-chart-2 border-chart-2/20" :
+                                  "bg-muted text-muted-foreground border-border/50"
+                            )}>
+                              {item.priority} Priority
+                            </Badge>
                           </div>
-                        </motion.div>
-                      );
-                    })}
-                    <Button size="sm" onClick={() => { markComplete("publish"); setActiveStep("monitor"); }} className="bg-chart-2/20 text-chart-2 hover:bg-chart-2/30">Next: Monitor Rankings <ChevronRight size={12} className="ml-1" /></Button>
+                          
+                          <h4 className="text-sm font-semibold text-foreground mb-2 pr-6">
+                            {item.task}
+                            {item.published && (
+                              <span className="ml-2 inline-flex items-center text-[10px] text-chart-3 uppercase tracking-wider font-bold">
+                                <CheckCircle2 size={12} className="mr-1" /> Published
+                              </span>
+                            )}
+                          </h4>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="pt-2 border-t border-border flex justify-between items-center">
+                    {autopilotActive ? (
+                      <Button onClick={runAutopilotNow} variant="outline" size="sm" className="bg-chart-3/10 text-chart-3 hover:bg-chart-3/20 border-chart-3/30">
+                         <Rocket size={14} className="mr-2" /> Run Autopilot Cron Now
+                      </Button>
+                    ) : (
+                      <div className="text-xs text-muted-foreground">Turn on Autopilot above to auto-publish</div>
+                    )}
+                    <Button onClick={runMonitor} disabled={loading} className="bg-chart-2 hover:bg-chart-2/80 text-white shadow-lg shadow-chart-2/20">
+                      <ChevronRight size={16} className="mr-1.5" /> Continue to Monitor
+                    </Button>
+                  </div>
                   </motion.div>
                 )}
               </CardContent>

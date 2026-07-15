@@ -64,12 +64,34 @@ serve(async (req) => {
                 "Review pages with dropping average positions."
               ]
             }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+          } else {
+            // Return 0s if no data
+            return new Response(JSON.stringify({
+              organicTraffic: `0 Clicks (30d)`,
+              isRealData: true,
+              rankings: [],
+              recommendations: ["Not enough data in Google Search Console yet. Keep publishing!"]
+            }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
           }
         } else {
-          console.log("GSC API failed (might not be verified). Falling back to AI. Error:", await gscRes.text());
+          console.log("GSC API failed (might not be verified). Error:", await gscRes.text());
+          // If GSC fails (e.g. site not verified in GSC), return 0s instead of mock data
+          return new Response(JSON.stringify({
+            organicTraffic: `0 Clicks (30d)`,
+            isRealData: true,
+            rankings: [],
+            recommendations: ["Please verify this website property in your Google Search Console account."]
+          }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
       } catch (gscErr) {
         console.error("Error in GSC fetch:", gscErr);
+        // Return 0s on catch
+        return new Response(JSON.stringify({
+          organicTraffic: `0 Clicks (30d)`,
+          isRealData: true,
+          rankings: [],
+          recommendations: ["Error connecting to Google Search Console."]
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
     }
 
