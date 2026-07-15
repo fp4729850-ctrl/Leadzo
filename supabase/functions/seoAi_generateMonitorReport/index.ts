@@ -133,93 +133,13 @@ serve(async (req) => {
       }
     }
 
-    // 2. AI Fallback (Simulated Data)
-    const geminiKey = Deno.env.get("GEMINI_API_KEY")
-    if (!geminiKey) throw new Error("GEMINI_API_KEY is not set")
-
-    const systemPrompt = `You are an expert SEO Analyst.
-Create a simulated SEO monitoring report for the website: ${url || 'Unknown'}.
-Based on these keywords: ${keywords?.join(', ') || 'N/A'}.
-
-Respond ONLY with a JSON object containing EXACTLY this structure:
-{
-  "organicTraffic": "string (e.g. '4.5K')",
-  "isRealData": false,
-  "rankings": [
-    {
-      "position": 12,
-      "keyword": "string (the keyword)",
-      "change": 3
-    }
-  ],
-  "recommendations": [
-    "string (an actionable SEO recommendation)"
-  ]
-}
-Generate exactly 4-5 realistic keyword rankings and 3 actionable recommendations.`
-
-    const payload = {
-      contents: [{ parts: [{ text: systemPrompt }] }],
-      generationConfig: { response_mime_type: "application/json", temperature: 0.6 }
-    }
-
-    const models = ["gemini-1.5-pro", "gemini-1.5-flash", "gemini-2.0-flash-001", "gemini-2.0-flash-lite-001", "gemini-flash-latest", "gemini-2.5-flash"];
-    let lastError: any = null;
-    
-    for (const model of models) {
-        try {
-            const aiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`, {
-            method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
-            })
-            
-            if (!aiRes.ok) throw new Error(`Gemini failed: ${aiRes.status}`)
-            const aiData = await aiRes.json()
-            const aiText = aiData.candidates?.[0]?.content?.parts?.[0]?.text
-            if (!aiText) throw new Error("Empty response from AI")
-            
-            const parsed = JSON.parse(aiText.replace(/```json/gi, "").replace(/```/g, "").trim())
-            
-            return new Response(JSON.stringify(parsed), { headers: { ...corsHeaders, "Content-Type": "application/json" } })
-        } catch (err) {
-            lastError = err;
-        }
-    }
-    
-    console.error("All AI models failed:", lastError?.message);
-    console.log("Falling back to Pollinations AI...");
-    
-    try {
-        const fallbackPayload = {
-            messages: [
-                { role: "system", content: "You are an expert SEO Analyst. Respond ONLY with valid JSON." },
-                { role: "user", content: systemPrompt }
-            ],
-            jsonMode: true,
-            model: "openai"
-        };
-        
-        const fallbackRes = await fetch("https://text.pollinations.ai/", {
-            method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(fallbackPayload)
-        });
-        
-        const fallbackText = await fallbackRes.text();
-        let jsonStr = fallbackText.replace(/\r\n/g, "").replace(/\n/g, "").replace(/```json/gi, "").replace(/```/g, "").trim();
-        const start = jsonStr.indexOf("{");
-        const end = jsonStr.lastIndexOf("}");
-        if (start !== -1 && end !== -1) jsonStr = jsonStr.substring(start, end + 1);
-        
-        const parsed = JSON.parse(jsonStr);
-        return new Response(JSON.stringify(parsed), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    } catch (fallbackErr) {
-        console.error("Pollinations fallback also failed:", fallbackErr);
-        
-        // If everything fails, check if original error was rate limit
-        if (lastError?.message?.includes("429") || lastError?.message?.includes("quota")) {
-          return new Response(JSON.stringify({ error: "Google Gemini API Daily Limit Reached! Please try again tomorrow or upgrade your API key." }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-        }
-        
-        return new Response(JSON.stringify({ error: lastError?.message || "All AI models failed." }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
+    // Default to 0s if no valid GSC data could be fetched or no token provided
+    return new Response(JSON.stringify({
+      organicTraffic: `0 Clicks (30d)`,
+      isRealData: true,
+      rankings: [],
+      recommendations: ["Data not available yet. Keep publishing to see your rankings grow!"]
+    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
 
   } catch (error: any) {
