@@ -199,6 +199,7 @@ export default function SeoAgentPage() {
   };
 
   const runFullPipeline = async () => {
+    console.log("Starting full pipeline...");
     if (!url) { toast.error("Pehle Website URL enter karo"); return; }
     if (!niche) { toast.error("Business Niche bhi enter karo"); return; }
     setAutoRunning(true);
