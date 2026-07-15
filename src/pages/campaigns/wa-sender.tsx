@@ -32,7 +32,7 @@ function SetupPanel({ onTest }: { onTest: () => void }) {
   const checkStatus = async () => {
     if (!user) return;
     try {
-      const res = await fetch(`/api/status/${user.id}`);
+      const res = await fetch(`http://187.127.186.10:3001/api/status/${user.id}`);
       const data = await res.json();
       setStatus(data.status);
       if (data.qrCode) setQrCode(data.qrCode);
@@ -55,7 +55,7 @@ function SetupPanel({ onTest }: { onTest: () => void }) {
     }
     setLoading(true);
     try {
-      await fetch(`/api/connect`, {
+      await fetch(`http://187.127.186.10:3001/api/connect`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: user.id })
@@ -383,7 +383,7 @@ export default function WASenderPage() {
 
     if (apiType === "green") {
       try {
-        const res = await fetch('http://localhost:3001/api/send', {
+        const res = await fetch('http://187.127.186.10:3001/api/send', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ userId: user?.id, numbers, message })
