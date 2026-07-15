@@ -739,9 +739,15 @@ export default function SeoAgentPage() {
                   <Button onClick={() => runMonitor()} disabled={loading} className="bg-chart-3 hover:bg-chart-3/80 text-white">
                     {loading ? <><Loader2 size={14} className="animate-spin mr-2" /> Analyzing...</> : <><RefreshCw size={14} className="mr-2" /> Generate Report</>}
                   </Button>
-                  <Button onClick={connectGsc} variant="outline" className="border-chart-3 text-chart-3 hover:bg-chart-3/10">
-                    <Activity size={14} className="mr-2" /> Connect Google Search Console
-                  </Button>
+                  {(gscStatus?.connected || localGscConnected) ? (
+                    <Button onClick={async () => { await disconnectGsc(); setLocalGscConnected(false); toast.success("Google Search Console disconnected"); }} variant="outline" className="border-chart-3 text-chart-3 bg-chart-3/10 hover:bg-chart-3/20">
+                      <CheckCircle2 size={14} className="mr-2" /> GSC Connected
+                    </Button>
+                  ) : (
+                    <Button onClick={connectGsc} variant="outline" className="border-chart-3 text-chart-3 hover:bg-chart-3/10">
+                      <Activity size={14} className="mr-2" /> Connect Google Search Console
+                    </Button>
+                  )}
                 </div>
                 {monitorData && (
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
