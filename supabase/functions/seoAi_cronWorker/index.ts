@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3"
-import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.1.1"
+import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.11.0"
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -54,7 +54,7 @@ serve(async (req) => {
         console.log(`Processing topic: ${targetItem.title} for ${setting.url}`);
 
         // 3. Generate Content using Gemini
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
         const prompt = `You are an expert SEO Content Writer for the website ${setting.url} in the niche of ${setting.niche}.
 Please write a highly optimized, engaging blog post about: "${targetItem.title}".
 Include headings, paragraphs, and use these keywords naturally: ${targetItem.keywords.join(', ')}.
