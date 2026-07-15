@@ -66,7 +66,7 @@ export default function SeoAgentPage() {
   const [contentTone, setContentTone] = useState("professional");
   const [contentData, setContentData] = useState<ContentData | null>(null);
   const [monitorData, setMonitorData] = useState<MonitorData | null>(null);
-  const [publishPlan, setPublishPlan] = useState<{ week: string; task: string; type: string; keywords: string[]; priority: string }[]>([]);
+  const [publishPlan, setPublishPlan] = useState<{ week: string; task: string; type: string; keywords: string[]; priority: string; published?: boolean; published_at?: string; }[]>([]);
   const [publishLoading, setPublishLoading] = useState(false);
   const [autoRunning, setAutoRunning] = useState(false);
   const [autoStep, setAutoStep] = useState("");
@@ -542,7 +542,6 @@ export default function SeoAgentPage() {
               <CardHeader className="pb-3"><CardTitle className="text-sm flex items-center gap-2"><Rocket size={15} className="text-chart-2" /> Content Publish Plan</CardTitle></CardHeader>
               <CardContent className="space-y-3">
                 <p className="text-xs text-muted-foreground">AI-generated 3-month SEO calendar based on your site, niche & keywords.</p>
-                <Button onClick={runPublishPlan} disabled={publishLoading} className="bg-chart-2 hover:bg-chart-2/80 text-white">
                 <Button onClick={runPublishPlan} disabled={publishLoading} className="bg-chart-2 hover:bg-chart-2/80 text-white w-full">
                   {publishLoading ? <><Loader2 size={14} className="animate-spin mr-2" /> Generating Plan...</> : <><Rocket size={14} className="mr-2" /> {publishPlan.length > 0 ? "Regenerate Plan" : "Generate AI Plan"}</>}
                 </Button>
