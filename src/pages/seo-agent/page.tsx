@@ -134,34 +134,36 @@ export default function SeoAgentPage() {
     };
     loadAutopilotSettings();
 
+    const captureGscToken = async (session: any) => {
+      if (session?.provider_refresh_token) {
+        try {
+          const refreshToken = session.provider_refresh_token;
+          const { data: existing } = await supabase.from('gsc_tokens').select('id').eq('user_id', session.user.id).single();
+          let error;
+          if (existing) {
+            const res = await supabase.from('gsc_tokens').update({ refresh_token: refreshToken, connected: true }).eq('id', existing.id);
+            error = res.error;
+          } else {
+            const res = await supabase.from('gsc_tokens').insert({ user_id: session.user.id, refresh_token: refreshToken, connected: true });
+            error = res.error;
+          }
+          if (!error) console.log("Successfully saved GSC refresh token to database");
+          else console.error("Failed to save GSC token:", error);
+        } catch (e) {
+          console.error("Auth state change error:", e);
+        }
+      }
+    };
+
+    // Check immediately on mount (in case URL just parsed the hash)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      captureGscToken(session);
+    });
+
     // Listen for OAuth sign-in to capture the Google refresh token
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session?.provider_token) {
-        // If they have a provider token, it means they just completed OAuth!
-        const refreshToken = session.provider_refresh_token;
-        if (refreshToken) {
-          try {
-            // Save the refresh token to the gsc_tokens table persistently
-            const { data: existing } = await supabase.from('gsc_tokens').select('id').eq('user_id', session.user.id).single();
-            
-            let error;
-            if (existing) {
-              const res = await supabase.from('gsc_tokens').update({ refresh_token: refreshToken, connected: true }).eq('id', existing.id);
-              error = res.error;
-            } else {
-              const res = await supabase.from('gsc_tokens').insert({ user_id: session.user.id, refresh_token: refreshToken, connected: true });
-              error = res.error;
-            }
-            
-            if (!error) {
-              console.log("Successfully saved GSC refresh token to database");
-            } else {
-              console.error("Failed to save GSC token:", error);
-            }
-          } catch (e) {
-            console.error("Auth state change error:", e);
-          }
-        }
+      if ((event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'TOKEN_REFRESHED') && session?.provider_token) {
+        captureGscToken(session);
       }
     });
 
