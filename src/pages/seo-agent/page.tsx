@@ -167,14 +167,36 @@ export default function SeoAgentPage() {
       }
     };
 
+    // Manual fallback to catch tokens directly from the URL hash before they are cleared
+    const hash = window.location.hash;
+    if (hash && hash.includes('provider_token=')) {
+      const params = new URLSearchParams(hash.substring(1));
+      const pToken = params.get('provider_token');
+      const prToken = params.get('provider_refresh_token');
+      
+      if (pToken) {
+        supabase.auth.getUser().then(({ data: { user } }) => {
+          if (user) {
+            captureGscToken({
+              provider_token: pToken,
+              provider_refresh_token: prToken,
+              user: user
+            });
+            window.history.replaceState(null, '', window.location.pathname + window.location.search);
+          }
+        });
+      }
+    }
+
     // Check immediately on mount (in case URL just parsed the hash)
     supabase.auth.getSession().then(({ data: { session } }) => {
-      captureGscToken(session);
+      if (session) captureGscToken(session);
     });
 
     // Listen for OAuth sign-in to capture the Google refresh token
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if ((event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'TOKEN_REFRESHED') && session?.provider_token) {
+      console.log("Auth event:", event, session);
+      if (session?.provider_token) {
         captureGscToken(session);
       }
     });
