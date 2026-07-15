@@ -1,5 +1,6 @@
 // Supabase Edge Function: seoAi_generateMonitorReport
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3"
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,9 +13,46 @@ serve(async (req) => {
   }
 
   try {
-    const { url, keywords, googleToken } = await req.json()
+    let { url, keywords, googleToken } = await req.json()
 
-    // 1. Try Google Search Console API first if token is provided
+    // 1. Try Google Search Console API first
+    if (!googleToken) {
+      // If no token provided from frontend, check the database!
+      const authHeader = req.headers.get('Authorization')
+      if (authHeader) {
+        const supabase = createClient(
+          Deno.env.get('SUPABASE_URL') ?? '',
+          Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+          { global: { headers: { Authorization: authHeader } } }
+        )
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          const { data: tokenData } = await supabase.from('gsc_tokens').select('refresh_token').eq('user_id', user.id).single()
+          if (tokenData?.refresh_token) {
+            // Exchange refresh token for fresh access token
+            const clientId = Deno.env.get('GOOGLE_CLIENT_ID')
+            const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET')
+            if (clientId && clientSecret) {
+              const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: new URLSearchParams({
+                  client_id: clientId,
+                  client_secret: clientSecret,
+                  refresh_token: tokenData.refresh_token,
+                  grant_type: "refresh_token"
+                })
+              });
+              if (tokenRes.ok) {
+                const freshTokens = await tokenRes.json();
+                googleToken = freshTokens.access_token;
+              }
+            }
+          }
+        }
+      }
+    }
+
     if (googleToken && url) {
       try {
         const endDate = new Date().toISOString().split("T")[0];

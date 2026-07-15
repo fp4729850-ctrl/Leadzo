@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card.t
 import { Progress } from "@/components/ui/progress.tsx";
 import { Separator } from "@/components/ui/separator.tsx";
 import { Switch } from "@/components/ui/switch.tsx";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog.tsx";
 import { toast } from "sonner";
 import {
   Search, Globe, BarChart2, FileText, Rocket, Activity,
@@ -75,6 +76,7 @@ export default function SeoAgentPage() {
   const [autopilotActive, setAutopilotActive] = useState(false);
   const [autopilotId, setAutopilotId] = useState<string | null>(null);
   const [autopilotLoading, setAutopilotLoading] = useState(false);
+  const [showMonitoringDashboard, setShowMonitoringDashboard] = useState(false);
 
   const crawlAndAudit = useAction(api.seoAi.crawlAndAudit);
   const researchKeywords = useAction(api.seoAi.researchKeywords);
@@ -131,6 +133,41 @@ export default function SeoAgentPage() {
       }
     };
     loadAutopilotSettings();
+
+    // Listen for OAuth sign-in to capture the Google refresh token
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session?.provider_token) {
+        // If they have a provider token, it means they just completed OAuth!
+        const refreshToken = session.provider_refresh_token;
+        if (refreshToken) {
+          try {
+            // Save the refresh token to the gsc_tokens table persistently
+            const { data: existing } = await supabase.from('gsc_tokens').select('id').eq('user_id', session.user.id).single();
+            
+            let error;
+            if (existing) {
+              const res = await supabase.from('gsc_tokens').update({ refresh_token: refreshToken, connected: true }).eq('id', existing.id);
+              error = res.error;
+            } else {
+              const res = await supabase.from('gsc_tokens').insert({ user_id: session.user.id, refresh_token: refreshToken, connected: true });
+              error = res.error;
+            }
+            
+            if (!error) {
+              console.log("Successfully saved GSC refresh token to database");
+            } else {
+              console.error("Failed to save GSC token:", error);
+            }
+          } catch (e) {
+            console.error("Auth state change error:", e);
+          }
+        }
+      }
+    });
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
   }, []);
 
   const toggleAutopilot = async (checked: boolean) => {
@@ -278,21 +315,21 @@ export default function SeoAgentPage() {
     finally { setPublishLoading(false); }
   };
 
-  const runMonitor = async () => {
-    if (!url) { toast.error("Enter website URL first"); return; }
+  const runMonitor = async (dashboardUrl?: string) => {
+    const targetUrl = dashboardUrl || url;
+    if (!targetUrl) { toast.error("Enter website URL first"); return; }
     setLoading(true); setActiveStep("monitor");
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const providerToken = session?.provider_token;
-      
+      // Backend now fetches the googleToken from gsc_tokens table directly!
       const allKeywords = keywordClusters.flatMap((c) => c.keywords.map((k) => k.term));
       const result = await generateMonitorReport({ 
-        url, 
-        keywords: allKeywords.length > 0 ? allKeywords : [niche],
-        googleToken: providerToken 
+        url: targetUrl, 
+        keywords: allKeywords.length > 0 ? allKeywords : [niche || "blog"],
+        // Pass empty token; Edge Function will look it up in the database!
+        googleToken: "" 
       });
-      setMonitorData(result); markComplete("monitor"); toast.success("Monitor report ready!");
-    } catch { toast.error("Monitoring failed."); }
+      setMonitorData(result); markComplete("monitor"); toast.success("Monitoring Report generated!");
+    } catch { toast.error("Failed to generate report."); }
     finally { setLoading(false); }
   };
 
@@ -346,7 +383,60 @@ export default function SeoAgentPage() {
             <p className="text-xs text-muted-foreground">AI-powered 5-step SEO pipeline</p>
           </div>
           <Badge className="ml-auto bg-chart-1/20 text-chart-1 border-chart-1/30">AI Powered</Badge>
-          <div className="flex items-center gap-2 ml-4 mr-2 bg-card/60 px-3 py-1.5 rounded-lg border border-border">
+          
+          <Dialog open={showMonitoringDashboard} onOpenChange={setShowMonitoringDashboard}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm" className="ml-4 h-8 bg-chart-4/10 text-chart-4 border-chart-4/20 hover:bg-chart-4/20" onClick={() => { if (!monitorData) runMonitor(); }}>
+                <Activity size={14} className="mr-2" /> Global Dashboard
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-4xl bg-card border-border">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2"><Activity className="text-chart-4" /> 3-Month Monitoring Dashboard</DialogTitle>
+              </DialogHeader>
+              <div className="py-4">
+                {loading && !monitorData ? (
+                  <div className="flex flex-col items-center py-12"><Loader2 size={32} className="animate-spin text-chart-2 mb-4" /><p className="text-sm text-muted-foreground">Fetching live GSC data...</p></div>
+                ) : monitorData ? (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="p-6 rounded-xl border border-border bg-background/50">
+                        <Eye className="text-chart-2 mb-2" size={20} />
+                        <p className="text-3xl font-bold text-chart-2">{monitorData.organicTraffic}</p>
+                        <p className="text-xs text-muted-foreground mt-1">Organic Traffic (Last 30 Days)</p>
+                      </div>
+                      <div className="p-6 rounded-xl border border-border bg-background/50">
+                        <Search className="text-chart-2 mb-2" size={20} />
+                        <p className="text-3xl font-bold text-chart-2">{monitorData.rankings.length}</p>
+                        <p className="text-xs text-muted-foreground mt-1">Keywords Tracked</p>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">Keyword Rankings {monitorData.isRealData ? <Badge variant="outline" className="bg-chart-3/10 text-chart-3 border-chart-3/30 ml-2">Real Data</Badge> : <Badge variant="outline" className="bg-muted text-muted-foreground ml-2">AI Simulated</Badge>}</p>
+                      <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                        {monitorData.rankings.map((r, i) => (
+                          <div key={i} className="flex items-center justify-between p-3 rounded-lg border border-border/50 bg-background/40">
+                            <div className="flex items-center gap-3">
+                              <Badge variant="secondary" className="bg-primary/10 text-primary w-8 justify-center">#{r.position}</Badge>
+                              <span className="text-sm font-medium text-foreground">{r.keyword}</span>
+                            </div>
+                            <span className={cn("text-xs font-bold flex items-center", r.change > 0 ? "text-chart-3" : r.change < 0 ? "text-destructive" : "text-muted-foreground")}>
+                              {r.change > 0 ? <TrendingUp size={12} className="mr-1" /> : r.change < 0 ? <TrendingDown size={12} className="mr-1" /> : <Minus size={12} className="mr-1" />}
+                              {Math.abs(r.change)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">No data available. Ensure your GSC is connected.</div>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          <div className="flex items-center gap-2 ml-2 mr-2 bg-card/60 px-3 py-1.5 rounded-lg border border-border">
             <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">Autopilot</span>
             <Switch 
               checked={autopilotActive} 
@@ -593,7 +683,7 @@ export default function SeoAgentPage() {
                     ) : (
                       <div className="text-xs text-muted-foreground">Turn on Autopilot above to auto-publish</div>
                     )}
-                    <Button onClick={runMonitor} disabled={loading} className="bg-chart-2 hover:bg-chart-2/80 text-white shadow-lg shadow-chart-2/20">
+                    <Button onClick={() => runMonitor()} disabled={loading} className="bg-chart-2 hover:bg-chart-2/80 text-white shadow-lg shadow-chart-2/20">
                       <ChevronRight size={16} className="mr-1.5" /> Continue to Monitor
                     </Button>
                   </div>
@@ -610,7 +700,7 @@ export default function SeoAgentPage() {
               <CardHeader className="pb-3"><CardTitle className="text-sm flex items-center gap-2"><Activity size={15} className="text-chart-3" /> Monitor & Track Rankings</CardTitle></CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center gap-3">
-                  <Button onClick={runMonitor} disabled={loading} className="bg-chart-3 hover:bg-chart-3/80 text-white">
+                  <Button onClick={() => runMonitor()} disabled={loading} className="bg-chart-3 hover:bg-chart-3/80 text-white">
                     {loading ? <><Loader2 size={14} className="animate-spin mr-2" /> Analyzing...</> : <><RefreshCw size={14} className="mr-2" /> Generate Report</>}
                   </Button>
                   <Button onClick={connectGsc} variant="outline" className="border-chart-3 text-chart-3 hover:bg-chart-3/10">
