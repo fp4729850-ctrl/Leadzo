@@ -224,6 +224,11 @@ function TemplateCreatorPanel({ onClose, onCreated, billingMode }: { onClose: ()
           <Textarea placeholder="Hello {{1}}, our summer sale is live! Use code SALE50..." rows={4} className="text-xs resize-none bg-background" value={messageBody} onChange={(e) => setMessageBody(e.target.value)} />
         </div>
         
+        <div className="p-3 border rounded-lg bg-background/50 border-primary/20 space-y-2">
+           <Label className="text-xs font-semibold text-primary">✨ Write with AI</Label>
+           <AiTemplatePanel campaignType="whatsapp" onSelect={(t) => setMessageBody(t)} />
+        </div>
+        
         <div className="grid grid-cols-2 gap-3 pt-2 border-t border-primary/10">
           <div className="space-y-2">
             <Label className="text-[10px] text-muted-foreground font-semibold">Website Button (Optional)</Label>
