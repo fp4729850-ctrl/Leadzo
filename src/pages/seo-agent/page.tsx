@@ -67,6 +67,15 @@ export default function SeoAgentPage() {
   const [contentTone, setContentTone] = useState("professional");
   const [contentData, setContentData] = useState<ContentData | null>(null);
   const [monitorData, setMonitorData] = useState<MonitorData | null>(null);
+  
+  type GlobalDashboardItem = {
+    settings: any;
+    monitorData: MonitorData | null;
+    recentBlogs: any[];
+  };
+  const [globalDashboardData, setGlobalDashboardData] = useState<GlobalDashboardItem[]>([]);
+  const [globalDashboardLoading, setGlobalDashboardLoading] = useState(false);
+
   const [publishPlan, setPublishPlan] = useState<{ week: string; task: string; type: string; keywords: string[]; priority: string; published?: boolean; published_at?: string; }[]>([]);
   const [publishLoading, setPublishLoading] = useState(false);
   const [autoRunning, setAutoRunning] = useState(false);
@@ -369,6 +378,58 @@ export default function SeoAgentPage() {
     finally { setLoading(false); }
   };
 
+  const loadGlobalDashboard = async () => {
+    setGlobalDashboardLoading(true);
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      if (!session?.session?.user) throw new Error("Not logged in");
+      
+      const { data: settings } = await supabase
+        .from("seo_autopilot_settings")
+        .select("*")
+        .eq("user_id", session.session.user.id);
+        
+      if (!settings || settings.length === 0) {
+        setGlobalDashboardData([]);
+        return;
+      }
+      
+      const { data: blogs } = await supabase
+        .from("blogs")
+        .select("*")
+        .eq("user_id", session.session.user.id)
+        .order("created_at", { ascending: false });
+        
+      const results: GlobalDashboardItem[] = [];
+      
+      for (const s of settings) {
+        let mData = null;
+        try {
+          const kws = s.publish_plan?.map((p: any) => p.title) || [];
+          mData = await generateMonitorReport({ 
+            url: s.url, 
+            keywords: kws.length > 0 ? kws.slice(0, 5) : ["blog"],
+            googleToken: "" 
+          });
+        } catch (e) {
+          console.error("Failed to load GSC for", s.url);
+        }
+        
+        results.push({
+          settings: s,
+          monitorData: mData,
+          recentBlogs: (blogs || []).filter((b: any) => b.website_url === s.url)
+        });
+      }
+      
+      setGlobalDashboardData(results);
+    } catch (err: any) {
+      toast.error("Failed to load dashboard: " + err.message);
+    } finally {
+      setGlobalDashboardLoading(false);
+    }
+  };
+
   const runFullPipeline = async () => {
     console.log("Starting full pipeline...");
     if (!url) { toast.error("Pehle Website URL enter karo"); return; }
@@ -422,51 +483,81 @@ export default function SeoAgentPage() {
           
           <Dialog open={showMonitoringDashboard} onOpenChange={setShowMonitoringDashboard}>
             <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="ml-4 h-8 bg-chart-4/10 text-chart-4 border-chart-4/20 hover:bg-chart-4/20" onClick={() => { if (!monitorData) runMonitor(); }}>
+              <Button variant="outline" size="sm" className="ml-4 h-8 bg-chart-4/10 text-chart-4 border-chart-4/20 hover:bg-chart-4/20" onClick={() => { if (globalDashboardData.length === 0) loadGlobalDashboard(); }}>
                 <Activity size={14} className="mr-2" /> Global Dashboard
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-4xl bg-card border-border">
+            <DialogContent className="max-w-5xl bg-card border-border max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle className="flex items-center gap-2"><Activity className="text-chart-4" /> 3-Month Monitoring Dashboard</DialogTitle>
+                <DialogTitle className="flex items-center gap-2"><Activity className="text-chart-4" /> Global Multi-Site Dashboard</DialogTitle>
               </DialogHeader>
               <div className="py-4">
-                {loading && !monitorData ? (
-                  <div className="flex flex-col items-center py-12"><Loader2 size={32} className="animate-spin text-chart-2 mb-4" /><p className="text-sm text-muted-foreground">Fetching live GSC data...</p></div>
-                ) : monitorData ? (
-                  <div className="space-y-6">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="p-6 rounded-xl border border-border bg-background/50">
-                        <Eye className="text-chart-2 mb-2" size={20} />
-                        <p className="text-3xl font-bold text-chart-2">{monitorData.organicTraffic}</p>
-                        <p className="text-xs text-muted-foreground mt-1">Organic Traffic (Last 30 Days)</p>
-                      </div>
-                      <div className="p-6 rounded-xl border border-border bg-background/50">
-                        <Search className="text-chart-2 mb-2" size={20} />
-                        <p className="text-3xl font-bold text-chart-2">{monitorData.rankings.length}</p>
-                        <p className="text-xs text-muted-foreground mt-1">Keywords Tracked</p>
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">Keyword Rankings {monitorData.isRealData ? <Badge variant="outline" className="bg-chart-3/10 text-chart-3 border-chart-3/30 ml-2">Real Data</Badge> : <Badge variant="outline" className="bg-muted text-muted-foreground ml-2">AI Simulated</Badge>}</p>
-                      <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                        {monitorData.rankings.map((r, i) => (
-                          <div key={i} className="flex items-center justify-between p-3 rounded-lg border border-border/50 bg-background/40">
-                            <div className="flex items-center gap-3">
-                              <Badge variant="secondary" className="bg-primary/10 text-primary w-8 justify-center">#{r.position}</Badge>
-                              <span className="text-sm font-medium text-foreground">{r.keyword}</span>
-                            </div>
-                            <span className={cn("text-xs font-bold flex items-center", r.change > 0 ? "text-chart-3" : r.change < 0 ? "text-destructive" : "text-muted-foreground")}>
-                              {r.change > 0 ? <TrendingUp size={12} className="mr-1" /> : r.change < 0 ? <TrendingDown size={12} className="mr-1" /> : <Minus size={12} className="mr-1" />}
-                              {Math.abs(r.change)}
-                            </span>
+                {globalDashboardLoading ? (
+                  <div className="flex flex-col items-center py-12"><Loader2 size={32} className="animate-spin text-chart-2 mb-4" /><p className="text-sm text-muted-foreground">Fetching live GSC data & blogs across all websites...</p></div>
+                ) : globalDashboardData.length > 0 ? (
+                  <div className="space-y-8">
+                    {globalDashboardData.map((data, idx) => (
+                      <div key={idx} className="border border-border/50 rounded-xl p-6 bg-background/30">
+                        <div className="flex items-center gap-3 mb-6">
+                          <Globe className="text-primary" size={24} />
+                          <h2 className="text-xl font-bold text-foreground">{data.settings.url}</h2>
+                          <Badge variant="outline" className={data.settings.is_active ? "bg-chart-2/10 text-chart-2 border-chart-2/30" : "bg-muted text-muted-foreground"}>
+                            {data.settings.is_active ? "Autopilot Active" : "Autopilot Paused"}
+                          </Badge>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          {/* Traffic & Keywords Section */}
+                          <div className="space-y-4">
+                            <h3 className="text-sm font-semibold text-muted-foreground">Traffic & Rankings (GSC)</h3>
+                            {data.monitorData ? (
+                              <div className="grid grid-cols-2 gap-4">
+                                <div className="p-4 rounded-xl border border-border bg-background/50">
+                                  <Eye className="text-chart-2 mb-2" size={16} />
+                                  <p className="text-2xl font-bold text-chart-2">{data.monitorData.organicTraffic}</p>
+                                  <p className="text-xs text-muted-foreground mt-1">Clicks (30 Days)</p>
+                                </div>
+                                <div className="p-4 rounded-xl border border-border bg-background/50">
+                                  <Search className="text-chart-2 mb-2" size={16} />
+                                  <p className="text-2xl font-bold text-chart-2">{data.monitorData.rankings.length}</p>
+                                  <p className="text-xs text-muted-foreground mt-1">Keywords Tracked</p>
+                                </div>
+                              </div>
+                            ) : (
+                               <div className="p-4 border border-border rounded-xl bg-background/20 flex flex-col items-center justify-center text-center h-[100px]">
+                                 <AlertTriangle className="text-chart-4 mb-2" size={20} />
+                                 <p className="text-xs text-muted-foreground">GSC not connected for this site</p>
+                               </div>
+                            )}
                           </div>
-                        ))}
+                          
+                          {/* Blogs Section */}
+                          <div className="space-y-4">
+                            <h3 className="text-sm font-semibold text-muted-foreground">Recently Published Blogs</h3>
+                            <div className="space-y-2 max-h-[150px] overflow-y-auto pr-2 custom-scrollbar">
+                              {data.recentBlogs.length > 0 ? (
+                                data.recentBlogs.map((b, i) => (
+                                  <div key={i} className="p-3 rounded-lg border border-border bg-background/50 flex flex-col gap-1">
+                                    <p className="text-sm font-medium text-foreground line-clamp-1">{b.title}</p>
+                                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                      <CheckCircle2 size={12} className="text-chart-2" />
+                                      <span>{new Date(b.created_at).toLocaleDateString()}</span>
+                                    </div>
+                                  </div>
+                                ))
+                              ) : (
+                                <div className="text-xs text-muted-foreground italic p-4 border border-border/50 rounded-lg text-center">
+                                  No blogs published yet for this website.
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                    </div>
+                    ))}
                   </div>
                 ) : (
-                  <div className="text-center py-8 text-muted-foreground">No data available. Ensure your GSC is connected.</div>
+                  <div className="text-center py-8 text-muted-foreground">No websites found. Please complete the SEO pipeline for a website first.</div>
                 )}
               </div>
             </DialogContent>
