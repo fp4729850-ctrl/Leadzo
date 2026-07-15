@@ -77,6 +77,7 @@ export default function SeoAgentPage() {
   const [autopilotId, setAutopilotId] = useState<string | null>(null);
   const [autopilotLoading, setAutopilotLoading] = useState(false);
   const [showMonitoringDashboard, setShowMonitoringDashboard] = useState(false);
+  const [localGscConnected, setLocalGscConnected] = useState(false);
 
   const crawlAndAudit = useAction(api.seoAi.crawlAndAudit);
   const researchKeywords = useAction(api.seoAi.researchKeywords);
@@ -135,7 +136,11 @@ export default function SeoAgentPage() {
     loadAutopilotSettings();
 
     const captureGscToken = async (session: any) => {
-      if (session?.provider_refresh_token) {
+      if (session?.provider_token) {
+        if (!session.provider_refresh_token) {
+          console.warn("No provider_refresh_token in session. Google might not have issued one.");
+          return;
+        }
         try {
           const refreshToken = session.provider_refresh_token;
           const { data: existing } = await supabase.from('gsc_tokens').select('id').eq('user_id', session.user.id).single();
@@ -147,8 +152,14 @@ export default function SeoAgentPage() {
             const res = await supabase.from('gsc_tokens').insert({ user_id: session.user.id, refresh_token: refreshToken, connected: true });
             error = res.error;
           }
-          if (!error) console.log("Successfully saved GSC refresh token to database");
-          else console.error("Failed to save GSC token:", error);
+          if (!error) {
+            console.log("Successfully saved GSC refresh token to database");
+            setLocalGscConnected(true);
+            toast.success("Google Search Console Connected Successfully!");
+          } else {
+            console.error("Failed to save GSC token:", error);
+            toast.error("Failed to save GSC token to database.");
+          }
         } catch (e) {
           console.error("Auth state change error:", e);
         }
@@ -448,8 +459,8 @@ export default function SeoAgentPage() {
             />
           </div>
           <>
-            {gscStatus?.connected ? (
-              <button onClick={async () => { await disconnectGsc(); toast.success("Google Search Console disconnected"); }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-chart-3/40 bg-chart-3/10 text-chart-3 text-xs font-semibold cursor-pointer hover:bg-chart-3/20 transition-all">
+            {(gscStatus?.connected || localGscConnected) ? (
+              <button onClick={async () => { await disconnectGsc(); setLocalGscConnected(false); toast.success("Google Search Console disconnected"); }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-chart-3/40 bg-chart-3/10 text-chart-3 text-xs font-semibold cursor-pointer hover:bg-chart-3/20 transition-all">
                 <CheckCircle2 size={12} /> GSC Connected <Unlink size={11} className="ml-1 opacity-60" />
               </button>
             ) : (
