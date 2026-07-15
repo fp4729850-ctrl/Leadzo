@@ -259,7 +259,7 @@ function AiTemplatePanel({ campaignType, onSelect }: { campaignType: string; onS
     if (!goal.trim()) { toast.error("Goal likhna zaroori hai"); return; }
     setLoading(true); setTemplates([]);
     try {
-      const res = await generate({ type: campaignType, prompt: goal, language, tone, websiteUrl, count: 3 });
+      const res = await generate({ type: campaignType, prompt: goal, language, tone, websiteUrl, count: 1 });
       setTemplates(res);
     } catch { toast.error("Failed. Check HERCULES_API_KEY secret."); }
     finally { setLoading(false); }
@@ -289,7 +289,7 @@ function AiTemplatePanel({ campaignType, onSelect }: { campaignType: string; onS
       </div>
       <Button onClick={run} disabled={loading} size="sm" className="w-full gap-2 cursor-pointer">
         {loading ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-        {loading ? "Generating..." : "Generate 3 Templates"}
+        {loading ? "Generating..." : "Generate AI Template"}
       </Button>
       {templates.map((t, i) => (
         <div key={i} onClick={() => onSelect(t)} className="relative rounded-lg border border-border bg-muted/40 p-3 cursor-pointer hover:border-primary/40 transition-colors group">
