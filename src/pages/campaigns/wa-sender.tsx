@@ -248,6 +248,7 @@ function TemplateCreatorPanel({ onClose, onCreated, billingMode }: { onClose: ()
 function AiTemplatePanel({ campaignType, onSelect }: { campaignType: string; onSelect: (t: string) => void }) {
   const generate = useAction(api.campaignAi.generateTemplate);
   const [goal, setGoal] = useState("");
+  const [websiteUrl, setWebsiteUrl] = useState("");
   const [language, setLanguage] = useState("hinglish");
   const [tone, setTone] = useState("friendly");
   const [loading, setLoading] = useState(false);
@@ -258,7 +259,7 @@ function AiTemplatePanel({ campaignType, onSelect }: { campaignType: string; onS
     if (!goal.trim()) { toast.error("Goal likhna zaroori hai"); return; }
     setLoading(true); setTemplates([]);
     try {
-      const res = await generate({ type: campaignType, prompt: goal, language, tone, count: 3 });
+      const res = await generate({ type: campaignType, prompt: goal, language, tone, websiteUrl, count: 3 });
       setTemplates(res);
     } catch { toast.error("Failed. Check HERCULES_API_KEY secret."); }
     finally { setLoading(false); }
@@ -266,6 +267,7 @@ function AiTemplatePanel({ campaignType, onSelect }: { campaignType: string; onS
 
   return (
     <div className="space-y-3">
+      <Input placeholder="Website URL (Optional)... e.g. https://yoursite.com" className="text-xs h-8" value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} />
       <Textarea placeholder="Campaign goal..." rows={2} className="text-xs resize-none" value={goal} onChange={(e) => setGoal(e.target.value)} />
       <div className="flex gap-2">
         <Select value={language} onValueChange={setLanguage}>
