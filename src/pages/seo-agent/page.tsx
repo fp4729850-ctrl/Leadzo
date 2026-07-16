@@ -82,6 +82,8 @@ export default function SeoAgentPage() {
   const [autoStep, setAutoStep] = useState("");
   const [webhookUrl, setWebhookUrl] = useState("");
   const [publishingToWebhook, setPublishingToWebhook] = useState(false);
+  const [githubRepo, setGithubRepo] = useState("");
+  const [githubToken, setGithubToken] = useState("");
   const [autopilotActive, setAutopilotActive] = useState(false);
   const [autopilotId, setAutopilotId] = useState<string | null>(null);
   const [autopilotLoading, setAutopilotLoading] = useState(false);
@@ -722,7 +724,7 @@ export default function SeoAgentPage() {
                     </div>
                     <div className="p-4 rounded-lg border border-border bg-background/40"><p className="text-[10px] font-bold text-muted-foreground mb-2 flex items-center gap-1.5"><FileText size={10} /> BLOG CONTENT PREVIEW</p><div className="text-xs text-muted-foreground whitespace-pre-line leading-relaxed max-h-64 overflow-y-auto" dangerouslySetInnerHTML={{ __html: contentData.content }} /></div>
                     
-                    <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
                       {/* Internal Publish */}
                       <div className="p-4 rounded-lg border border-primary/20 bg-primary/5 space-y-3">
                         <p className="text-xs font-bold text-primary flex items-center gap-1.5"><FileText size={12} /> Publish to Leadzo Blog</p>
@@ -730,6 +732,21 @@ export default function SeoAgentPage() {
                         <Button size="sm" onClick={handlePublishToLeadzo} disabled={publishingToWebhook} className="w-full h-8 bg-primary hover:bg-primary/90 text-white shadow-sm mt-2">
                           {publishingToWebhook ? <Loader2 size={12} className="animate-spin mr-1.5" /> : <Send size={12} className="mr-1.5" />} Publish to Leadzo
                         </Button>
+                      </div>
+
+                      {/* GitHub Push */}
+                      <div className="p-4 rounded-lg border border-purple-500/20 bg-purple-500/5 space-y-3">
+                        <p className="text-xs font-bold text-purple-500 flex items-center gap-1.5"><Globe size={12} /> Push to GitHub Repo</p>
+                        <p className="text-[10px] text-muted-foreground leading-tight">Push code directly to your Next.js/React GitHub repository.</p>
+                        <div className="flex flex-col gap-2 mt-2">
+                          <Input value={githubRepo} onChange={(e) => setGithubRepo(e.target.value)} placeholder="username/repo" className="h-8 text-xs bg-background" />
+                          <div className="flex items-center gap-2">
+                            <Input type="password" value={githubToken} onChange={(e) => setGithubToken(e.target.value)} placeholder="GitHub Token" className="h-8 text-xs flex-1 bg-background" />
+                            <Button size="sm" onClick={() => toast.success("GitHub Integration Coming Soon!")} className="h-8 bg-purple-500 hover:bg-purple-600 text-white shadow-sm">
+                              Push
+                            </Button>
+                          </div>
+                        </div>
                       </div>
 
                       {/* External Webhook */}
