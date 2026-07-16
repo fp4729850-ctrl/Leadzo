@@ -229,18 +229,6 @@ function TemplateCreatorPanel({ onClose, onCreated, billingMode }: { onClose: ()
            <AiTemplatePanel campaignType="whatsapp" onSelect={(t) => setMessageBody(t)} />
         </div>
         
-        <div className="grid grid-cols-2 gap-3 pt-2 border-t border-primary/10">
-          <div className="space-y-2">
-            <Label className="text-[10px] text-muted-foreground font-semibold">Website Button (Optional)</Label>
-            <Input placeholder="Button Text (e.g. Buy Now)" className="font-mono text-xs h-7 bg-background" value={urlText} onChange={(e) => setUrlText(e.target.value)} />
-            <Input placeholder="URL (e.g. https://wa-sender.in)" className="font-mono text-xs h-7 bg-background" value={urlLink} onChange={(e) => setUrlLink(e.target.value)} />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-[10px] text-muted-foreground font-semibold">Call Button (Optional)</Label>
-            <Input placeholder="Button Text (e.g. Call Us)" className="font-mono text-xs h-7 bg-background" value={phoneText} onChange={(e) => setPhoneText(e.target.value)} />
-            <Input placeholder="Phone (e.g. +91987654321)" className="font-mono text-xs h-7 bg-background" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} />
-          </div>
-        </div>
 
         <Button size="sm" className="w-full h-8 text-xs cursor-pointer gap-1.5 mt-2" onClick={run} disabled={loading || !templateName.trim() || !messageBody.trim()}>
           {loading ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />} Submit to Meta for Review
