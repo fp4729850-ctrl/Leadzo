@@ -15,14 +15,13 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
-    const geminiKey = Deno.env.get("GEMINI_API_KEY")
+    const morphKey = Deno.env.get("MORPH_API_KEY") || "sk-WdUnPKo3NA9vW5K6yPsYSX5e5mN4H2o5Sf6fGP21a4xdARRt"
 
-    if (!supabaseUrl || !supabaseKey || !geminiKey) {
+    if (!supabaseUrl || !supabaseKey) {
       throw new Error("Missing environment variables")
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey)
-    const genAI = new GoogleGenerativeAI(geminiKey)
 
     // Log the request to see if it was triggered
     console.log("Autopilot Cron Worker Started...");
@@ -53,11 +52,22 @@ serve(async (req) => {
         const targetItem = publishPlan[nextItemIndex];
         console.log(`Processing topic: ${targetItem.title} for ${setting.url}`);
 
-        // 3. Generate Content using Gemini
-        const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
+        // 2.5 Fetch previous blogs for Internal Linking
+        const { data: prevBlogs } = await supabase
+          .from("blogs")
+          .select("title, slug")
+          .eq("website_url", setting.url)
+          .eq("published", true)
+          .order("created_at", { ascending: false })
+          .limit(10);
+        
+        const internalLinksCtx = prevBlogs && prevBlogs.length > 0 ? 
+          `\n\nHere are some previously published articles on this website:\n${JSON.stringify(prevBlogs)}\nIf any of these are highly relevant to the current topic, you MUST try to naturally hyperlink at least 1-3 of them in your HTML content using the format: <a href="/blog/slug-here">Relevant Text</a>.` : "";
+
+        // 3. Generate Content using AI Fallback Chain
         const prompt = `You are an expert SEO Content Writer for the website ${setting.url} in the niche of ${setting.niche}.
 Please write a highly optimized, engaging blog post about: "${targetItem.title}".
-Include headings, paragraphs, and use these keywords naturally: ${targetItem.keywords.join(', ')}.
+Include headings, paragraphs, and use these keywords naturally: ${targetItem.keywords.join(', ')}.${internalLinksCtx}
 
 Respond ONLY with a JSON object in this format:
 {
@@ -67,8 +77,97 @@ Respond ONLY with a JSON object in this format:
   "seo_description": "A 150-character meta description."
 }`;
 
-        const gRes = await model.generateContent(prompt);
-        const text = gRes.response.text().trim().replace(/```json/g, "").replace(/```/g, "");
+        let generatedText = null;
+        let lastError = null;
+
+        try {
+          console.log("Calling Morph AI models for SEO...");
+          const morphModels = ["morph-minimax3-428b", "morph-minimax27-230b", "morph-dsv4flash", "morph-qwen36-27b"];
+          
+          for (const model of morphModels) {
+            try {
+              console.log(`Trying Morph model: ${model}`);
+              const morphRes = await fetch("https://api.morphllm.com/v1/chat/completions", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Authorization": `Bearer ${morphKey}` },
+                body: JSON.stringify({
+                  model: model,
+                  messages: [
+                    { role: "system", content: "You are an expert SEO Content Writer. Respond ONLY with valid JSON containing keys: title, slug, html_content, seo_description. DO NOT wrap in markdown." },
+                    { role: "user", content: prompt }
+                  ]
+                })
+              });
+
+              if (morphRes.status === 429) { lastError = "429 Quota Exceeded"; continue; }
+              if (!morphRes.ok) { lastError = `${morphRes.status} Error from Morph`; continue; }
+
+              const morphData = await morphRes.json();
+              if (morphData.error) { lastError = morphData.error.message; continue; }
+
+              generatedText = morphData.choices?.[0]?.message?.content;
+              if (generatedText) break;
+            } catch (e) {
+              lastError = e.message;
+            }
+          }
+          if (!generatedText) throw new Error("All Morph models failed.");
+        } catch (morphErr) {
+          console.warn("Morph API failed for SEO, falling back to Gemini...", morphErr);
+          
+          const geminiKey = Deno.env.get("GEMINI_API_KEY") || Deno.env.get("HERCULES_API_KEY");
+          if (geminiKey) {
+            const geminiPayload = {
+              contents: [{ parts: [{ text: "You are an expert SEO Content Writer. Respond ONLY with valid JSON. DO NOT wrap in markdown.\n\n" + prompt }] }],
+              generationConfig: { temperature: 0.7, responseMimeType: "application/json" }
+            };
+            const models = ["gemini-1.5-pro", "gemini-1.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite-001", "gemini-flash-latest"];
+            
+            for (const model of models) {
+              try {
+                console.log(`Trying Gemini model: ${model}`);
+                const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`, {
+                  method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(geminiPayload)
+                });
+                
+                if (geminiRes.status === 429) { lastError = "429 Quota Exceeded"; continue; }
+                if (!geminiRes.ok) { lastError = `${geminiRes.status} Error`; continue; }
+                
+                const geminiData = await geminiRes.json();
+                if (geminiData.error) { lastError = geminiData.error.message; continue; }
+                
+                if (geminiData.candidates?.[0]?.content?.parts?.[0]?.text) {
+                  generatedText = geminiData.candidates[0].content.parts[0].text;
+                  break;
+                }
+              } catch(e) { lastError = e.message; }
+            }
+          }
+          
+          if (!generatedText) {
+            console.warn("Gemini failed for SEO, falling back to Pollinations AI...");
+            try {
+              const polliRes = await fetch("https://text.pollinations.ai/", {
+                method: "POST", headers: { "Content-Type": "application/json" }, 
+                body: JSON.stringify({
+                  messages: [
+                    { role: "system", content: "You are an expert SEO Content Writer. Respond ONLY with valid JSON containing keys: title, slug, html_content, seo_description. DO NOT wrap in markdown." },
+                    { role: "user", content: prompt }
+                  ],
+                  jsonMode: true,
+                  model: "openai"
+                })
+              });
+              generatedText = await polliRes.text();
+            } catch (polliErr) {
+              console.error("Pollinations fallback failed:", polliErr);
+            }
+          }
+        }
+
+        if (!generatedText) throw new Error(`All AI models failed for SEO. Last error: ${lastError}`);
+
+        const text = generatedText.trim().replace(/```json/g, "").replace(/```/g, "");
         const contentData = JSON.parse(text);
 
         // 4. Save to blogs table
@@ -81,9 +180,52 @@ Respond ONLY with a JSON object in this format:
             seo_description: contentData.seo_description,
             author: "Leadzo AI Autopilot",
             published: true,
+            user_id: setting.user_id,
+            website_url: setting.url
           })
 
         if (insertErr) throw insertErr;
+
+        // 4.5 Auto-Push to GitHub if configured
+        if (setting.github_repo && setting.github_token) {
+          try {
+            console.log(`Pushing to GitHub repo: ${setting.github_repo}`);
+            const generatedSlug = contentData.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+            const filePath = `content/blog/${generatedSlug}.md`;
+            const fileContent = `---
+title: "${contentData.metaTitle || contentData.title}"
+description: "${contentData.seo_description || contentData.metaDescription || ''}"
+date: "${new Date().toISOString()}"
+---
+
+${contentData.html_content}
+`;
+            
+            // Deno's btoa takes string, but we need to encode properly for unicode
+            const encodedContent = btoa(unescape(encodeURIComponent(fileContent)));
+            
+            const ghRes = await fetch(`https://api.github.com/repos/${setting.github_repo}/contents/${filePath}`, {
+              method: "PUT",
+              headers: {
+                "Authorization": `token ${setting.github_token}`,
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({
+                message: `Leadzo AI Autopilot: Add SEO blog post - ${contentData.title}`,
+                content: encodedContent
+              })
+            });
+            
+            if (!ghRes.ok) {
+              const ghErr = await ghRes.json();
+              console.error("GitHub Push Failed:", ghErr);
+            } else {
+              console.log("Successfully pushed to GitHub!");
+            }
+          } catch (ghErr) {
+            console.error("GitHub Push Exception:", ghErr);
+          }
+        }
 
         // 5. Update the publish plan item to marked as published
         publishPlan[nextItemIndex].published = true;

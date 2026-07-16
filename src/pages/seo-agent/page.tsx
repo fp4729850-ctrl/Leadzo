@@ -324,7 +324,19 @@ export default function SeoAgentPage() {
     if (!selectedKeyword) { toast.error("Select a keyword first"); return; }
     setLoading(true); setActiveStep("content");
     try {
-      const result = await generateContent({ keyword: selectedKeyword, url, tone: contentTone });
+      const { data: prevBlogs } = await supabase
+        .from("blogs")
+        .select("title, slug")
+        .eq("website_url", url)
+        .eq("published", true)
+        .order("created_at", { ascending: false })
+        .limit(10);
+        
+      const contextData = {
+        internal_links_to_include: prevBlogs || []
+      };
+
+      const result = await generateContent({ keyword: selectedKeyword, url, tone: contentTone, contextData });
       setContentData(result); markComplete("content"); toast.success("Content generated!");
     } catch { toast.error("Content generation failed."); }
     finally { setLoading(false); }

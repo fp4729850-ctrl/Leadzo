@@ -23,6 +23,7 @@ serve(async (req) => {
 Write a highly optimized, engaging blog post targeting the keyword: "${keyword}".
 The tone should be: ${tone || 'Professional'}.
 Context about the website: ${JSON.stringify(contextData || {})}.
+If 'internal_links_to_include' is present in the context, you MUST try to naturally hyperlink at least 1-3 of those previous articles in your HTML content using the format: <a href="/blog/slug-here">Relevant Text</a>.
 
 Respond ONLY with a JSON object containing EXACTLY this structure:
 {
