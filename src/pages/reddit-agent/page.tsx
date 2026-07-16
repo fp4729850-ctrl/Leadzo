@@ -1,9 +1,95 @@
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { MessageCircle, Rocket, ShieldCheck, Sparkles, TrendingUp } from "lucide-react";
+import { MessageCircle, Rocket, ShieldCheck, Sparkles, TrendingUp, Settings, Key, Link as LinkIcon, Database, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
 
 export default function RedditAgentPage() {
+  const [authType, setAuthType] = useState<"oauth" | "developer">("oauth");
+  const [clientId, setClientId] = useState("");
+  const [clientSecret, setClientSecret] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [targetSubreddits, setTargetSubreddits] = useState("");
+  const [targetKeywords, setTargetKeywords] = useState("");
+  const [websiteUrl, setWebsiteUrl] = useState("");
+  const [isConnected, setIsConnected] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    loadSettings();
+  }, []);
+
+  const loadSettings = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      
+      const { data } = await supabase
+        .from("reddit_accounts")
+        .select("*")
+        .eq("user_id", user.id)
+        .single();
+        
+      if (data) {
+        setIsConnected(true);
+        setAuthType(data.auth_type as any);
+        setClientId(data.client_id || "");
+        setClientSecret(data.client_secret || "");
+        setUsername(data.username || "");
+        setPassword(data.password || "");
+        setTargetSubreddits((data.target_subreddits || []).join(", "));
+        setTargetKeywords((data.target_keywords || []).join(", "));
+        setWebsiteUrl(data.website_url || "");
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleSaveDeveloper = async () => {
+    setIsLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not logged in");
+
+      const payload = {
+        user_id: user.id,
+        auth_type: "developer",
+        client_id: clientId,
+        client_secret: clientSecret,
+        username,
+        password,
+        target_subreddits: targetSubreddits.split(",").map(s => s.trim()).filter(Boolean),
+        target_keywords: targetKeywords.split(",").map(k => k.trim()).filter(Boolean),
+        website_url: websiteUrl,
+        is_active: true
+      };
+
+      const { data: existing } = await supabase.from("reddit_accounts").select("id").eq("user_id", user.id).single();
+
+      if (existing) {
+        await supabase.from("reddit_accounts").update(payload).eq("id", existing.id);
+      } else {
+        await supabase.from("reddit_accounts").insert([payload]);
+      }
+      
+      setIsConnected(true);
+      toast.success("Developer Credentials Saved Successfully!");
+    } catch (e: any) {
+      toast.error(e.message || "Failed to save settings");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleConnectOAuth = () => {
+    toast.info("OAuth App integration coming soon! Use Developer mode for now.");
+  };
+
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
@@ -15,30 +101,102 @@ export default function RedditAgentPage() {
             <h1 className="text-xl font-bold text-foreground">Reddit Agent</h1>
             <p className="text-xs text-muted-foreground">Community-driven AI Lead Generation</p>
           </div>
-          <Badge className="ml-auto bg-orange-500/20 text-orange-500 border-orange-500/30">Coming Soon</Badge>
+          {isConnected && <Badge className="ml-auto bg-green-500/20 text-green-500 border-green-500/30">Connected</Badge>}
         </div>
       </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-            <div className="p-8 rounded-2xl border border-border bg-card/40 backdrop-blur-sm relative overflow-hidden flex flex-col items-center justify-center text-center py-20">
-              <div className="absolute inset-0 bg-gradient-to-br from-orange-500/5 to-red-500/5 pointer-events-none" />
-              
-              <div className="size-20 rounded-full bg-orange-500/10 flex items-center justify-center mb-6 ring-8 ring-orange-500/5">
-                <Rocket size={40} className="text-orange-500 animate-bounce" />
+            
+            {/* Connection Settings */}
+            <div className="p-6 rounded-2xl border border-border bg-card/40 backdrop-blur-sm space-y-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Settings className="text-orange-500" size={20} />
+                <h2 className="text-lg font-bold text-foreground">Connection & Settings</h2>
               </div>
               
-              <h2 className="text-2xl font-bold text-foreground mb-3">The Future of AI Lead Generation</h2>
-              <p className="text-muted-foreground max-w-md mx-auto mb-8">
-                We are currently building the most advanced AI agent for Reddit and community marketing. It will autonomously find relevant conversations, write human-like helpful answers, and subtly drive high-quality traffic to your website.
-              </p>
-
-              <div className="flex gap-4">
-                <Button className="bg-orange-500 hover:bg-orange-600 text-white shadow-lg shadow-orange-500/20" disabled>
-                  <Sparkles className="mr-2" size={16} /> Join Waitlist
+              <div className="flex gap-2 bg-background/50 p-1 rounded-lg border border-border/50 w-fit">
+                <Button 
+                  variant={authType === "oauth" ? "default" : "ghost"} 
+                  size="sm" 
+                  className={authType === "oauth" ? "bg-orange-500 hover:bg-orange-600 text-white" : ""}
+                  onClick={() => setAuthType("oauth")}
+                >
+                  <LinkIcon size={14} className="mr-2" /> Easy Connect (OAuth)
+                </Button>
+                <Button 
+                  variant={authType === "developer" ? "default" : "ghost"} 
+                  size="sm"
+                  className={authType === "developer" ? "bg-orange-500 hover:bg-orange-600 text-white" : ""}
+                  onClick={() => setAuthType("developer")}
+                >
+                  <Database size={14} className="mr-2" /> Developer Credentials
                 </Button>
               </div>
+
+              {authType === "oauth" ? (
+                <div className="p-8 border border-dashed border-border/50 rounded-xl flex flex-col items-center justify-center text-center space-y-4">
+                  <div className="size-16 rounded-full bg-orange-500/10 flex items-center justify-center mb-2">
+                    <Rocket size={24} className="text-orange-500" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-foreground">Connect with Reddit</h3>
+                    <p className="text-sm text-muted-foreground max-w-sm mt-1">One-click connect coming soon! The easiest way to let AI reply on your behalf securely.</p>
+                  </div>
+                  <Button onClick={handleConnectOAuth} className="bg-[#FF4500] hover:bg-[#FF4500]/90 text-white shadow-lg shadow-orange-500/20 mt-2">
+                    Connect Reddit Account
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-4 p-4 border border-border/50 rounded-xl bg-background/30">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5"><Key size={12}/> Client ID</label>
+                      <Input value={clientId} onChange={e => setClientId(e.target.value)} placeholder="Enter Client ID" className="h-9 text-sm bg-background" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5"><Key size={12}/> Client Secret</label>
+                      <Input type="password" value={clientSecret} onChange={e => setClientSecret(e.target.value)} placeholder="Enter Client Secret" className="h-9 text-sm bg-background" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5"><Users size={12}/> Username</label>
+                      <Input value={username} onChange={e => setUsername(e.target.value)} placeholder="Reddit Username" className="h-9 text-sm bg-background" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5"><Key size={12}/> Password</label>
+                      <Input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Reddit Password" className="h-9 text-sm bg-background" />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="pt-4 border-t border-border/50 space-y-4">
+                <h3 className="text-sm font-semibold text-foreground">Campaign Settings</h3>
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-muted-foreground">Target Subreddits (comma separated)</label>
+                    <Input value={targetSubreddits} onChange={e => setTargetSubreddits(e.target.value)} placeholder="e.g. SaaS, marketing, startups" className="bg-background text-sm" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-muted-foreground">Target Keywords</label>
+                    <Input value={targetKeywords} onChange={e => setTargetKeywords(e.target.value)} placeholder="e.g. how to rank on google, best seo tools" className="bg-background text-sm" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-muted-foreground">Your Website URL (to link)</label>
+                    <Input value={websiteUrl} onChange={e => setWebsiteUrl(e.target.value)} placeholder="https://leadzoai.com/blog" className="bg-background text-sm" />
+                  </div>
+                </div>
+              </div>
+
+              {authType === "developer" && (
+                <div className="flex justify-end pt-2">
+                  <Button onClick={handleSaveDeveloper} disabled={isLoading} className="bg-orange-500 hover:bg-orange-600 text-white">
+                    {isLoading ? "Saving..." : "Save Developer Settings & Activate"}
+                  </Button>
+                </div>
+              )}
+
             </div>
           </motion.div>
         </div>
