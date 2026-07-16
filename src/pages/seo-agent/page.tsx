@@ -348,6 +348,52 @@ export default function SeoAgentPage() {
     }
   };
 
+  const handlePushToGithub = async () => {
+    if (!githubRepo || !githubToken) {
+      toast.error("Please enter GitHub Repo (username/repo) and Token.");
+      return;
+    }
+    if (!contentData) { toast.error("No content to publish"); return; }
+    
+    toast.info("Pushing to GitHub...");
+    try {
+      const generatedSlug = contentData.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+      const filePath = `content/blog/${generatedSlug}.md`;
+      const fileContent = `---
+title: "${contentData.metaTitle || contentData.title}"
+description: "${contentData.metaDescription}"
+date: "${new Date().toISOString()}"
+---
+
+${contentData.content}
+`;
+      
+      const encodedContent = btoa(unescape(encodeURIComponent(fileContent)));
+      
+      const res = await fetch(`https://api.github.com/repos/${githubRepo}/contents/${filePath}`, {
+        method: "PUT",
+        headers: {
+          "Authorization": `token ${githubToken}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          message: `Add new SEO blog post: ${contentData.title}`,
+          content: encodedContent
+        })
+      });
+      
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.message || "Failed to push to GitHub");
+      }
+      
+      toast.success(`Successfully pushed to ${githubRepo}! 🚀`);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(`GitHub Error: ${err.message}`);
+    }
+  };
+
   const runPublishPlan = async () => {
     if (!url) { toast.error("Enter website URL first"); return; }
     if (!niche) { toast.error("Business Niche enter karo"); return; }
@@ -742,7 +788,7 @@ export default function SeoAgentPage() {
                           <Input value={githubRepo} onChange={(e) => setGithubRepo(e.target.value)} placeholder="username/repo" className="h-8 text-xs bg-background" />
                           <div className="flex items-center gap-2">
                             <Input type="password" value={githubToken} onChange={(e) => setGithubToken(e.target.value)} placeholder="GitHub Token" className="h-8 text-xs flex-1 bg-background" />
-                            <Button size="sm" onClick={() => toast.success("GitHub Integration Coming Soon!")} className="h-8 bg-purple-500 hover:bg-purple-600 text-white shadow-sm">
+                            <Button size="sm" onClick={handlePushToGithub} className="h-8 bg-purple-500 hover:bg-purple-600 text-white shadow-sm">
                               Push
                             </Button>
                           </div>
