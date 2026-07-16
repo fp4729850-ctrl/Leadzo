@@ -84,6 +84,7 @@ export default function SeoAgentPage() {
   const [publishingToWebhook, setPublishingToWebhook] = useState(false);
   const [githubRepo, setGithubRepo] = useState("");
   const [githubToken, setGithubToken] = useState("");
+  const [githubConnected, setGithubConnected] = useState(false);
   const [autopilotActive, setAutopilotActive] = useState(false);
   const [autopilotId, setAutopilotId] = useState<string | null>(null);
   const [autopilotLoading, setAutopilotLoading] = useState(false);
@@ -139,8 +140,11 @@ export default function SeoAgentPage() {
           if (data.publish_plan && data.publish_plan.length > 0) {
             setPublishPlan(data.publish_plan);
           }
-          if (data.github_repo) setGithubRepo(data.github_repo);
-          if (data.github_token) setGithubToken(data.github_token);
+          if (data.github_repo && data.github_token) {
+            setGithubRepo(data.github_repo);
+            setGithubToken(data.github_token);
+            setGithubConnected(true);
+          }
         }
       } catch (err) {
         console.error("Failed to load autopilot settings", err);
@@ -397,6 +401,32 @@ ${contentData.content}
     } catch (err: any) {
       console.error(err);
       toast.error(`GitHub Error: ${err.message}`);
+    }
+  };
+
+  const handleConnectGithub = async () => {
+    if (!githubRepo || !githubToken) {
+      toast.error("Please enter GitHub Repo (username/repo) and Token.");
+      return;
+    }
+    try {
+      const res = await fetch(`https://api.github.com/repos/${githubRepo}`, {
+        headers: { "Authorization": `token ${githubToken}` }
+      });
+      if (!res.ok) {
+        throw new Error("Invalid Repo or Token");
+      }
+      setGithubConnected(true);
+      toast.success("GitHub Connected Successfully! Autopilot can now use this.");
+      
+      // Save it automatically if autopilot is active
+      if (autopilotId) {
+        await supabase.from("seo_autopilot_settings").update({ 
+          github_repo: githubRepo, github_token: githubToken 
+        }).eq("id", autopilotId);
+      }
+    } catch (err: any) {
+      toast.error(`GitHub Connection Failed: ${err.message}`);
     }
   };
 
@@ -787,18 +817,32 @@ ${contentData.content}
                       </div>
 
                       {/* GitHub Push */}
-                      <div className="p-4 rounded-lg border border-purple-500/20 bg-purple-500/5 space-y-3">
-                        <p className="text-xs font-bold text-purple-500 flex items-center gap-1.5"><Globe size={12} /> Push to GitHub Repo</p>
+                      <div className="p-4 rounded-lg border border-purple-500/20 bg-purple-500/5 space-y-3 relative overflow-hidden">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-bold text-purple-500 flex items-center gap-1.5"><Globe size={12} /> GitHub Integration</p>
+                          {githubConnected && <span className="text-[9px] bg-green-500/20 text-green-500 px-1.5 py-0.5 rounded-full font-medium">Connected</span>}
+                        </div>
                         <p className="text-[10px] text-muted-foreground leading-tight">Push code directly to your Next.js/React GitHub repository.</p>
-                        <div className="flex flex-col gap-2 mt-2">
-                          <Input value={githubRepo} onChange={(e) => setGithubRepo(e.target.value)} placeholder="username/repo" className="h-8 text-xs bg-background" />
-                          <div className="flex items-center gap-2">
-                            <Input type="password" value={githubToken} onChange={(e) => setGithubToken(e.target.value)} placeholder="GitHub Token" className="h-8 text-xs flex-1 bg-background" />
-                            <Button size="sm" onClick={handlePushToGithub} className="h-8 bg-purple-500 hover:bg-purple-600 text-white shadow-sm">
-                              Push
+                        
+                        {!githubConnected ? (
+                          <div className="flex flex-col gap-2 mt-2">
+                            <Input value={githubRepo} onChange={(e) => setGithubRepo(e.target.value)} placeholder="username/repo" className="h-8 text-xs bg-background" />
+                            <Input type="password" value={githubToken} onChange={(e) => setGithubToken(e.target.value)} placeholder="GitHub Token" className="h-8 text-xs bg-background" />
+                            <Button size="sm" onClick={handleConnectGithub} className="h-8 bg-purple-500 hover:bg-purple-600 text-white shadow-sm mt-1">
+                              Connect GitHub
                             </Button>
                           </div>
-                        </div>
+                        ) : (
+                          <div className="flex flex-col gap-2 mt-2">
+                            <div className="bg-background/50 border border-border rounded-md p-2 flex items-center justify-between">
+                              <span className="text-xs font-medium text-foreground truncate">{githubRepo}</span>
+                              <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px] text-red-400 hover:text-red-300 hover:bg-red-500/10" onClick={() => { setGithubConnected(false); setGithubToken(""); }}>Disconnect</Button>
+                            </div>
+                            <Button size="sm" onClick={handlePushToGithub} className="h-8 bg-purple-500 hover:bg-purple-600 text-white shadow-sm">
+                              Push Blog Now
+                            </Button>
+                          </div>
+                        )}
                       </div>
 
                       {/* External Webhook */}
