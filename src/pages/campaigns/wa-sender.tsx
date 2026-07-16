@@ -229,10 +229,6 @@ function TemplateCreatorPanel({ onClose, onCreated, billingMode }: { onClose: ()
            <AiTemplatePanel campaignType="whatsapp" onSelect={(t) => setMessageBody(t)} />
         </div>
         
-
-        <Button size="sm" className="w-full h-8 text-xs cursor-pointer gap-1.5 mt-2" onClick={run} disabled={loading || !templateName.trim() || !messageBody.trim()}>
-          {loading ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />} Submit to Meta for Review
-        </Button>
       </div>
     </div>
   );
