@@ -139,6 +139,8 @@ export default function SeoAgentPage() {
           if (data.publish_plan && data.publish_plan.length > 0) {
             setPublishPlan(data.publish_plan);
           }
+          if (data.github_repo) setGithubRepo(data.github_repo);
+          if (data.github_token) setGithubToken(data.github_token);
         }
       } catch (err) {
         console.error("Failed to load autopilot settings", err);
@@ -236,7 +238,9 @@ export default function SeoAgentPage() {
             is_active: checked,
             url: url || "",
             niche: niche || "",
-            publish_plan: publishPlan
+            publish_plan: publishPlan,
+            github_repo: githubRepo || null,
+            github_token: githubToken || null
           })
           .eq("id", autopilotId);
         if (error) throw error;
@@ -249,7 +253,9 @@ export default function SeoAgentPage() {
             url: url || "",
             niche: niche || "",
             is_active: checked,
-            publish_plan: publishPlan
+            publish_plan: publishPlan,
+            github_repo: githubRepo || null,
+            github_token: githubToken || null
           })
           .select()
           .single();
