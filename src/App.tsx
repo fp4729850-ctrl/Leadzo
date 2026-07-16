@@ -25,6 +25,7 @@ import GscDashboardPage from "./pages/gsc-dashboard/page.tsx";
 import ScrapersPage from "./pages/scrapers/page.tsx";
 import BlogListingPage from "./pages/blog/page.tsx";
 import BlogArticlePage from "./pages/blog/article.tsx";
+import RedditAgentPage from "./pages/reddit-agent/page.tsx";
 
 import { useServiceWorker } from "@/hooks/use-service-worker.ts";
 
@@ -53,6 +54,7 @@ export default function App() {
             <Route path="/optimization" element={<OptimizationPage />} />
             <Route path="/crm" element={<CrmPage />} />
             <Route path="/seo-agent" element={<SeoAgentPage />} />
+            <Route path="/reddit-agent" element={<RedditAgentPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/learning-agent" element={<LearningAgentPage />} />
             <Route path="/bulk-calling" element={<BulkCallingPage />} />
