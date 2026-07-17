@@ -17,6 +17,7 @@ type Lead = {
   source: string | null;
   status: "new" | "contacted" | "qualified" | "closed_won" | "closed_lost";
   ai_score: number | null;
+  ai_draft: string | null;
   created_at: string;
 };
 
@@ -37,6 +38,11 @@ export default function CRMPage() {
   const [newEmail, setNewEmail] = useState("");
   const [newPhone, setNewPhone] = useState("");
   const [newSource, setNewSource] = useState("Manual");
+
+  // AI Draft Modal State
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [isDraftOpen, setIsDraftOpen] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   useEffect(() => {
     fetchLeads();
@@ -105,6 +111,25 @@ export default function CRMPage() {
     }
   };
 
+  const handleGenerateFollowups = async () => {
+    setIsGenerating(true);
+    toast.info("Generating AI follow-ups in the background...");
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch("https://stbqeiapgdaklktrlrjm.supabase.co/functions/v1/crmAi_followup", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${session?.access_token}` }
+      });
+      if (!res.ok) throw new Error("Failed to generate drafts");
+      toast.success("AI Follow-ups generated successfully! 🚀");
+      fetchLeads();
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto space-y-6 h-[calc(100vh-6rem)] flex flex-col">
       {/* Header */}
@@ -118,13 +143,22 @@ export default function CRMPage() {
             <p className="text-xs text-muted-foreground">Manage, score, and close leads on autopilot.</p>
           </div>
         </div>
-
-        <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/20">
-              <Plus size={16} className="mr-2" /> Add Lead
-            </Button>
-          </DialogTrigger>
+        
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            onClick={handleGenerateFollowups} 
+            disabled={isGenerating}
+            className="border-indigo-200 text-indigo-600 hover:bg-indigo-50"
+          >
+            {isGenerating ? "Generating..." : "Generate AI Follow-ups 🤖"}
+          </Button>
+          <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/20">
+                <Plus size={16} className="mr-2" /> Add Lead
+              </Button>
+            </DialogTrigger>
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
               <DialogTitle>Add New Lead</DialogTitle>
@@ -160,6 +194,7 @@ export default function CRMPage() {
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </motion.div>
 
       {/* Kanban Board */}
@@ -215,6 +250,21 @@ export default function CRMPage() {
                         >
                           <ArrowLeft size={12} />
                         </Button>
+                        
+                        {lead.ai_draft && (
+                          <Button 
+                            variant="secondary" 
+                            size="sm" 
+                            className="h-6 text-[10px] bg-indigo-50 text-indigo-600 hover:bg-indigo-100"
+                            onClick={() => {
+                              setSelectedLead(lead);
+                              setIsDraftOpen(true);
+                            }}
+                          >
+                            View AI Draft ✨
+                          </Button>
+                        )}
+
                         <Button 
                           variant="ghost" 
                           size="icon" 
@@ -242,6 +292,45 @@ export default function CRMPage() {
           })}
         </div>
       </div>
+
+      {/* AI Draft Modal */}
+      <Dialog open={isDraftOpen} onOpenChange={setIsDraftOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <span className="text-xl">✨</span> AI Follow-up Draft
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            <div className="bg-secondary/30 p-4 rounded-xl border border-border/50 text-sm whitespace-pre-wrap">
+              {selectedLead?.ai_draft}
+            </div>
+            
+            <div className="flex gap-3">
+              <Button 
+                className="flex-1 bg-[#25D366] hover:bg-[#20bd5a] text-white"
+                onClick={() => {
+                  const url = `https://wa.me/${selectedLead?.phone?.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(selectedLead?.ai_draft || '')}`;
+                  window.open(url, "_blank");
+                }}
+                disabled={!selectedLead?.phone}
+              >
+                Send via WhatsApp
+              </Button>
+              <Button 
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                onClick={() => {
+                  const url = `mailto:${selectedLead?.email}?subject=Following up - Leadzo&body=${encodeURIComponent(selectedLead?.ai_draft || '')}`;
+                  window.open(url, "_blank");
+                }}
+                disabled={!selectedLead?.email}
+              >
+                Send via Email
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
