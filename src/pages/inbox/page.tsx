@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useAction } from "@/lib/convex-supabase-adapter";
 import { api } from "@/convex/_generated/api.js";
 import type { Doc } from "@/convex/_generated/dataModel.d.ts";
+import { supabase } from "@/lib/supabase";
 import { motion, AnimatePresence } from "motion/react";
 import { Send, Loader2, Bot, Search, Users, MessageSquareCode } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
@@ -25,6 +26,7 @@ export default function InboxPage() {
   const [isSending, setIsSending] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isClassifying, setIsClassifying] = useState(false);
+  const [hasMetaToken, setHasMetaToken] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -36,6 +38,17 @@ export default function InboxPage() {
 
   useEffect(() => { if (messages) { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); } }, [messages]);
   useEffect(() => { if (selectedLead) { setTimeout(() => inputRef.current?.focus(), 100); } }, [selectedLead?._id]);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({data}) => {
+      if (data.session?.user) {
+        supabase.from("users").select("meta_access_token").eq("id", data.session.user.id).single()
+          .then(({data: userData}) => {
+            if (userData?.meta_access_token) setHasMetaToken(true);
+          });
+      }
+    });
+  }, []);
 
   useEffect(() => {
     if (!selectedLead || !messages) return;
@@ -161,18 +174,24 @@ export default function InboxPage() {
           
           <div className="flex flex-col items-center gap-3">
             <p className="text-xs font-medium text-foreground">Want to receive Instagram DMs here?</p>
-            <Button 
-              size="sm"
-              onClick={() => {
-                const clientId = "892432016516964";
-                const redirectUri = "https://www.leadzoai.com/auth/meta-callback";
-                const scope = "instagram_basic,instagram_manage_messages,pages_manage_metadata,pages_read_engagement,pages_show_list";
-                window.location.href = `https://www.facebook.com/v17.0/dialog/oauth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}`;
-              }} 
-              className="bg-[#1877F2] hover:bg-[#1877F2]/90 text-white w-56 text-xs h-8"
-            >
-              Connect with Facebook
-            </Button>
+            {hasMetaToken ? (
+              <Button size="sm" variant="outline" className="w-56 text-xs h-8 bg-green-500/10 text-green-500 border-green-500/20 hover:bg-green-500/20 cursor-default">
+                Connected
+              </Button>
+            ) : (
+              <Button 
+                size="sm"
+                onClick={() => {
+                  const clientId = "892432016516964";
+                  const redirectUri = "https://www.leadzoai.com/auth/meta-callback";
+                  const scope = "instagram_basic,instagram_manage_messages,pages_manage_metadata,pages_read_engagement,pages_show_list";
+                  window.location.href = `https://www.facebook.com/v17.0/dialog/oauth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}`;
+                }} 
+                className="bg-[#1877F2] hover:bg-[#1877F2]/90 text-white w-56 text-xs h-8"
+              >
+                Connect with Facebook
+              </Button>
+            )}
           </div>
         </div>
       )}
