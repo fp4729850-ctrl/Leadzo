@@ -10,7 +10,8 @@ import { Badge } from "@/components/ui/badge.tsx";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
 import { SignInButton } from "@/components/ui/signin.tsx";
 import { toast } from "sonner";
-import { Settings, Eye, EyeOff, CheckCircle2, Search, ExternalLink } from "lucide-react";
+import { Settings, Eye, EyeOff, CheckCircle2, Search, ExternalLink, Link2 } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 
 function SettingsInner() {
   const user = useQuery(api.users.getCurrentUser, {});
@@ -24,6 +25,21 @@ function SettingsInner() {
   const [saving, setSaving] = useState(false);
   const hasCredentials = !!(user?.dataforseoLogin && user?.dataforseoPassword);
   const hasWaCredentials = !!(user?.whatsappApiToken && user?.whatsappPhoneId);
+  
+  // Use state to check token since adapter might not return it
+  const [hasMetaToken, setHasMetaToken] = useState(false);
+
+  // We can fetch directly from supabase to check if token exists
+  useState(() => {
+    supabase.auth.getSession().then(({data}) => {
+      if (data.session?.user) {
+        supabase.from("users").select("meta_access_token").eq("id", data.session.user.id).single()
+          .then(({data: userData}) => {
+            if (userData?.meta_access_token) setHasMetaToken(true);
+          });
+      }
+    });
+  });
 
   const handleSave = async () => {
     if (!dfsLogin || !dfsPassword) { toast.error("Email aur password dono enter karo"); return; }
@@ -148,6 +164,43 @@ function SettingsInner() {
               </div>
               <Button onClick={handleWaSave} disabled={saving} className="bg-[#25D366] hover:bg-[#25D366]/80 text-primary-foreground text-xs" size="sm">{saving ? "Saving..." : "Save API Keys"}</Button>
             </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="border-border bg-card/60 backdrop-blur">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Link2 size={15} className="text-[#E1306C]" /> Connect Meta / Instagram
+            {hasMetaToken ? (
+              <Badge className="ml-auto bg-chart-3/20 text-chart-3 border-chart-3/30 text-[9px]"><CheckCircle2 size={9} className="mr-1" /> Connected</Badge>
+            ) : (
+              <Badge className="ml-auto bg-muted/40 text-muted-foreground text-[9px]">Not Connected</Badge>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-xs text-muted-foreground leading-relaxed">Connect your Facebook/Instagram account to receive Direct Messages straight into the Live Inbox.</p>
+          
+          {hasMetaToken ? (
+            <div className="space-y-3">
+              <div className="p-3 rounded-lg border border-chart-3/30 bg-chart-3/5">
+                <p className="text-xs text-chart-3 font-semibold mb-0.5">Meta Account Linked</p>
+                <p className="text-xs text-muted-foreground">Your account is successfully synced.</p>
+              </div>
+            </div>
+          ) : (
+            <Button 
+              onClick={() => {
+                const clientId = "892432016516964";
+                const redirectUri = "https://www.leadzoai.com/auth/meta-callback";
+                const scope = "instagram_basic,instagram_manage_messages,pages_manage_metadata,pages_read_engagement,pages_show_list";
+                window.location.href = `https://www.facebook.com/v17.0/dialog/oauth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}`;
+              }} 
+              className="bg-[#1877F2] hover:bg-[#1877F2]/90 text-white w-full text-sm"
+            >
+              Connect with Facebook
+            </Button>
           )}
         </CardContent>
       </Card>

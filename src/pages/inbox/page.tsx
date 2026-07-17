@@ -148,9 +148,32 @@ export default function InboxPage() {
           </div>
         </div>
       ) : (
-        <div className="hidden md:flex flex-1 items-center justify-center text-center flex-col gap-4 text-muted-foreground">
-          <MessageSquareCode size={48} className="opacity-20" />
-          <div><p className="text-sm font-semibold">Select a lead to start chatting</p><p className="text-xs opacity-60 mt-1">Use AI Reply or turn on Autopilot for automated responses</p></div>
+        <div className="hidden md:flex flex-1 items-center justify-center text-center flex-col gap-6 text-muted-foreground bg-card/30">
+          <div className="flex flex-col items-center gap-2">
+            <MessageSquareCode size={48} className="opacity-20" />
+            <div>
+              <p className="text-sm font-semibold">Select a lead to start chatting</p>
+              <p className="text-xs opacity-60 mt-1">Use AI Reply or turn on Autopilot for automated responses</p>
+            </div>
+          </div>
+          
+          <div className="h-[1px] w-48 bg-border/50"></div>
+          
+          <div className="flex flex-col items-center gap-3">
+            <p className="text-xs font-medium text-foreground">Want to receive Instagram DMs here?</p>
+            <Button 
+              size="sm"
+              onClick={() => {
+                const clientId = "892432016516964";
+                const redirectUri = "https://www.leadzoai.com/auth/meta-callback";
+                const scope = "instagram_basic,instagram_manage_messages,pages_manage_metadata,pages_read_engagement,pages_show_list";
+                window.location.href = `https://www.facebook.com/v17.0/dialog/oauth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}`;
+              }} 
+              className="bg-[#1877F2] hover:bg-[#1877F2]/90 text-white w-56 text-xs h-8"
+            >
+              Connect with Facebook
+            </Button>
+          </div>
         </div>
       )}
     </div>
