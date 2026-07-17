@@ -30,7 +30,7 @@ function SettingsInner() {
   const [hasMetaToken, setHasMetaToken] = useState(false);
 
   // We can fetch directly from supabase to check if token exists
-  useState(() => {
+  useEffect(() => {
     supabase.auth.getSession().then(({data}) => {
       if (data.session?.user) {
         supabase.from("users").select("meta_access_token").eq("id", data.session.user.id).single()
@@ -39,7 +39,7 @@ function SettingsInner() {
           });
       }
     });
-  });
+  }, []);
 
   const handleSave = async () => {
     if (!dfsLogin || !dfsPassword) { toast.error("Email aur password dono enter karo"); return; }
