@@ -82,7 +82,7 @@ function FacebookLiveInsights() {
   const load = async (p: string) => {
     setLoading(true);
     try { const res = await getInsights({ datePreset: p }); setData(res); }
-    catch { toast.error("Could not fetch Facebook Ads insights"); }
+    catch (err: any) { toast.error(err.message || "Could not fetch Facebook Ads insights"); }
     finally { setLoading(false); }
   };
 

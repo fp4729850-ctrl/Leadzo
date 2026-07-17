@@ -1,7 +1,16 @@
 // Supabase Edge Function: platformAds_getFacebookAdsInsights
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+}
+
 serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders })
+  }
+
   try {
     const { preset } = await req.json()
     // Simulated Facebook Marketing API data
@@ -29,13 +38,19 @@ serve(async (req) => {
       topCampaigns: [
         { id: "1", name: "AI Lead Gen - Tier 1", spend: 400, conversions: 98, roas: 3.4 },
         { id: "2", name: "Retargeting - High Intent", spend: 200, conversions: 54, roas: 4.1 }
-      ]
+      ],
+      success: true,
+      campaigns: [
+        { campaign_id: "1", campaign_name: "AI Lead Gen - Tier 1", spend: "400", impressions: "12000", clicks: "450", ctr: "3.75" },
+        { campaign_id: "2", campaign_name: "Retargeting - High Intent", spend: "200", impressions: "8000", clicks: "240", ctr: "3.00" }
+      ],
+      isDemo: true
     }
 
     return new Response(JSON.stringify(mockInsights), {
-      headers: { "Content-Type": "application/json" }
+      headers: { ...corsHeaders, "Content-Type": "application/json" }
     })
   } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 400 })
+    return new Response(JSON.stringify({ error: error.message }), { status: 400, headers: corsHeaders })
   }
 })
