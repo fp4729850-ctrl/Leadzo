@@ -14,16 +14,17 @@ export default function MetaCallback() {
     const code = searchParams.get("code");
     const error = searchParams.get("error");
     const error_description = searchParams.get("error_description");
+    const error_message = searchParams.get("error_message");
 
-    if (error) {
+    if (error || error_message) {
       setStatus("error");
-      setErrorMsg(error_description || error);
+      setErrorMsg(error_description || error_message || error || "Unknown error from Meta");
       return;
     }
 
     if (!code) {
       setStatus("error");
-      setErrorMsg("No authorization code found in URL.");
+      setErrorMsg("No authorization code found in URL. Full URL: " + window.location.href);
       return;
     }
 
