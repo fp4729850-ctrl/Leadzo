@@ -51,8 +51,10 @@ CTR: ${metrics.ctr}%`
     }
 
     let answer = "";
-    const models = ["gemini-2.0-flash-001", "gemini-2.0-flash-lite-001", "gemini-flash-latest"];
+    const models = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash-001", "gemini-2.0-flash-lite-001", "gemini-flash-latest", "gemini-pro"];
     let lastError: any = null;
+    
+    // First try all Gemini models
     for (const model of models) {
       try {
         answer = await callGeminiModel(model);
@@ -60,6 +62,32 @@ CTR: ${metrics.ctr}%`
       } catch (e) {
         lastError = e;
       }
+    }
+    
+    // Fallback to OpenAI if Gemini is overloaded and OPENAI_API_KEY is available
+    if (!answer) {
+       const openaiKey = Deno.env.get("OPENAI_API_KEY");
+       if (openaiKey) {
+         try {
+           const openAiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+             method: "POST",
+             headers: { "Content-Type": "application/json", "Authorization": `Bearer ${openaiKey}` },
+             body: JSON.stringify({
+               model: "gpt-4o-mini",
+               messages: [
+                 { role: "system", content: systemPrompt },
+                 { role: "user", content: userPrompt }
+               ]
+             })
+           });
+           if (openAiResponse.ok) {
+             const openaiData = await openAiResponse.json();
+             answer = openaiData.choices[0].message.content;
+           }
+         } catch (e) {
+           console.error("OpenAI fallback failed", e);
+         }
+       }
     }
     
     if (!answer && lastError) {
