@@ -160,7 +160,7 @@ function CeoQueryBox({ metrics }: { metrics: { totalSpend: number; totalRevenue:
       const res = await askAi({ question: q, metrics });
       setAnswer(res);
       await saveQuery({ question: q, answer: res });
-    } catch { toast.error("AI answer failed. Set HERCULES_API_KEY in Secrets."); }
+    } catch (err: any) { toast.error(err.message || "AI answer failed."); }
     finally { setLoading(false); }
   };
 
