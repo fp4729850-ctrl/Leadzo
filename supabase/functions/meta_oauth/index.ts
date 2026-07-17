@@ -7,7 +7,7 @@ const corsHeaders = {
 }
 
 const META_APP_ID = "892432016516964"; // Updated to main App ID
-const META_APP_SECRET = "96aeb9c88da0d1ab51f06f7741db72dc"; // User provided
+const META_APP_SECRET = "3e6ba1068a5fbcc578c16c835516c026"; // Correct Main App Secret
 const REDIRECT_URI = "https://www.leadzoai.com/auth/meta-callback";
 
 serve(async (req) => {
