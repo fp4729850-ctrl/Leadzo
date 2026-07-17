@@ -23,7 +23,7 @@ const NAV_ITEMS = [
   { path: "/learning-agent", label: "Learning Agent", icon: Brain },
   { path: "/crm", label: "CRM Agent", icon: Users },
   { path: "/scrapers", label: "Scrapers", icon: Settings2 },
-  { path: "/wa-sender", label: "Personal WA", icon: Send },
+  { path: "/wa-sender", label: "Bulk Whatsapp", icon: Send },
   { path: "/email-campaign", label: "AI Email", icon: Mail },
   { path: "/insta-campaign", label: "Insta Campaign", icon: Camera },
   { path: "/bulk-calling", label: "Bulk Calling", icon: Phone },

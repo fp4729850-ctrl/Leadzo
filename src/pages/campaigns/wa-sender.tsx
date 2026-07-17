@@ -422,7 +422,7 @@ export default function WASenderPage() {
             <MessageSquare size={18} className="text-[#25D366]" />
           </div>
           <div>
-            <h1 className="text-xl font-bold tracking-tight font-serif">{apiType === "green" ? "Personal WA Sender" : "Official WA Sender"}</h1>
+            <h1 className="text-xl font-bold tracking-tight font-serif">{apiType === "green" ? "Bulk Whatsapp Sender" : "Official WA Sender"}</h1>
             <p className="text-sm text-muted-foreground">{apiType === "green" ? "Green API — seedha app se bhejo, koi tab nahi" : "Meta Cloud API — Business verified messaging"}</p>
           </div>
         </div>
