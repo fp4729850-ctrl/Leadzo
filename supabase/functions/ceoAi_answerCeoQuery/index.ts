@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.44.0"
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -134,6 +135,21 @@ CTR: ${metrics.ctr}%`
        } else {
          answer = "Based on your current metrics, your overall ROAS is stable at 2.75x. I recommend monitoring Instagram CPL closely and re-allocating budget to top performing campaigns.";
        }
+    }
+
+    // Save the query and answer to the database using Service Role to bypass RLS
+    try {
+      const supabaseUrl = Deno.env.get("SUPABASE_URL");
+      const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+      if (supabaseUrl && supabaseServiceKey) {
+        const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+        await supabaseAdmin.from("ceo_queries").insert([
+          { question: question, answer: answer }
+        ]);
+        console.log("Successfully saved CEO query to database");
+      }
+    } catch (saveError) {
+      console.error("Failed to save CEO query:", saveError);
     }
 
     return new Response(

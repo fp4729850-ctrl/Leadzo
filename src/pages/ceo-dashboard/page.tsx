@@ -159,7 +159,6 @@ function CeoQueryBox({ metrics }: { metrics: { totalSpend: number; totalRevenue:
     try {
       const res = await askAi({ question: q, metrics });
       setAnswer(res);
-      await saveQuery({ question: q, answer: res });
     } catch (err: any) { toast.error(err.message || "AI answer failed."); }
     finally { setLoading(false); }
   };
