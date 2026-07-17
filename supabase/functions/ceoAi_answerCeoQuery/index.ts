@@ -31,37 +31,39 @@ Total Impressions: ${metrics.totalImpressions}
 Total Clicks: ${metrics.totalClicks}
 CTR: ${metrics.ctr}%`
 
-    const userPrompt = `Query: ${question}`
+    const userPrompt = `Query: ${question}`;
+    const combinedPrompt = `${systemPrompt}\n\n${userPrompt}`;
 
-    const callGeminiModel = async (model: string) => {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: systemPrompt }] },
-          contents: [{ parts: [{ text: userPrompt }] }]
-        })
-      })
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`Gemini ${model} failed: ${response.status} ${errText}`)
-      }
-      const data = await response.json()
-      return data.candidates[0].content.parts[0].text
+    const payload = {
+      contents: [{ parts: [{ text: combinedPrompt }] }],
+      generationConfig: { temperature: 0.7 }
     }
 
-    let answer = "";
-    const models = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash-001", "gemini-2.0-flash-lite-001", "gemini-flash-latest", "gemini-pro"];
+    const models = ["gemini-1.5-pro", "gemini-1.5-flash", "gemini-2.0-flash-001", "gemini-2.0-flash-lite-001", "gemini-flash-latest"];
     let lastError: any = null;
+    let answer = "";
     
-    // First try all Gemini models
     for (const model of models) {
-      try {
-        answer = await callGeminiModel(model);
-        break;
-      } catch (e) {
-        lastError = e;
-      }
+        try {
+            const aiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+              method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
+            })
+            
+            if (aiRes.status === 429) {
+                await new Promise(r => setTimeout(r, 2000));
+                throw new Error(`Gemini failed: 429`);
+            }
+            if (!aiRes.ok) throw new Error(`Gemini failed: ${aiRes.status}`)
+            
+            const aiData = await aiRes.json()
+            const aiText = aiData.candidates?.[0]?.content?.parts?.[0]?.text
+            if (aiText) {
+                answer = aiText;
+                break;
+            }
+        } catch (e) {
+            lastError = e;
+        }
     }
     
     // Fallback to OpenAI if Gemini is overloaded and OPENAI_API_KEY is available
