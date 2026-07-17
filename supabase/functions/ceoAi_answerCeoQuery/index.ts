@@ -66,6 +66,36 @@ CTR: ${metrics.ctr}%`
         }
     }
     
+    // Fallback to Morph (Qwen/Minimax) if MORPH_API_KEY is available
+    if (!answer) {
+       const morphKey = Deno.env.get("MORPH_API_KEY");
+       if (morphKey) {
+         try {
+           const morphModels = ["morph-qwen36-27b", "morph-minimax3-428b", "morph-dsv4flash"];
+           for (const morphModel of morphModels) {
+             const morphRes = await fetch("https://api.morphllm.com/v1/chat/completions", {
+               method: "POST",
+               headers: { "Content-Type": "application/json", "Authorization": `Bearer ${morphKey}` },
+               body: JSON.stringify({
+                 model: morphModel,
+                 messages: [
+                   { role: "system", content: systemPrompt },
+                   { role: "user", content: userPrompt }
+                 ]
+               })
+             });
+             if (morphRes.ok) {
+               const morphData = await morphRes.json();
+               answer = morphData.choices?.[0]?.message?.content;
+               if (answer) break;
+             }
+           }
+         } catch (e) {
+           console.error("Morph fallback failed", e);
+         }
+       }
+    }
+
     // Fallback to OpenAI if Gemini is overloaded and OPENAI_API_KEY is available
     if (!answer) {
        const openaiKey = Deno.env.get("OPENAI_API_KEY");
