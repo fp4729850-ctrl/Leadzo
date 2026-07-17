@@ -1,6 +1,7 @@
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { DefaultProviders } from "./components/providers/default.tsx";
 import AuthCallback from "./pages/auth/Callback.tsx";
+import MetaCallback from "./pages/auth/meta-callback.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import AppLayout from "./pages/app-layout.tsx";
 import PipelinePage from "./pages/pipeline/page.tsx";
@@ -36,6 +37,7 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/auth/callback" element={<AuthCallback />} />
+          <Route path="/auth/meta-callback" element={<MetaCallback />} />
           <Route path="/auth/gsc-callback" element={<GscCallback />} />
           <Route path="/blog" element={<BlogListingPage />} />
           <Route path="/blog/:slug" element={<BlogArticlePage />} />
