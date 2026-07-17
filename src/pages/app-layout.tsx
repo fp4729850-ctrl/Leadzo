@@ -12,6 +12,7 @@ import { Separator } from "@/components/ui/separator.tsx";
 
 const NAV_ITEMS = [
   { path: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
+  { path: "/wa-sender", label: "Bulk Whatsapp", icon: Send },
   { path: "/pipeline", label: "Pipeline", icon: Layers },
   { path: "/inbox", label: "Live Inbox", icon: MessageSquareCode },
   { path: "/analytics", label: "Analytics", icon: BarChart4 },
@@ -23,7 +24,6 @@ const NAV_ITEMS = [
   { path: "/learning-agent", label: "Learning Agent", icon: Brain },
   { path: "/crm", label: "CRM Agent", icon: Users },
   { path: "/scrapers", label: "Scrapers", icon: Settings2 },
-  { path: "/wa-sender", label: "Bulk Whatsapp", icon: Send },
   { path: "/email-campaign", label: "AI Email", icon: Mail },
   { path: "/insta-campaign", label: "Insta Campaign", icon: Camera },
   { path: "/bulk-calling", label: "Bulk Calling", icon: Phone },
