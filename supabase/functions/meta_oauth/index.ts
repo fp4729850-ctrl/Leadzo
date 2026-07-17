@@ -49,8 +49,7 @@ serve(async (req) => {
     // Let's assume the user table is 'users' and we add a 'meta_access_token' field
     const { error: dbError } = await supabaseClient
       .from("users")
-      .update({ meta_access_token: finalToken })
-      .eq("id", userId); // Note: Assuming Convex IDs or Auth UUIDs map here correctly
+      .upsert({ id: userId, meta_access_token: finalToken });
 
     if (dbError) throw dbError;
 
