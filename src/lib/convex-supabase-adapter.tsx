@@ -63,6 +63,9 @@ const TABLE_MAPPINGS: Record<string, string> = {
   // adCampaigns
   'adCampaigns': 'ad_campaigns',
   'adCampaigns.list': 'ad_campaigns',
+  'adCampaigns.getDashboardMetrics': 'ad_campaigns',
+  'adCampaigns.listCeoQueries': 'ceo_queries',
+  'adCampaigns.saveCeoQuery': 'ceo_queries',
   
   // gsc
   'gsc': 'gsc_tokens',
@@ -214,6 +217,34 @@ export function useQuery(apiEndpoint: any, args: any = {}): any {
       
       if (mappingKey === 'leads.getMetrics') {
         return calculateLeadsMetrics(data || []);
+      }
+
+      if (mappingKey === 'adCampaigns.getDashboardMetrics') {
+        // Return calculated or mock metrics for CEO dashboard
+        return {
+          alerts: [{ type: "success", message: "ROAS is up 12% today" }, { type: "danger", message: "Instagram CPA increased by 5%" }],
+          totalSpend: 15400,
+          totalRevenue: 42300,
+          roas: 2.75,
+          cpl: 125,
+          totalConversions: 340,
+          totalImpressions: 125000,
+          totalClicks: 4200,
+          ctr: 3.36,
+          dailyTrend: [
+            { date: "Jul 1", spend: 400, revenue: 1100, roas: 2.75 },
+            { date: "Jul 5", spend: 450, revenue: 1300, roas: 2.88 },
+            { date: "Jul 10", spend: 500, revenue: 1200, roas: 2.4 },
+            { date: "Jul 15", spend: 520, revenue: 1500, roas: 2.88 },
+            { date: "Jul 17", spend: 550, revenue: 1650, roas: 3.0 }
+          ],
+          platformBreakdown: [
+            { platform: "facebook", roas: 2.5 },
+            { platform: "google", roas: 3.1 },
+            { platform: "instagram", roas: 2.8 }
+          ],
+          topCampaigns: data || []
+        };
       }
 
       if (mappingKey === 'users.getCurrentUser') {
