@@ -192,10 +192,10 @@ function CeoQueryBox({ metrics }: { metrics: { totalSpend: number; totalRevenue:
           </motion.div>
         )}
       </AnimatePresence>
-      {history && history.length > 0 && (
+      {(history || []).length > 0 && (
         <div className="flex flex-col gap-1">
           <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Recent Queries</p>
-          {history.slice(0, 3).map((q) => (
+          {(history || []).slice(0, 3).map((q: any) => (
             <button key={q._id} onClick={() => { setQuestion(q.question); setAnswer(q.answer); }} className="flex items-center gap-2 text-left px-3 py-2 rounded-lg hover:bg-background/60 transition-all group cursor-pointer">
               <ChevronRight size={12} className="text-muted-foreground group-hover:text-primary shrink-0" />
               <span className="text-xs text-muted-foreground truncate group-hover:text-foreground">{q.question}</span>
@@ -244,9 +244,9 @@ function CeoDashboardInner() {
         </div>
       </motion.div>
 
-      {metrics.alerts.length > 0 && (
+      {(metrics?.alerts || []).length > 0 && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col gap-2">
-          {metrics.alerts.slice(0, 3).map((alert, i) => (
+          {(metrics?.alerts || []).slice(0, 3).map((alert: any, i: number) => (
             <div key={i} className={cn("flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-medium border", alert.type === "success" ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" : alert.type === "danger" ? "bg-red-500/10 border-red-500/20 text-red-400" : "bg-amber-500/10 border-amber-500/20 text-amber-400")}>
               {alert.type === "success" ? <CheckCircle2 size={14} /> : <AlertTriangle size={14} />}
               {alert.message}
@@ -256,23 +256,23 @@ function CeoDashboardInner() {
       )}
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard label="Total Spend" value={`₹${(metrics.totalSpend / 1000).toFixed(1)}K`} sub="30-day total" icon={DollarSign} color="#EF4444" trend="neutral" delay={0.0} />
-        <StatCard label="Revenue" value={`₹${(metrics.totalRevenue / 1000).toFixed(1)}K`} sub="Generated" icon={TrendingUp} color="#10B981" trend="up" delay={0.05} />
-        <StatCard label="ROAS" value={`${metrics.roas}x`} sub="Return on ad spend" icon={BarChart2} color={metrics.roas >= 3 ? "#10B981" : metrics.roas >= 2 ? "#F59E0B" : "#EF4444"} trend={metrics.roas >= 3 ? "up" : "down"} delay={0.1} />
-        <StatCard label="CPL" value={`₹${metrics.cpl.toLocaleString("en-IN")}`} sub="Cost per lead" icon={Target} color="#8B5CF6" trend="neutral" delay={0.15} />
-        <StatCard label="Conversions" value={metrics.totalConversions.toLocaleString("en-IN")} sub="Total leads" icon={Zap} color="#F59E0B" delay={0.2} />
-        <StatCard label="Impressions" value={`${(metrics.totalImpressions / 1000).toFixed(0)}K`} sub="Total views" icon={Eye} color="#06B6D4" delay={0.25} />
-        <StatCard label="Clicks" value={`${(metrics.totalClicks / 1000).toFixed(1)}K`} sub="Link clicks" icon={MousePointer2} color="#3B82F6" delay={0.3} />
-        <StatCard label="CTR" value={`${metrics.ctr}%`} sub="Click-through rate" icon={Target} color="#EC4899" trend={metrics.ctr >= 2 ? "up" : "down"} delay={0.35} />
+        <StatCard label="Total Spend" value={`₹${((metrics?.totalSpend || 0) / 1000).toFixed(1)}K`} sub="30-day total" icon={DollarSign} color="#EF4444" trend="neutral" delay={0.0} />
+        <StatCard label="Revenue" value={`₹${((metrics?.totalRevenue || 0) / 1000).toFixed(1)}K`} sub="Generated" icon={TrendingUp} color="#10B981" trend="up" delay={0.05} />
+        <StatCard label="ROAS" value={`${metrics?.roas || 0}x`} sub="Return on ad spend" icon={BarChart2} color={(metrics?.roas || 0) >= 3 ? "#10B981" : (metrics?.roas || 0) >= 2 ? "#F59E0B" : "#EF4444"} trend={(metrics?.roas || 0) >= 3 ? "up" : "down"} delay={0.1} />
+        <StatCard label="CPL" value={`₹${(metrics?.cpl || 0).toLocaleString("en-IN")}`} sub="Cost per lead" icon={Target} color="#8B5CF6" trend="neutral" delay={0.15} />
+        <StatCard label="Conversions" value={(metrics?.totalConversions || 0).toLocaleString("en-IN")} sub="Total leads" icon={Zap} color="#F59E0B" delay={0.2} />
+        <StatCard label="Impressions" value={`${((metrics?.totalImpressions || 0) / 1000).toFixed(0)}K`} sub="Total views" icon={Eye} color="#06B6D4" delay={0.25} />
+        <StatCard label="Clicks" value={`${((metrics?.totalClicks || 0) / 1000).toFixed(1)}K`} sub="Link clicks" icon={MousePointer2} color="#3B82F6" delay={0.3} />
+        <StatCard label="CTR" value={`${metrics?.ctr || 0}%`} sub="Click-through rate" icon={Target} color="#EC4899" trend={(metrics?.ctr || 0) >= 2 ? "up" : "down"} delay={0.35} />
       </div>
 
       <FacebookLiveInsights />
-      <CeoQueryBox metrics={{ totalSpend: metrics.totalSpend, totalRevenue: metrics.totalRevenue, roas: metrics.roas, cpl: metrics.cpl, totalConversions: metrics.totalConversions, totalImpressions: metrics.totalImpressions, totalClicks: metrics.totalClicks, ctr: metrics.ctr }} />
+      <CeoQueryBox metrics={{ totalSpend: metrics?.totalSpend || 0, totalRevenue: metrics?.totalRevenue || 0, roas: metrics?.roas || 0, cpl: metrics?.cpl || 0, totalConversions: metrics?.totalConversions || 0, totalImpressions: metrics?.totalImpressions || 0, totalClicks: metrics?.totalClicks || 0, ctr: metrics?.ctr || 0 }} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <ChartCard title="Daily Spend vs Revenue (30 Days)" delay={0.2}>
           <ResponsiveContainer width="100%" height={220}>
-            <AreaChart data={metrics.dailyTrend}>
+            <AreaChart data={metrics?.dailyTrend || []}>
               <defs>
                 <linearGradient id="spendGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#EF4444" stopOpacity={0.3} /><stop offset="95%" stopColor="#EF4444" stopOpacity={0} /></linearGradient>
                 <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#10B981" stopOpacity={0.3} /><stop offset="95%" stopColor="#10B981" stopOpacity={0} /></linearGradient>
@@ -289,7 +289,7 @@ function CeoDashboardInner() {
         </ChartCard>
         <ChartCard title="Daily ROAS Trend" delay={0.25}>
           <ResponsiveContainer width="100%" height={220}>
-            <AreaChart data={metrics.dailyTrend}>
+            <AreaChart data={metrics?.dailyTrend || []}>
               <defs><linearGradient id="roasGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.4} /><stop offset="95%" stopColor="#8B5CF6" stopOpacity={0} /></linearGradient></defs>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis dataKey="date" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} interval={6} />
@@ -303,13 +303,13 @@ function CeoDashboardInner() {
 
       <ChartCard title="Platform Performance — ROAS" delay={0.3}>
         <ResponsiveContainer width="100%" height={200}>
-          <BarChart data={metrics.platformBreakdown} layout="vertical">
+          <BarChart data={metrics?.platformBreakdown || []} layout="vertical">
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
             <XAxis type="number" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
             <YAxis type="category" dataKey="platform" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} width={72} />
             <Tooltip content={<CustomTooltip />} />
             <Bar dataKey="roas" name="roas" radius={[0, 8, 8, 0]}>
-              {metrics.platformBreakdown.map((entry) => <Cell key={entry.platform} fill={PLATFORM_COLORS[entry.platform] ?? "#6B7280"} />)}
+              {(metrics?.platformBreakdown || []).map((entry: any) => <Cell key={entry.platform} fill={PLATFORM_COLORS[entry.platform] ?? "#6B7280"} />)}
             </Bar>
           </BarChart>
         </ResponsiveContainer>
@@ -324,11 +324,11 @@ function CeoDashboardInner() {
           <table className="w-full text-sm">
             <thead><tr className="border-b border-border"><th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground">Campaign</th><th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground">Spend</th><th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground">Revenue</th><th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground">ROAS</th><th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground">Conv.</th><th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">Status</th></tr></thead>
             <tbody>
-              {metrics.topCampaigns.map((camp, i) => (
+              {(metrics?.topCampaigns || []).map((camp: any, i: number) => (
                 <tr key={i} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
                   <td className="px-5 py-3"><div className="flex items-center gap-2"><div className="size-2.5 rounded-full shrink-0" style={{ background: PLATFORM_COLORS[camp.platform] ?? "#6B7280" }} /><span className="font-medium text-foreground text-xs truncate max-w-[160px]">{camp.name}</span></div></td>
-                  <td className="px-4 py-3 text-right text-xs text-muted-foreground">₹{camp.spend.toLocaleString("en-IN")}</td>
-                  <td className="px-4 py-3 text-right text-xs text-emerald-400 font-semibold">₹{camp.revenue.toLocaleString("en-IN")}</td>
+                  <td className="px-4 py-3 text-right text-xs text-muted-foreground">₹{camp.spend?.toLocaleString("en-IN")}</td>
+                  <td className="px-4 py-3 text-right text-xs text-emerald-400 font-semibold">₹{camp.revenue?.toLocaleString("en-IN")}</td>
                   <td className="px-4 py-3 text-right"><span className={cn("text-xs font-black", camp.roas >= 3 ? "text-emerald-400" : camp.roas >= 2 ? "text-amber-400" : "text-red-400")}>{camp.roas}x</span></td>
                   <td className="px-4 py-3 text-right text-xs text-muted-foreground">{camp.conversions}</td>
                   <td className="px-4 py-3"><Badge variant={camp.status === "active" ? "default" : "secondary"} className="text-[10px] capitalize">{camp.status}</Badge></td>
