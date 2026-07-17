@@ -28,10 +28,28 @@ serve(async (req) => {
     let processedCount = 0;
 
     for (const account of accounts) {
-      if (account.auth_type !== "developer") continue; // Skip OAuth for now
+      if (account.auth_type !== "developer") continue;
 
       try {
         console.log(`Processing Reddit Agent for user: ${account.user_id}`);
+        
+        // --- NEW: Fetch Latest Blog from SEO Agent ---
+        const { data: blogs } = await supabaseClient
+          .from("blogs")
+          .select("title, seo_description, slug, website_url")
+          .eq("user_id", account.user_id)
+          .order("created_at", { ascending: false })
+          .limit(1);
+          
+        const latestBlog = blogs && blogs.length > 0 ? blogs[0] : null;
+        let blogContextText = "";
+        let blogLink = account.website_url || "our platform";
+        
+        if (latestBlog) {
+          const siteUrl = latestBlog.website_url.startsWith('http') ? latestBlog.website_url : `https://${latestBlog.website_url}`;
+          blogLink = `${siteUrl}/${latestBlog.slug}`;
+          blogContextText = `You recently wrote a detailed blog post titled "${latestBlog.title}". Description: "${latestBlog.seo_description}". You must subtly mention and link this exact blog post: ${blogLink} in your response.`;
+        }
         
         // 2. Authenticate with Reddit API
         const authString = btoa(`${account.client_id}:${account.client_secret}`);
@@ -44,19 +62,57 @@ serve(async (req) => {
           body: `grant_type=password&username=${encodeURIComponent(account.username)}&password=${encodeURIComponent(account.password)}`
         });
 
-        if (!tokenRes.ok) {
-          console.error(`Failed to auth Reddit for ${account.username}`, await tokenRes.text());
-          continue;
-        }
+        if (!tokenRes.ok) continue;
 
         const tokenData = await tokenRes.json();
         const accessToken = tokenData.access_token;
+        const geminiKey = Deno.env.get("GEMINI_API_KEY");
         
-        // 3. Search target subreddits
-        const subreddits = (account.target_subreddits || []).join("+") || "marketing+SaaS";
+        const targetSubreddits = account.target_subreddits || ["marketing", "SaaS"];
         const keywords = (account.target_keywords || []).join(" OR ") || "software";
         
-        const searchRes = await fetch(`https://oauth.reddit.com/r/${subreddits}/search?q=${encodeURIComponent(keywords)}&sort=new&limit=3`, {
+        // --- MODE 1: Create a NEW POST (Submission) if we have a new blog ---
+        if (latestBlog) {
+          const submitPrompt = `You are a Reddit expert. Write an engaging, value-packed Reddit text post about "${latestBlog.title}". 
+          Use this description for context: "${latestBlog.seo_description}".
+          The post must provide real value (tips, insights, or a story) and end by saying they can read the full deep-dive here: ${blogLink}.
+          Return ONLY a JSON object in this exact format: {"title": "Catchy Reddit Title", "text": "The full body of the post"}`;
+
+          let postJson = null;
+          try {
+            const aiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`, {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ contents: [{ parts: [{ text: submitPrompt }] }] })
+            });
+            if (aiRes.ok) {
+              const aiData = await aiRes.json();
+              const text = aiData.candidates?.[0]?.content?.parts?.[0]?.text || "";
+              const jsonStr = text.replace(/```json/g, "").replace(/```/g, "").trim();
+              postJson = JSON.parse(jsonStr);
+            }
+          } catch(e) {}
+
+          if (postJson && postJson.title && postJson.text) {
+             const randomSub = targetSubreddits[Math.floor(Math.random() * targetSubreddits.length)];
+             const submitRes = await fetch("https://oauth.reddit.com/api/submit", {
+                method: "POST",
+                headers: {
+                  "Authorization": `Bearer ${accessToken}`,
+                  "Content-Type": "application/x-www-form-urlencoded",
+                  "User-Agent": `LeadzoAIBot/1.0 by ${account.username}`
+                },
+                body: `api_type=json&sr=${randomSub}&title=${encodeURIComponent(postJson.title)}&text=${encodeURIComponent(postJson.text)}&kind=self`
+              });
+              if (submitRes.ok) {
+                console.log(`Successfully created NEW POST on r/${randomSub}`);
+                processedCount++;
+              }
+          }
+        }
+
+        // --- MODE 2: Search and COMMENT on existing posts ---
+        const subQuery = targetSubreddits.join("+");
+        const searchRes = await fetch(`https://oauth.reddit.com/r/${subQuery}/search?q=${encodeURIComponent(keywords)}&sort=new&limit=2`, {
           headers: {
             "Authorization": `Bearer ${accessToken}`,
             "User-Agent": `LeadzoAIBot/1.0 by ${account.username}`
@@ -71,12 +127,11 @@ serve(async (req) => {
         for (const post of posts) {
           const postData = post.data;
           
-          // 4. Generate AI Reply using Fallback System
-          const geminiKey = Deno.env.get("GEMINI_API_KEY");
           const systemPrompt = `You are an expert community member on Reddit. 
 Read this Reddit post titled "${postData.title}" with content: "${postData.selftext.substring(0, 500)}".
-Write a highly valuable, human-like, non-spammy helpful comment (approx 100 words).
-Subtly include this website link at the end: ${account.website_url || 'our platform'}.`;
+Write a highly valuable, human-like, non-spammy helpful comment (approx 100 words) answering their question.
+${blogContextText}
+If no blog is provided, just subtly mention this website link at the end: ${blogLink}.`;
 
           let generatedReply = "";
           try {
@@ -90,20 +145,15 @@ Subtly include this website link at the end: ${account.website_url || 'our platf
             }
           } catch(e) {}
           
-          // Fallback to Pollinations AI if Gemini fails
           if (!generatedReply) {
              const polliRes = await fetch("https://text.pollinations.ai/", {
                 method: "POST", headers: { "Content-Type": "application/json" }, 
-                body: JSON.stringify({
-                  messages: [{ role: "user", content: systemPrompt }],
-                  model: "openai"
-                })
+                body: JSON.stringify({ messages: [{ role: "user", content: systemPrompt }], model: "openai" })
               });
              generatedReply = await polliRes.text();
           }
 
           if (generatedReply) {
-            // 5. Post comment to Reddit
             const commentRes = await fetch("https://oauth.reddit.com/api/comment", {
               method: "POST",
               headers: {
