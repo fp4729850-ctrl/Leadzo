@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Users, Plus, Mail, Phone, Calendar, ArrowRight, ArrowLeft, Star, TrendingUp, Search } from "lucide-react";
+import { Users, Plus, Mail, Phone, Calendar, ArrowRight, ArrowLeft, Star, TrendingUp, Search, MessageSquare, Send } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,15 @@ type Lead = {
   created_at: string;
 };
 
+type CrmMessage = {
+  id: string;
+  lead_id: string;
+  platform: string;
+  direction: string;
+  content: string;
+  created_at: string;
+};
+
 const STATUS_COLUMNS = [
   { id: "new", label: "New Leads", color: "bg-blue-500" },
   { id: "contacted", label: "Contacted", color: "bg-yellow-500" },
@@ -38,6 +47,12 @@ export default function CRMPage() {
   const [newEmail, setNewEmail] = useState("");
   const [newPhone, setNewPhone] = useState("");
   const [newSource, setNewSource] = useState("Manual");
+
+  // Inbox & Tabs State
+  const [activeTab, setActiveTab] = useState<"pipeline" | "inbox">("pipeline");
+  const [messages, setMessages] = useState<CrmMessage[]>([]);
+  const [activeInboxLead, setActiveInboxLead] = useState<Lead | null>(null);
+  const [replyText, setReplyText] = useState("");
 
   // AI Draft Modal State
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
@@ -61,6 +76,18 @@ export default function CRMPage() {
 
       if (error) throw error;
       setLeads(data || []);
+
+      // Fetch messages for all leads
+      const leadIds = (data || []).map(l => l.id);
+      if (leadIds.length > 0) {
+        const { data: msgData, error: msgError } = await supabase
+          .from("crm_messages")
+          .select("*")
+          .in("lead_id", leadIds)
+          .order("created_at", { ascending: true });
+        
+        if (!msgError) setMessages(msgData || []);
+      }
     } catch (error) {
       console.error("Error fetching leads:", error);
     } finally {
@@ -197,8 +224,28 @@ export default function CRMPage() {
         </div>
       </motion.div>
 
-      {/* Kanban Board */}
-      <div className="flex-1 overflow-x-auto pb-4">
+      {/* Tabs */}
+      <div className="flex gap-6 border-b border-border/50 shrink-0">
+        <button 
+          onClick={() => setActiveTab('pipeline')}
+          className={`text-sm font-medium pb-2 border-b-2 transition-colors ${activeTab === 'pipeline' ? 'border-indigo-500 text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+        >
+          Sales Pipeline
+        </button>
+        <button 
+          onClick={() => setActiveTab('inbox')}
+          className={`flex items-center gap-2 text-sm font-medium pb-2 border-b-2 transition-colors ${activeTab === 'inbox' ? 'border-indigo-500 text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+        >
+          Live Inbox <MessageSquare size={14} />
+          {messages.length > 0 && (
+            <Badge className="ml-1 h-5 px-1.5 bg-indigo-500 hover:bg-indigo-600 text-white border-none">{messages.length}</Badge>
+          )}
+        </button>
+      </div>
+
+      {activeTab === 'pipeline' ? (
+        /* Kanban Board */
+        <div className="flex-1 overflow-x-auto pb-4">
         <div className="flex gap-6 h-full min-w-max">
           {STATUS_COLUMNS.map((col) => {
             const colLeads = leads.filter(l => l.status === col.id);
@@ -292,6 +339,110 @@ export default function CRMPage() {
           })}
         </div>
       </div>
+      ) : (
+        /* Live Inbox */
+        <div className="flex-1 flex overflow-hidden rounded-xl border border-border/50 bg-card/50 backdrop-blur-sm">
+          {/* Sidebar */}
+          <div className="w-80 border-r border-border/50 flex flex-col bg-secondary/10">
+            <div className="p-4 border-b border-border/50">
+              <div className="relative">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Input placeholder="Search messages..." className="pl-9 bg-background/50 border-border/50 h-9" />
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-2 space-y-1">
+              {leads.filter(l => messages.some(m => m.lead_id === l.id)).map(lead => {
+                const leadMsgs = messages.filter(m => m.lead_id === lead.id);
+                const lastMsg = leadMsgs[leadMsgs.length - 1];
+                return (
+                  <div 
+                    key={lead.id} 
+                    onClick={() => setActiveInboxLead(lead)}
+                    className={`p-3 rounded-lg cursor-pointer transition-colors ${activeInboxLead?.id === lead.id ? 'bg-indigo-500/10 border border-indigo-500/20' : 'hover:bg-secondary/40 border border-transparent'}`}
+                  >
+                    <div className="flex justify-between items-start mb-1">
+                      <h4 className="font-semibold text-sm truncate">{lead.name}</h4>
+                      {lastMsg?.platform === 'whatsapp' ? (
+                        <Phone size={12} className="text-[#25D366]" />
+                      ) : (
+                        <Star size={12} className="text-pink-500" />
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground truncate">{lastMsg?.content}</p>
+                  </div>
+                );
+              })}
+              {leads.filter(l => messages.some(m => m.lead_id === l.id)).length === 0 && (
+                <div className="text-center p-8 text-muted-foreground text-sm">
+                  <MessageSquare className="mx-auto mb-2 opacity-50" size={24}/>
+                  No messages yet
+                </div>
+              )}
+            </div>
+          </div>
+          
+          {/* Chat Window */}
+          <div className="flex-1 flex flex-col bg-background/30">
+            {activeInboxLead ? (
+              <>
+                <div className="p-4 border-b border-border/50 flex justify-between items-center bg-card/50">
+                  <div>
+                    <h3 className="font-bold">{activeInboxLead.name}</h3>
+                    <p className="text-xs text-muted-foreground">{activeInboxLead.phone || activeInboxLead.email || "No contact info"}</p>
+                  </div>
+                  <Badge variant="outline">{activeInboxLead.status}</Badge>
+                </div>
+                
+                <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                  {messages.filter(m => m.lead_id === activeInboxLead.id).map(msg => (
+                    <div key={msg.id} className={`flex ${msg.direction === 'outbound' ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-[70%] p-3 rounded-2xl text-sm ${msg.direction === 'outbound' ? 'bg-indigo-600 text-white rounded-tr-sm' : 'bg-secondary text-foreground rounded-tl-sm'}`}>
+                        <p>{msg.content}</p>
+                        <span className="text-[10px] opacity-60 mt-1 block text-right">
+                          {new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} • {msg.platform}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                
+                <div className="p-4 bg-card/50 border-t border-border/50">
+                  <div className="flex gap-2">
+                    <Input 
+                      placeholder="Type a message to send via Meta API..." 
+                      value={replyText}
+                      onChange={e => setReplyText(e.target.value)}
+                      className="bg-background"
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' && replyText) {
+                          toast.error("Meta Webhook required to send outbound real messages.");
+                          setReplyText("");
+                        }
+                      }}
+                    />
+                    <Button onClick={() => {
+                        if(replyText) {
+                           toast.error("Meta Webhook required to send outbound real messages.");
+                           setReplyText("");
+                        }
+                      }} className="bg-indigo-600 hover:bg-indigo-700">
+                      <Send size={16} />
+                    </Button>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground">
+                <div className="size-16 rounded-full bg-secondary/50 flex items-center justify-center mb-4">
+                  <MessageSquare size={24} className="opacity-50" />
+                </div>
+                <p>Select a conversation to start messaging</p>
+                <p className="text-xs mt-2 max-w-sm text-center">Real-time Meta Webhooks will route incoming WhatsApp & Insta DMs directly here.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* AI Draft Modal */}
       <Dialog open={isDraftOpen} onOpenChange={setIsDraftOpen}>
