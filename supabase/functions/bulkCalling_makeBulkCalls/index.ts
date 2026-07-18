@@ -1,4 +1,5 @@
 // Supabase Edge Function: bulkCalling_makeBulkCalls
+// UPDATED: Now uses Twilio directly instead of Vapi
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 
@@ -13,93 +14,74 @@ serve(async (req) => {
   }
 
   try {
-    const { numbers, message, voice, engine } = await req.json()
-    const vapiApiKey = Deno.env.get("VAPI_API_KEY")
-    let vapiPhoneNumberId = Deno.env.get("VAPI_PHONE_NUMBER_ID")
+    const { numbers, message, voice } = await req.json()
 
-    // Fetch user-specific phone number if authenticated
-    const authHeader = req.headers.get('Authorization')
-    if (authHeader) {
-      const supabaseClient = createClient(
-        Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-        { global: { headers: { Authorization: authHeader } } }
-      )
-      const { data: { user } } = await supabaseClient.auth.getUser()
-      if (user) {
-        const { data: phoneData } = await supabaseClient
-          .from('user_phone_numbers')
-          .select('vapi_phone_number_id')
-          .eq('user_id', user.id)
-          .eq('status', 'active')
-          .single()
-        
-        if (phoneData?.vapi_phone_number_id) {
-          vapiPhoneNumberId = phoneData.vapi_phone_number_id
-        }
-      }
+    // Twilio Credentials from Supabase Secrets
+    const twilioAccountSid = Deno.env.get("TWILIO_ACCOUNT_SID")
+    const twilioAuthToken = Deno.env.get("TWILIO_AUTH_TOKEN")
+    const twilioFromNumber = Deno.env.get("TWILIO_PHONE_NUMBER") || "+14787807948"
+
+    // Our custom Render WebSocket server
+    const wsServerUrl = Deno.env.get("WS_SERVER_URL") || "https://leadzo-e0wy.onrender.com"
+
+    if (!twilioAccountSid || !twilioAuthToken) {
+      throw new Error("Missing Twilio credentials in Supabase secrets.")
     }
 
-    let callSid = "mock_call_sid_" + Math.random().toString(36).substr(2, 9);
-    
-    // Fallback to mock if Vapi keys are missing
-    if (!vapiApiKey || !vapiPhoneNumberId) {
-      console.log("No VAPI_API_KEY found, returning mock success.");
-    } else {
-      // Vapi API Integration
-      let modelConfig: any = {
-        provider: "openai",
-        model: "gpt-4o",
-        messages: [{ role: "system", content: message || "You are an AI assistant." }]
-      };
+    // Save system prompt for the WS server to pick up (optional: via Supabase or header)
+    // For now we pass it via URL param in twiml URL
+    const systemPrompt = encodeURIComponent(message || "You are a helpful AI sales agent for Leadzo. Keep responses short and helpful.")
+    const selectedVoice = encodeURIComponent(voice || "rachel")
+
+    const results = []
+
+    for (const number of numbers) {
+      // Call Twilio REST API to initiate outbound call
+      const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${twilioAccountSid}/Calls.json`
       
-      let voiceConfig: any = { provider: "11labs", voiceId: voice || "rachel" };
+      const credentials = btoa(`${twilioAccountSid}:${twilioAuthToken}`)
+      
+      const formData = new URLSearchParams()
+      formData.append("To", number)
+      formData.append("From", twilioFromNumber)
+      // Tell Twilio to connect the answered call to our Render WS server
+      formData.append("Url", `${wsServerUrl}/twiml?voice=${selectedVoice}&prompt=${systemPrompt}`)
+      formData.append("Method", "POST")
 
-      if (engine === "gemini") {
-        modelConfig = {
-          provider: "google",
-          model: "gemini-1.5-pro",
-          messages: [{ role: "system", content: message || "You are an AI assistant." }]
-        };
-        voiceConfig = { provider: "google", voiceId: "en-US-Journey-F" }; // High quality low cost google voice
-      }
-
-      const vapiRes = await fetch("https://api.vapi.ai/call/phone", {
+      const twilioRes = await fetch(twilioUrl, {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${vapiApiKey}`,
-          "Content-Type": "application/json"
+          "Authorization": `Basic ${credentials}`,
+          "Content-Type": "application/x-www-form-urlencoded",
         },
-        body: JSON.stringify({
-          phoneNumberId: vapiPhoneNumberId,
-          customer: { number: numbers[0] },
-          assistant: {
-            transcriber: {
-              provider: "deepgram",
-              model: "nova-2",
-              language: "hi"
-            },
-            model: modelConfig,
-            firstMessage: "Hello?",
-            voice: voiceConfig
-          }
-        })
-      });
-      
-      const vapiData = await vapiRes.json();
-      if (!vapiRes.ok) {
-        throw new Error(vapiData.message || "Failed to initiate Vapi call");
+        body: formData.toString(),
+      })
+
+      const twilioData = await twilioRes.json()
+
+      if (!twilioRes.ok) {
+        console.error(`Failed to call ${number}:`, twilioData)
+        results.push({ success: false, number, error: twilioData.message })
+      } else {
+        console.log(`✅ Call initiated to ${number}, SID: ${twilioData.sid}`)
+        results.push({ success: true, number, callSid: twilioData.sid })
       }
-      callSid = vapiData.id;
+
+      // Small delay between calls to avoid rate limiting
+      if (numbers.length > 1) {
+        await new Promise(resolve => setTimeout(resolve, 1000))
+      }
     }
 
-    return new Response(JSON.stringify({
-      results: [{
-        success: true,
-        callSid: callSid,
-      }]
-    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } })
+    return new Response(JSON.stringify({ results }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" }
+    })
+
   } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 400, headers: corsHeaders })
+    console.error("Edge function error:", error)
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 400,
+      headers: corsHeaders
+    })
   }
 })

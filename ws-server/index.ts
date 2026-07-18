@@ -47,10 +47,13 @@ function transcodePcm16ToMulaw(base64Pcm16: string): string {
 }
 
 app.post('/twiml', (req, res) => {
+  // Pass voice and prompt params from outbound calls
+  const voice = req.query.voice || 'rachel';
+  const prompt = req.query.prompt || '';
   const twiml = `
     <Response>
       <Connect>
-        <Stream url="wss://${req.headers.host}/stream" />
+        <Stream url="wss://${req.headers.host}/stream?voice=${voice}&prompt=${prompt}" />
       </Connect>
     </Response>
   `;
@@ -59,19 +62,27 @@ app.post('/twiml', (req, res) => {
 });
 
 wss.on('connection', (ws, req) => {
-  if (req.url !== '/stream') {
+  if (!req.url?.startsWith('/stream')) {
     ws.close();
     return;
   }
   
+  // Parse URL params for outbound calls
+  const urlParams = new URLSearchParams(req.url.split('?')[1] || '');
+  const selectedVoice = urlParams.get('voice') || 'rachel';
+  const customPrompt = urlParams.get('prompt') ? decodeURIComponent(urlParams.get('prompt')!) : '';
+
   let streamSid = '';
   let deepgramLive: any = null;
   let elevenLabsWs: WebSocket | null = null;
   let isAITalking = false;
+  const systemContent = customPrompt || "You are a helpful AI assistant for Leadzo. Keep responses short (1-2 sentences).";
   let conversationHistory: any[] = [{
     role: "system",
-    content: "You are a helpful AI assistant for Leadzo. Keep responses short (1-2 sentences)."
+    content: systemContent
   }];
+
+  console.log(`📞 New call connected | Voice: ${selectedVoice}`);
 
   // 1. Initialize Deepgram (Listening) via WebSockets
   const deepgramUrl = `wss://api.deepgram.com/v1/listen?model=nova-2&language=hi&encoding=mulaw&sample_rate=8000&interim_results=true&endpointing=300`;
