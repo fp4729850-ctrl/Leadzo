@@ -85,17 +85,61 @@ wss.on('connection', (ws, req) => {
     content: systemContent
   }];
 
+  let textBufferQueue: string[] = [];
+  let flushPending = false;
+  let fullAIResponse = "";
+  
   console.log(`📞 New call connected | Voice: ${selectedVoice} | TTS: ${ttsEngine}`);
 
-  // 1. Initialize Deepgram (Listening) via WebSockets
+  // 1. Initialize Deepgram STT (Listening) via WebSockets
   const deepgramUrl = `wss://api.deepgram.com/v1/listen?model=nova-2&language=hi&encoding=mulaw&sample_rate=8000&interim_results=true&endpointing=300`;
   deepgramLive = new WebSocket(deepgramUrl, {
     headers: { Authorization: `Token ${DEEPGRAM_API_KEY}` }
   });
 
   deepgramLive.on('error', (err: any) => {
-    lastErrors.push("Deepgram STT Error: " + String(err));
     console.error("Deepgram STT Error", err);
+  });
+
+  // 2. Initialize Deepgram Aura TTS (Speaking) via WebSockets
+  let auraModel = "aura-asteria-en"; // default female
+  if (selectedVoice === "sarah") auraModel = "aura-luna-en";
+  if (selectedVoice === "drew") auraModel = "aura-orion-en";
+  if (selectedVoice === "paul") auraModel = "aura-arcas-en";
+
+  const auraUrl = `wss://api.deepgram.com/v1/speak?model=${auraModel}&encoding=mulaw&sample_rate=8000`;
+  auraWs = new WebSocket(auraUrl, {
+    headers: { Authorization: `Token ${DEEPGRAM_API_KEY}` }
+  });
+
+  auraWs.on('open', () => {
+    for (const t of textBufferQueue) {
+      auraWs?.send(JSON.stringify({ type: "Speak", text: t }));
+    }
+    textBufferQueue = [];
+    if (flushPending) {
+      auraWs?.send(JSON.stringify({ type: "Flush" }));
+      flushPending = false;
+    }
+  });
+
+  auraWs.on('message', (data, isBinary) => {
+    if (isBinary) {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ event: "media", streamSid, media: { payload: data.toString('base64') } }));
+      }
+    } else {
+      let res;
+      try { res = JSON.parse(data.toString()); } catch(e) { return; }
+      if (res.type === "Flushed") {
+        isAITalking = false;
+        conversationHistory.push({ role: "assistant", content: fullAIResponse });
+      }
+    }
+  });
+  
+  auraWs.on('error', (err: any) => {
+    console.error("Deepgram Aura TTS Error", err);
   });
 
   deepgramLive.on('open', () => {
@@ -140,10 +184,6 @@ wss.on('connection', (ws, req) => {
           stream: true,
         });
 
-        let fullAIResponse = "";
-        let textBufferQueue: string[] = [];
-        let flushPending = false;
-
         if (ttsEngine === "elevenlabs") {
           const elevenUrl = `wss://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_VOICE_ID}/stream-input?model_id=eleven_multilingual_v2&output_format=pcm_16000`;
           elevenLabsWs = new WebSocket(elevenUrl, {
@@ -181,48 +221,6 @@ wss.on('connection', (ws, req) => {
             if (res.isFinal) {
               isAITalking = false;
               conversationHistory.push({ role: "assistant", content: fullAIResponse });
-            }
-          });
-        } else {
-          // Deepgram Aura TTS Voice Mapping
-          let auraModel = "aura-asteria-en"; // default female
-          if (selectedVoice === "sarah") auraModel = "aura-luna-en";
-          if (selectedVoice === "drew") auraModel = "aura-orion-en";
-          if (selectedVoice === "paul") auraModel = "aura-arcas-en";
-
-          const auraUrl = `wss://api.deepgram.com/v1/speak?model=${auraModel}&encoding=mulaw&sample_rate=8000`;
-          auraWs = new WebSocket(auraUrl, {
-            headers: { Authorization: `Token ${DEEPGRAM_API_KEY}` }
-          });
-
-          auraWs.on('open', () => {
-            for (const t of textBufferQueue) {
-              auraWs?.send(JSON.stringify({ type: "Speak", text: t }));
-            }
-            textBufferQueue = [];
-            if (flushPending) {
-              auraWs?.send(JSON.stringify({ type: "Flush" }));
-              flushPending = false;
-            }
-          });
-
-          auraWs.on('message', (data, isBinary) => {
-            if (isBinary) {
-              // Direct mulaw audio
-              if (ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ event: "media", streamSid, media: { payload: data.toString('base64') } }));
-              }
-            } else {
-              let res;
-              try {
-                res = JSON.parse(data.toString());
-              } catch(e) {
-                return;
-              }
-              if (res.type === "Flushed") {
-                isAITalking = false;
-                conversationHistory.push({ role: "assistant", content: fullAIResponse });
-              }
             }
           });
         }
@@ -280,6 +278,23 @@ wss.on('connection', (ws, req) => {
       streamSid = msg.start.streamSid;
       lastStreamSid = streamSid;
       console.log(`Stream started: ${streamSid}`);
+      
+      // Trigger Initial Greeting!
+      setTimeout(() => {
+         if (!isAITalking && auraWs && auraWs.readyState === WebSocket.OPEN) {
+             isAITalking = true;
+             const greeting = "Namaste! Main Leadzo se baat kar rahi hoon. Main aapki kaise madad kar sakti hoon?";
+             console.log("Sending initial greeting:", greeting);
+             auraWs.send(JSON.stringify({ type: "Speak", text: greeting }));
+             auraWs.send(JSON.stringify({ type: "Flush" }));
+         } else if (!isAITalking && elevenLabsWs && elevenLabsWs.readyState === WebSocket.OPEN) {
+             isAITalking = true;
+             const greeting = "Namaste! Main Leadzo se baat kar rahi hoon. Main aapki kaise madad kar sakti hoon?";
+             console.log("Sending initial greeting:", greeting);
+             elevenLabsWs.send(JSON.stringify({ text: greeting }));
+         }
+      }, 1000); // 1 second delay to ensure user picked up fully
+      
     } else if (msg.event === 'media') {
       if (deepgramLive && deepgramLive.readyState === WebSocket.OPEN) {
         deepgramLive.send(Buffer.from(msg.media.payload, 'base64'));
