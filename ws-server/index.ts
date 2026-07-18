@@ -106,7 +106,8 @@ wss.on('connection', (ws, req) => {
       console.log(`User: ${transcript}`);
       
       // VAD Interruption Logic MVP:
-      // If user speaks while AI is talking, stop the AI.
+      // Temporarily disabled to debug if phone speaker echo is causing instant self-interruption.
+      /*
       if (isAITalking) {
         console.log("INTERRUPTION DETECTED! Stopping AI.");
         ws.send(JSON.stringify({ event: "clear", streamSid }));
@@ -114,6 +115,7 @@ wss.on('connection', (ws, req) => {
         if (auraWs) auraWs.close();
         isAITalking = false;
       }
+      */
 
       conversationHistory.push({ role: "user", content: transcript });
       
