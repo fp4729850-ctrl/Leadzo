@@ -28,10 +28,11 @@ serve(async (req) => {
       throw new Error("Missing Twilio credentials in Supabase secrets.")
     }
 
-    // Save system prompt for the WS server to pick up (optional: via Supabase or header)
-    // For now we pass it via URL param in twiml URL
-    const systemPrompt = encodeURIComponent(message || "You are a helpful AI sales agent for Leadzo. Keep responses short and helpful.")
-    const selectedVoice = encodeURIComponent(voice || "rachel")
+    // Truncate prompt to avoid exceeding Twilio URL length limit (max 4000 chars)
+    const maxPromptLength = 500; // safe limit
+    const truncatedMessage = typeof message === 'string' ? message.slice(0, maxPromptLength) : '';
+    const systemPrompt = encodeURIComponent(truncatedMessage || "You are a helpful AI sales agent for Leadzo. Keep responses short and helpful.");
+    const selectedVoice = encodeURIComponent(voice || "rachel");
 
     const results = []
 
