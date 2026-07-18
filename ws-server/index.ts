@@ -4,7 +4,6 @@ import * as http from 'http';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import { mulaw } from 'alawmulaw';
-import { createClient, LiveTranscriptionEvents } from '@deepgram/sdk';
 import OpenAI from 'openai';
 
 dotenv.config();
@@ -24,14 +23,14 @@ if (!DEEPGRAM_API_KEY || !OPENAI_API_KEY || !ELEVENLABS_API_KEY) {
   process.exit(1);
 }
 
-const deepgram = createClient(DEEPGRAM_API_KEY);
+
 const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
 const ELEVENLABS_VOICE_ID = "21m00Tcm4TlvDq8ikWAM"; // Rachel
 
 // Helper: Convert 16kHz PCM16 (ElevenLabs) to 8kHz mu-law (Twilio)
 function transcodePcm16ToMulaw(base64Pcm16: string): string {
   const pcmBuffer = Buffer.from(base64Pcm16, 'base64');
-  const sampleCount = pcmBuffer.length / 2;
+  const sampleCount = Math.floor(pcmBuffer.length / 2);
   const targetCount = Math.floor(sampleCount / 2); // 16kHz to 8kHz
   const mulawBuffer = Buffer.alloc(targetCount);
   
@@ -39,7 +38,8 @@ function transcodePcm16ToMulaw(base64Pcm16: string): string {
   for (let i = 0; i < sampleCount; i += 2) {
     if (i * 2 + 1 < pcmBuffer.length) {
       const pcmSample = pcmBuffer.readInt16LE(i * 2);
-      const mulawSample = mulaw.encode[pcmSample < 0 ? pcmSample + 65536 : pcmSample] ?? 255;
+      // @ts-ignore
+      const mulawSample = mulaw.encodeSample(pcmSample);
       mulawBuffer[mulawOffset++] = mulawSample;
     }
   }
@@ -73,23 +73,21 @@ wss.on('connection', (ws, req) => {
     content: "You are a helpful AI assistant for Leadzo. Keep responses short (1-2 sentences)."
   }];
 
-  // 1. Initialize Deepgram (Listening)
-  deepgramLive = deepgram.listen.live({
-    model: 'nova-2',
-    language: 'hi', // Hindi/English support
-    encoding: 'mulaw',
-    sample_rate: 8000,
-    interim_results: true,
-    endpointing: 300,
+  // 1. Initialize Deepgram (Listening) via WebSockets
+  const deepgramUrl = `wss://api.deepgram.com/v1/listen?model=nova-2&language=hi&encoding=mulaw&sample_rate=8000&interim_results=true&endpointing=300`;
+  deepgramLive = new WebSocket(deepgramUrl, {
+    headers: { Authorization: `Token ${DEEPGRAM_API_KEY}` }
   });
 
-  deepgramLive.on(LiveTranscriptionEvents.Open, () => {
+  deepgramLive.on('open', () => {
     console.log("Deepgram connected");
   });
 
-  deepgramLive.on(LiveTranscriptionEvents.Transcript, async (data: any) => {
-    const transcript = data.channel.alternatives[0].transcript;
-    if (transcript && data.is_final) {
+  deepgramLive.on('message', async (data: any) => {
+    const response = JSON.parse(data.toString());
+    if (response.type === 'Results') {
+      const transcript = response.channel.alternatives[0].transcript;
+      if (transcript && response.is_final) {
       console.log(`User: ${transcript}`);
       
       // VAD Interruption Logic MVP:
@@ -165,6 +163,7 @@ wss.on('connection', (ws, req) => {
         isAITalking = false;
       }
     }
+    }
   });
 
   // Handle Twilio Messages
@@ -175,19 +174,19 @@ wss.on('connection', (ws, req) => {
       console.log(`Stream started: ${streamSid}`);
     } else if (msg.event === 'media') {
       // Pipe raw mu-law to Deepgram
-      if (deepgramLive && deepgramLive.getReadyState() === 1) {
+      if (deepgramLive && deepgramLive.readyState === WebSocket.OPEN) {
         deepgramLive.send(Buffer.from(msg.media.payload, 'base64'));
       }
     } else if (msg.event === 'stop') {
       console.log(`Stream stopped: ${streamSid}`);
-      if (deepgramLive) deepgramLive.finish();
+      if (deepgramLive) deepgramLive.close();
       if (elevenLabsWs) elevenLabsWs.close();
     }
   });
 
   ws.on('close', () => {
     console.log('Twilio stream closed');
-    if (deepgramLive) deepgramLive.finish();
+    if (deepgramLive) deepgramLive.close();
     if (elevenLabsWs) elevenLabsWs.close();
   });
 });
