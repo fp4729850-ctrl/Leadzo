@@ -101,7 +101,7 @@ wss.on('connection', (ws, req) => {
     const response = JSON.parse(data.toString());
     if (response.type === 'Results') {
       const transcript = response.channel.alternatives[0].transcript;
-      const cleanTranscript = transcript ? transcript.trim().replace(/[^a-zA-Z0-9]/g, '') : '';
+      const cleanTranscript = transcript ? transcript.trim().replace(/[.,!?]/g, '') : '';
       if (cleanTranscript.length > 0 && response.is_final) {
       console.log(`User: ${transcript}`);
       
