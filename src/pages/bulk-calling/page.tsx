@@ -215,6 +215,7 @@ export default function BulkCallingPage() {
   const stopRef = useRef(false);
 
   const numbers = numbersRaw.split(/[\n,]+/).map((n) => n.trim()).filter((n) => n.length > 5);
+  const isBusy = calling || (results.length > 0 && results.every((r) => r.status === "connected" || r.status === "failed"));
   const [url, setUrl] = useState("");
   const [scanning, setScanning] = useState(false);
   const scanWebsiteAction = useAction(api.campaignAi.scanWebsiteForCampaign);
