@@ -17,24 +17,35 @@ import { cn } from "@/lib/utils.ts";
 type CallStatus = "pending" | "calling" | "connected" | "failed";
 interface CallResult { number: string; status: CallStatus; callSid?: string; error?: string; }
 
-function SetupPanel({ onTest }: { onTest: () => void }) {
+function SetupPanel({ onTest, url, setUrl, scanWebsite, scanning }: { onTest: () => void; url: string; setUrl: (u: string) => void; scanWebsite: () => void; scanning: boolean }) {
   return (
-    <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-4 space-y-3">
+    <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-4 space-y-4">
       <div className="flex items-start gap-3">
         <Settings size={16} className="text-blue-400 mt-0.5 shrink-0" />
         <div className="space-y-2 flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <p className="text-sm font-semibold text-foreground">Twilio Setup</p>
-            <Badge className="text-[9px] bg-blue-500/20 text-blue-400 border-blue-500/30">Trial: Free calls</Badge>
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-semibold text-foreground">AI Brain Setup (Vapi.ai)</p>
+              <Badge className="text-[9px] bg-blue-500/20 text-blue-400 border-blue-500/30">Ultra-Low Latency</Badge>
+            </div>
+            <div className="flex gap-3 items-center">
+              <a href="https://vapi.ai" target="_blank" rel="noopener noreferrer" className="text-[11px] text-primary hover:underline font-semibold">→ vapi.ai</a>
+              <button onClick={onTest} className="text-[11px] text-blue-400 hover:underline font-semibold cursor-pointer">→ Test call karo</button>
+            </div>
           </div>
-          <div className="rounded-lg bg-background border border-border p-2.5 font-mono text-[10px] space-y-1 text-muted-foreground">
-            <p><span className="text-primary">TWILIO_ACCOUNT_SID</span> = ACxxxxxxxx</p>
-            <p><span className="text-primary">TWILIO_AUTH_TOKEN</span> = your_auth_token</p>
-            <p><span className="text-primary">TWILIO_PHONE_NUMBER</span> = +1xxxxxxxxxx</p>
-          </div>
-          <div className="flex gap-3">
-            <a href="https://twilio.com" target="_blank" rel="noopener noreferrer" className="text-[11px] text-primary hover:underline font-semibold">→ twilio.com</a>
-            <button onClick={onTest} className="text-[11px] text-blue-400 hover:underline font-semibold cursor-pointer">→ Test call karo</button>
+          
+          <div className="rounded-lg bg-background border border-border p-3 space-y-3">
+            <div className="space-y-1.5">
+               <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Business Website URL</Label>
+               <div className="flex gap-2">
+                 <Input placeholder="https://example.com" className="h-8 text-xs bg-muted/30 font-mono" value={url} onChange={e => setUrl(e.target.value)} />
+                 <Button size="sm" className="h-8 text-xs gap-1.5 whitespace-nowrap" onClick={scanWebsite} disabled={scanning}>
+                   {scanning ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                   Scan & Learn
+                 </Button>
+               </div>
+               <p className="text-[9px] text-muted-foreground mt-1">AI iss website ko padh kar apna system prompt (dimaag) khud bana lega.</p>
+            </div>
           </div>
         </div>
       </div>
@@ -204,10 +215,30 @@ export default function BulkCallingPage() {
   const stopRef = useRef(false);
 
   const numbers = numbersRaw.split(/[\n,]+/).map((n) => n.trim()).filter((n) => n.length > 5);
-  const isBusy = calling || (results.length > 0 && results.every((r) => r.status === "connected" || r.status === "failed"));
+  const [url, setUrl] = useState("");
+  const [scanning, setScanning] = useState(false);
+  const scanWebsiteAction = useAction(api.campaignAi.scanWebsiteForCampaign);
+
+  const handleScanWebsite = async () => {
+    if (!url.trim() || !url.includes(".")) { toast.error("Sahi website URL daalo"); return; }
+    setScanning(true);
+    try {
+      const res = await scanWebsiteAction({ url: url.trim(), goal: "Create a system prompt for a highly aggressive and professional sales AI voice agent that books appointments." });
+      if (res && res.ideas && res.ideas.length > 0) {
+        setScript(res.ideas[0].script || "You are an AI sales agent for this business. You must talk politely, answer queries from the website, and book appointments.");
+        toast.success("Website scanned! System Prompt is ready.");
+      } else {
+        toast.error("Scanning failed to return a prompt.");
+      }
+    } catch (e) {
+      toast.error("Failed to scan website. Check backend logs.");
+    } finally {
+      setScanning(false);
+    }
+  };
 
   const handlePreview = async () => {
-    if (!script.trim()) { toast.error("Pehle script likho"); return; }
+    if (!script.trim()) { toast.error("Pehle System Prompt likho"); return; }
     setPreviewing(true);
     try {
       const res = await previewVoice({ text: script, voice });
@@ -259,7 +290,7 @@ export default function BulkCallingPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="space-y-4">
-          <SetupPanel onTest={() => setShowTest(true)} />
+          <SetupPanel onTest={() => setShowTest(true)} url={url} setUrl={setUrl} scanWebsite={handleScanWebsite} scanning={scanning} />
           <AnimatePresence>
             {showTest && (
               <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>
@@ -298,7 +329,7 @@ export default function BulkCallingPage() {
               </div>
               <div className="rounded-xl border border-border bg-card p-4 space-y-3">
                 <div className="flex items-center justify-between">
-                  <Label className="text-sm font-semibold">Call Script</Label>
+                  <Label className="text-sm font-semibold">AI System Prompt (Brain)</Label>
                   <button onClick={() => setShowGenerator(!showGenerator)} className="text-[10px] text-primary font-semibold cursor-pointer hover:underline">{showGenerator ? "Hide" : "✶ AI Generate"}</button>
                 </div>
                 {showGenerator && (
@@ -306,7 +337,7 @@ export default function BulkCallingPage() {
                     <AiScriptPanel onSelect={(t) => { setScript(t); setShowGenerator(false); }} />
                   </motion.div>
                 )}
-                <Textarea placeholder="Namaste! Main Leadzo AI se bol raha hoon..." rows={6} className="text-sm resize-none" value={script} onChange={(e) => setScript(e.target.value)} />
+                <Textarea placeholder="You are an AI sales agent for Leadzo. Your goal is to..." rows={8} className="text-sm resize-none font-mono" value={script} onChange={(e) => setScript(e.target.value)} />
               </div>
               <Button onClick={handleLaunch} disabled={numbers.length === 0 || !script.trim()} className="w-full cursor-pointer gap-2 bg-blue-600 hover:bg-blue-700 text-white">
                 <Play size={14} /> {`Bulk Call ${numbers.length} Number${numbers.length !== 1 ? "s" : ""}`}

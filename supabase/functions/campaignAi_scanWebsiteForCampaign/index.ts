@@ -11,7 +11,7 @@ serve(async (req) => {
   }
 
   try {
-    const { url } = await req.json()
+    const { url, goal } = await req.json()
     if (!url) throw new Error("URL is required")
     let targetUrl = url;
     if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
@@ -61,7 +61,21 @@ serve(async (req) => {
     const openAIKey = Deno.env.get("OPENAI_API_KEY")
     const geminiKey = Deno.env.get("GEMINI_API_KEY")
 
-    const systemPrompt = `You are an expert digital marketer and AI Campaign Architect. 
+    const isVoiceAgent = goal && goal.toLowerCase().includes("voice agent");
+
+    let systemPrompt = "";
+    
+    if (isVoiceAgent) {
+      systemPrompt = `You are an expert AI Voice Agent Architect.
+Your task is to analyze the text scraped from a website and automatically generate a highly optimized "System Prompt" (Brain) for a Voice AI Assistant.
+The user's specific goal is: "${goal}"
+
+Respond ONLY with a JSON object containing EXACTLY these keys:
+- ideas: array of objects, each containing:
+  - script: string (The extremely detailed system prompt that tells the AI exactly who it is, what the business does based on the website context, how to talk, and how to handle objections.)
+`;
+    } else {
+      systemPrompt = `You are an expert digital marketer and AI Campaign Architect. 
 Your task is to analyze the text scraped from a website and automatically generate an optimal ad campaign.
 Respond ONLY with a JSON object containing EXACTLY these keys:
 - businessName: string (name of the business)
@@ -73,7 +87,8 @@ Respond ONLY with a JSON object containing EXACTLY these keys:
 - ctaButton: string (MUST be one of: "Learn More", "Sign Up", "Download", "Get Quote", "Buy Now", "Contact Us", "Apply Now", "Subscribe")
 - interests: string[] (array of 3-5 target audience interests)
 - destinationUrl: string (the provided url)
-`
+`;
+    }
 
     const userPrompt = `URL: ${url}\n\nWebsite Text:\n${text}`
 
