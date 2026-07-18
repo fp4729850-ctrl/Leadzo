@@ -213,7 +213,7 @@ export default function BulkCallingPage() {
 
   const [numbersRaw, setNumbersRaw] = useState("");
   const [script, setScript] = useState("");
-  const [voice, setVoice] = useState("nova");
+  const [voice, setVoice] = useState("rachel");
   const [showGenerator, setShowGenerator] = useState(false);
   const [showTest, setShowTest] = useState(false);
   const [calling, setCalling] = useState(false);
@@ -235,7 +235,7 @@ export default function BulkCallingPage() {
     setScanning(true);
     
     let persona = "";
-    if (voice === "nova" || voice === "shimmer") {
+    if (voice === "rachel" || voice === "sarah") {
       const name = (scanLanguage === "Hindi" || scanLanguage === "Hinglish") ? "Pooja" : "Sarah";
       persona = `You are a FEMALE sales agent named ${name}. Adopt a confident, professional female persona.`;
     } else {
@@ -333,17 +333,19 @@ export default function BulkCallingPage() {
                   <Upload size={13} /> Upload .txt / .csv
                   <Input type="file" accept=".txt,.csv" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (!f) return; const r = new FileReader(); r.onload = (ev) => { setNumbersRaw(ev.target?.result as string); toast.success(`${f.name} loaded!`); }; r.readAsText(f); }} />
                 </label>
-              </div>
-              <div className="rounded-xl border border-border bg-card p-4 space-y-3">
-                <Label className="text-sm font-semibold">AI Voice</Label>
+                 <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm font-semibold">AI Voice (ElevenLabs)</Label>
+                  <Badge className="text-[9px] bg-purple-500/10 text-purple-400 border-purple-500/20">Ultra-Realistic</Badge>
+                </div>
                 <div className="grid grid-cols-2 gap-2">
-                  {([{ id: "nova", label: "Nova", desc: "Young Female" }, { id: "shimmer", label: "Shimmer", desc: "Warm Female" }, { id: "alloy", label: "Alloy", desc: "Neutral" }, { id: "echo", label: "Echo", desc: "Male" }] as const).map((v) => (
-                    <button key={v.id} onClick={() => setVoice(v.id)} className={cn("text-left p-2.5 rounded-lg border transition-all cursor-pointer", voice === v.id ? "border-primary/50 bg-primary/10" : "border-border bg-muted/20")}>
-                      <p className={cn("text-xs font-semibold", voice === v.id ? "text-primary" : "text-foreground")}>{v.label}</p>
-                      <p className="text-[10px] text-muted-foreground">{v.desc}</p>
+                  {([{ id: "rachel", label: "Rachel", desc: "Young Female" }, { id: "sarah", label: "Sarah", desc: "Warm Female" }, { id: "drew", label: "Drew", desc: "Energetic Male" }, { id: "paul", label: "Paul", desc: "Pro Male" }] as const).map((v) => (
+                    <button key={v.id} onClick={() => setVoice(v.id)} className={cn("flex flex-col items-start p-3 rounded-lg border text-left transition-all", voice === v.id ? "border-primary bg-primary/5 shadow-sm" : "border-border bg-muted/30 hover:bg-muted/50")}>
+                      <span className="text-xs font-semibold">{v.label}</span>
+                      <span className="text-[10px] text-muted-foreground">{v.desc}</span>
                     </button>
                   ))}
-                </div>
+                </div>            </div>
                 <Button variant="secondary" size="sm" className="w-full gap-2 text-xs cursor-pointer" onClick={handlePreview} disabled={previewing || !script.trim()}>
                   {previewing ? <><Loader2 size={11} className="animate-spin" /> Playing preview…</> : <><Volume2 size={11} /> Preview Voice</>}
                 </Button>
