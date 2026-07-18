@@ -93,6 +93,11 @@ wss.on('connection', (ws, req) => {
     headers: { Authorization: `Token ${DEEPGRAM_API_KEY}` }
   });
 
+  deepgramLive.on('error', (err) => {
+    lastErrors.push("Deepgram STT Error: " + String(err));
+    console.error("Deepgram STT Error", err);
+  });
+
   deepgramLive.on('open', () => {
     console.log("Deepgram connected");
   });
@@ -102,6 +107,7 @@ wss.on('connection', (ws, req) => {
     try {
       response = JSON.parse(data.toString());
     } catch (e) {
+      lastErrors.push("Deepgram STT JSON Parse Error: " + String(e));
       console.error("Failed to parse Deepgram STT message", e);
       return;
     }
@@ -259,6 +265,7 @@ wss.on('connection', (ws, req) => {
           }
         }
       } catch (err) {
+        lastErrors.push("OpenAI/TTS Error: " + String(err));
         console.error("OpenAI/TTS Error", err);
         isAITalking = false;
       }
@@ -293,6 +300,17 @@ wss.on('connection', (ws, req) => {
 });
 
 const PORT = process.env.PORT || 8080;
+export let lastStreamSid = "None";
+export let lastErrors: string[] = [];
+
+app.get('/ping', (req, res) => {
+  res.json({
+    status: "running",
+    lastStreamSid,
+    lastErrors
+  });
+});
+
 server.listen(PORT, () => {
   console.log(`Leadzo Full Vapi Clone listening on port ${PORT}`);
 });
