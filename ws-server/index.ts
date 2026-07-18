@@ -98,7 +98,13 @@ wss.on('connection', (ws, req) => {
   });
 
   deepgramLive.on('message', async (data: any) => {
-    const response = JSON.parse(data.toString());
+    let response;
+    try {
+      response = JSON.parse(data.toString());
+    } catch (e) {
+      console.error("Failed to parse Deepgram STT message", e);
+      return;
+    }
     if (response.type === 'Results') {
       const transcript = response.channel.alternatives[0].transcript;
       const cleanTranscript = transcript ? transcript.trim().replace(/[.,!?]/g, '') : '';
@@ -154,7 +160,12 @@ wss.on('connection', (ws, req) => {
           });
 
           elevenLabsWs.on('message', (data) => {
-            const res = JSON.parse(data.toString());
+            let res;
+            try {
+              res = JSON.parse(data.toString());
+            } catch(e) {
+              return;
+            }
             if (res.audio) {
               const mulawAudio = transcodePcm16ToMulaw(res.audio);
               if (ws.readyState === WebSocket.OPEN) {
@@ -196,7 +207,12 @@ wss.on('connection', (ws, req) => {
                 ws.send(JSON.stringify({ event: "media", streamSid, media: { payload: data.toString('base64') } }));
               }
             } else {
-              const res = JSON.parse(data.toString());
+              let res;
+              try {
+                res = JSON.parse(data.toString());
+              } catch(e) {
+                return;
+              }
               if (res.type === "Flushed") {
                 isAITalking = false;
                 conversationHistory.push({ role: "assistant", content: fullAIResponse });
