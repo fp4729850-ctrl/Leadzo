@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useAction } from "@/lib/convex-supabase-adapter";
 import { api } from "@/convex/_generated/api.js";
 import { motion, AnimatePresence } from "motion/react";
@@ -13,11 +13,37 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty.tsx";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils.ts";
+import { supabase } from "@/lib/supabase.ts";
 
 type CallStatus = "pending" | "calling" | "connected" | "failed";
 interface CallResult { number: string; status: CallStatus; callSid?: string; error?: string; }
 
-function SetupPanel({ onTest, url, setUrl, scanWebsite, scanning, language, setLanguage }: { onTest: () => void; url: string; setUrl: (u: string) => void; scanWebsite: () => void; scanning: boolean; language: string; setLanguage: (l: string) => void }) {
+function SetupPanel({ onTest, url, setUrl, scanWebsite, scanning, language, setLanguage, myNumber }: { onTest: () => void; url: string; setUrl: (u: string) => void; scanWebsite: () => void; scanning: boolean; language: string; setLanguage: (l: string) => void; myNumber: string | null }) {
+  const [buying, setBuying] = useState(false);
+
+  const handleBuyNumber = async () => {
+    setBuying(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Please log in first");
+      
+      const res = await fetch("https://stbqeiapgdaklktrlrjm.supabase.co/functions/v1/provisionPhoneNumber", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${session.access_token}` }
+      });
+      
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      
+      toast.success(data.message);
+      setTimeout(() => window.location.reload(), 1500);
+    } catch (e: any) {
+      toast.error(e.message || "Failed to buy number");
+    } finally {
+      setBuying(false);
+    }
+  };
+
   return (
     <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-4 space-y-4">
       <div className="flex items-start gap-3">
@@ -27,6 +53,19 @@ function SetupPanel({ onTest, url, setUrl, scanWebsite, scanning, language, setL
             <div className="flex items-center gap-2">
               <p className="text-sm font-semibold text-foreground">AI Brain Setup (Vapi.ai)</p>
               <Badge className="text-[9px] bg-blue-500/20 text-blue-400 border-blue-500/30">Ultra-Low Latency</Badge>
+              {myNumber ? (
+                <Badge variant="outline" className="text-[9px] ml-2">My Caller ID: {myNumber}</Badge>
+              ) : (
+                <div className="flex items-center gap-2 ml-2">
+                  <Button size="sm" variant="outline" className="h-6 text-[10px] gap-1 px-2 border-primary/30 hover:bg-primary/10" onClick={handleBuyNumber} disabled={buying}>
+                    {buying ? <Loader2 size={10} className="animate-spin" /> : <PhoneCall size={10} />}
+                    Get US Number (Instant)
+                  </Button>
+                  <Button size="sm" variant="ghost" className="h-6 text-[10px] px-2 text-muted-foreground hover:text-foreground hover:bg-muted/50" onClick={() => toast.info("Local numbers (India/UAE) require KYC verification by TRAI/Telecom authorities. Please email your Business Registration and Address Proof to support@leadzo.com to apply.", { duration: 8000 })}>
+                    Request Local Number
+                  </Button>
+                </div>
+              )}
             </div>
             <div className="flex gap-3 items-center">
               <a href="https://vapi.ai" target="_blank" rel="noopener noreferrer" className="text-[11px] text-primary hover:underline font-semibold">→ vapi.ai</a>
@@ -221,6 +260,17 @@ export default function BulkCallingPage() {
   const [previewing, setPreviewing] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const stopRef = useRef(false);
+  const [myNumber, setMyNumber] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        supabase.from("user_phone_numbers").select("phone_number").eq("user_id", user.id).eq("status", "active").single().then(({ data }) => {
+          if (data?.phone_number) setMyNumber(data.phone_number);
+        });
+      }
+    });
+  }, []);
 
   const numbers = numbersRaw.split(/[\n,]+/).map((n) => n.trim()).filter((n) => n.length > 5);
   const isBusy = calling || (results.length > 0 && results.every((r) => r.status === "connected" || r.status === "failed"));
@@ -311,7 +361,7 @@ export default function BulkCallingPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="space-y-4">
-          <SetupPanel onTest={() => setShowTest(true)} url={url} setUrl={setUrl} scanWebsite={handleScanWebsite} scanning={scanning} language={scanLanguage} setLanguage={setScanLanguage} />
+          <SetupPanel onTest={() => setShowTest(true)} url={url} setUrl={setUrl} scanWebsite={handleScanWebsite} scanning={scanning} language={scanLanguage} setLanguage={setScanLanguage} myNumber={myNumber} />
           <AnimatePresence>
             {showTest && (
               <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>

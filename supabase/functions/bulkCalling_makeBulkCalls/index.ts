@@ -1,5 +1,6 @@
 // Supabase Edge Function: bulkCalling_makeBulkCalls
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -14,7 +15,30 @@ serve(async (req) => {
   try {
     const { numbers, message, voice } = await req.json()
     const vapiApiKey = Deno.env.get("VAPI_API_KEY")
-    const vapiPhoneNumberId = Deno.env.get("VAPI_PHONE_NUMBER_ID")
+    let vapiPhoneNumberId = Deno.env.get("VAPI_PHONE_NUMBER_ID")
+
+    // Fetch user-specific phone number if authenticated
+    const authHeader = req.headers.get('Authorization')
+    if (authHeader) {
+      const supabaseClient = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+        { global: { headers: { Authorization: authHeader } } }
+      )
+      const { data: { user } } = await supabaseClient.auth.getUser()
+      if (user) {
+        const { data: phoneData } = await supabaseClient
+          .from('user_phone_numbers')
+          .select('vapi_phone_number_id')
+          .eq('user_id', user.id)
+          .eq('status', 'active')
+          .single()
+        
+        if (phoneData?.vapi_phone_number_id) {
+          vapiPhoneNumberId = phoneData.vapi_phone_number_id
+        }
+      }
+    }
 
     let callSid = "mock_call_sid_" + Math.random().toString(36).substr(2, 9);
     
@@ -33,9 +57,14 @@ serve(async (req) => {
           phoneNumberId: vapiPhoneNumberId,
           customer: { number: numbers[0] },
           assistant: {
+            transcriber: {
+              provider: "deepgram",
+              model: "nova-2",
+              language: "hi"
+            },
             model: {
               provider: "openai",
-              model: "gpt-4o-mini",
+              model: "gpt-4o",
               messages: [
                 {
                   role: "system",
@@ -43,7 +72,8 @@ serve(async (req) => {
                 }
               ]
             },
-            voice: { provider: "openai", voiceId: voice || "alloy" }
+            firstMessage: "Hello?",
+            voice: { provider: "11labs", voiceId: voice || "rachel" }
           }
         })
       });

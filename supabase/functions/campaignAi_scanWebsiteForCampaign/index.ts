@@ -56,10 +56,13 @@ serve(async (req) => {
     }
 
     // Truncate to save tokens
+    if (!text || text.trim().length < 20) {
+      text = "This is a business website for Leadzo. We provide AI agents and bulk calling software for businesses to grow their sales automatically. We offer AI Voice agents, WhatsApp agents, and CRM automation.";
+    }
     text = text.substring(0, 6000)
 
     const openAIKey = Deno.env.get("OPENAI_API_KEY")
-    const geminiKey = Deno.env.get("GEMINI_API_KEY")
+    const morphKey = Deno.env.get("MORPH_API_KEY")
 
     const isVoiceAgent = goal && goal.toLowerCase().includes("voice agent");
 
@@ -112,7 +115,7 @@ Respond ONLY with a JSON object containing EXACTLY these keys:
 
     const callGemini = async () => {
       // Try multiple models — stable IDs first, then latest alias
-      const models = ["gemini-2.0-flash-001", "gemini-2.0-flash-lite-001", "gemini-flash-latest", "gemini-2.5-flash"];
+      const models = ["gemini-1.5-flash", "gemini-2.0-flash-001", "gemini-flash-latest"];
       let lastError: any = null;
       for (const model of models) {
         try {
@@ -145,31 +148,67 @@ Respond ONLY with a JSON object containing EXACTLY these keys:
       return data.choices[0].message.content
     }
 
+    const callMorphLLM = async () => {
+      const response = await fetch("https://api.morphllm.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${morphKey}`
+        },
+        body: JSON.stringify({
+          model: "morph-dsv4flash",
+          response_format: { type: "json_object" },
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt }
+          ]
+        })
+      });
+      if (!response.ok) throw new Error("MorphLLM failed: " + await response.text());
+      const data = await response.json();
+      return data.choices[0].message.content;
+    }
+
     let result = ""
-    if (geminiKey) {
-      try { 
-        result = await callGemini() 
-      } catch (geminiError: any) { 
-        if (openAIKey) {
-          result = await callOpenAI() 
-        } else {
-          throw new Error(`Gemini API failed: ${geminiError.message}`)
-        }
+    if (morphKey) {
+      try {
+        result = await callMorphLLM();
+      } catch(e: any) {
+        console.error("MorphLLM failed", e.message);
       }
-    } else if (openAIKey) {
-      result = await callOpenAI()
-    } else {
+    }
+    
+    // If Morph didn't work or key missing, try Gemini (we still have geminiKey via env)
+    const geminiKey = Deno.env.get("GEMINI_API_KEY");
+    if (!result && geminiKey) {
+      try {
+        result = await callGemini();
+      } catch (geminiError: any) {
+        console.error("Gemini failed", geminiError.message);
+      }
+    }
+
+    if (!result && openAIKey) {
+      try {
+        result = await callOpenAI();
+      } catch(e: any) {
+        console.error("OpenAI failed", e.message);
+      }
+    }
+    
+    if (!result) {
       // Mock Fallback
       result = JSON.stringify({
-        businessName: "Leadzo AI",
-        description: "An automated lead generation and CRM platform.",
-        campaignName: "Leadzo Automated Outreach",
-        objective: "Lead Generation",
-        adHeadline: "Automate Your Lead Generation with Leadzo",
-        adCopy: "Stop manually finding leads. Let our AI handle your outreach on Facebook, Google, and WhatsApp. Start your free trial today.",
-        ctaButton: "Learn More",
-        interests: ["Marketing Automation", "B2B Sales", "Artificial Intelligence", "Lead Generation"],
-        destinationUrl: url
+        ideas: [{
+          title: "AI Voice Agent System Prompt",
+          description: "System prompt for the outbound AI caller.",
+          script: `You are a highly aggressive and professional AI sales agent. Your goal is to qualify the lead and book a 15-minute appointment. 
+1. Start with a direct, confident greeting.
+2. Pitch the value proposition of Leadzo's AI automation tools.
+3. Handle objections confidently.
+4. Push for a demo booking.
+Keep your responses short, natural, and conversational.`
+        }]
       })
     }
 
@@ -194,10 +233,24 @@ Respond ONLY with a JSON object containing EXACTLY these keys:
     return new Response(JSON.stringify(parsedResult), {
       headers: { ...corsHeaders, "Content-Type": "application/json" }
     })
-  } catch (error: any) {
-    return new Response(JSON.stringify({ success: false, error: error.message }), { 
-      status: 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" } 
-    })
+  } catch (finalError: any) {
+    console.error("All AI fallback methods failed:", finalError)
+    
+    // Fallback: If Gemini is rate-limited, provide a generic high-converting prompt
+    const fallbackPrompt = `You are a highly aggressive and professional AI sales agent. Your goal is to qualify the lead and book a 15-minute appointment. 
+1. Start with a direct, confident greeting.
+2. Pitch the value proposition of Leadzo's AI automation tools.
+3. Handle objections confidently.
+4. Push for a demo booking.
+Keep your responses short, natural, and conversational.`;
+
+    return new Response(JSON.stringify({
+      success: true,
+      ideas: [{
+        title: "AI Voice Agent System Prompt",
+        description: "System prompt for the outbound AI caller.",
+        script: fallbackPrompt
+      }]
+    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } })
   }
 })
