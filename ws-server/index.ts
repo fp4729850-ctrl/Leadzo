@@ -72,9 +72,12 @@ wss.on('connection', (ws, req) => {
   const selectedVoice = urlParams.get('voice') || 'rachel';
   const customPrompt = urlParams.get('prompt') ? decodeURIComponent(urlParams.get('prompt')!) : '';
 
+  const ttsEngine = urlParams.get('ttsEngine') || 'elevenlabs';
+
   let streamSid = '';
   let deepgramLive: any = null;
   let elevenLabsWs: WebSocket | null = null;
+  let auraWs: WebSocket | null = null;
   let isAITalking = false;
   const systemContent = customPrompt || "You are a helpful AI assistant for Leadzo. Keep responses short (1-2 sentences).";
   let conversationHistory: any[] = [{
@@ -82,7 +85,7 @@ wss.on('connection', (ws, req) => {
     content: systemContent
   }];
 
-  console.log(`📞 New call connected | Voice: ${selectedVoice}`);
+  console.log(`📞 New call connected | Voice: ${selectedVoice} | TTS: ${ttsEngine}`);
 
   // 1. Initialize Deepgram (Listening) via WebSockets
   const deepgramUrl = `wss://api.deepgram.com/v1/listen?model=nova-2&language=hi&encoding=mulaw&sample_rate=8000&interim_results=true&endpointing=300`;
@@ -107,6 +110,7 @@ wss.on('connection', (ws, req) => {
         console.log("INTERRUPTION DETECTED! Stopping AI.");
         ws.send(JSON.stringify({ event: "clear", streamSid }));
         if (elevenLabsWs) elevenLabsWs.close();
+        if (auraWs) auraWs.close();
         isAITalking = false;
       }
 
@@ -121,56 +125,81 @@ wss.on('connection', (ws, req) => {
           stream: true,
         });
 
-        // 3. ElevenLabs (Speaking)
-        const elevenUrl = `wss://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_VOICE_ID}/stream-input?model_id=eleven_multilingual_v2&output_format=pcm_16000`;
-        elevenLabsWs = new WebSocket(elevenUrl, {
-          headers: { "xi-api-key": ELEVENLABS_API_KEY }
-        });
-
+        // 3. TTS (Speaking)
         let fullAIResponse = "";
 
-        elevenLabsWs.on('open', () => {
-          elevenLabsWs?.send(JSON.stringify({
-            text: " ",
-            voice_settings: { stability: 0.5, similarity_boost: 0.8 }
-          }));
-        });
+        if (ttsEngine === "elevenlabs") {
+          const elevenUrl = `wss://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_VOICE_ID}/stream-input?model_id=eleven_multilingual_v2&output_format=pcm_16000`;
+          elevenLabsWs = new WebSocket(elevenUrl, {
+            headers: { "xi-api-key": ELEVENLABS_API_KEY }
+          });
 
-        elevenLabsWs.on('message', (data) => {
-          const res = JSON.parse(data.toString());
-          if (res.audio) {
-            // Transcode 16kHz PCM to 8kHz mu-law for Twilio
-            const mulawAudio = transcodePcm16ToMulaw(res.audio);
-            if (ws.readyState === WebSocket.OPEN) {
-              ws.send(JSON.stringify({
-                event: "media",
-                streamSid,
-                media: { payload: mulawAudio }
-              }));
+          elevenLabsWs.on('open', () => {
+            elevenLabsWs?.send(JSON.stringify({
+              text: " ",
+              voice_settings: { stability: 0.5, similarity_boost: 0.8 }
+            }));
+          });
+
+          elevenLabsWs.on('message', (data) => {
+            const res = JSON.parse(data.toString());
+            if (res.audio) {
+              const mulawAudio = transcodePcm16ToMulaw(res.audio);
+              if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ event: "media", streamSid, media: { payload: mulawAudio } }));
+              }
             }
-          }
-          if (res.isFinal) {
-            isAITalking = false;
-            conversationHistory.push({ role: "assistant", content: fullAIResponse });
-          }
-        });
+            if (res.isFinal) {
+              isAITalking = false;
+              conversationHistory.push({ role: "assistant", content: fullAIResponse });
+            }
+          });
+        } else {
+          // Deepgram Aura TTS
+          const auraUrl = `wss://api.deepgram.com/v1/speak?model=aura-asteria-en&encoding=mulaw&sample_rate=8000`;
+          auraWs = new WebSocket(auraUrl, {
+            headers: { Authorization: `Token ${DEEPGRAM_API_KEY}` }
+          });
 
+          auraWs.on('message', (data, isBinary) => {
+            if (isBinary || Buffer.isBuffer(data)) {
+              // Direct mulaw audio
+              if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ event: "media", streamSid, media: { payload: data.toString('base64') } }));
+              }
+            } else {
+              const res = JSON.parse(data.toString());
+              if (res.type === "Flushed") {
+                isAITalking = false;
+                conversationHistory.push({ role: "assistant", content: fullAIResponse });
+              }
+            }
+          });
+        }
+
+        // Stream text to the selected TTS engine
         for await (const chunk of stream) {
-          if (!isAITalking) break; // Abort if interrupted
+          if (!isAITalking) break;
           const text = chunk.choices[0]?.delta?.content || "";
           if (text) {
             fullAIResponse += text;
-            if (elevenLabsWs?.readyState === WebSocket.OPEN) {
+            if (ttsEngine === "elevenlabs" && elevenLabsWs?.readyState === WebSocket.OPEN) {
               elevenLabsWs.send(JSON.stringify({ text, try_trigger_generation: true }));
+            } else if (ttsEngine === "deepgram" && auraWs?.readyState === WebSocket.OPEN) {
+              auraWs.send(JSON.stringify({ type: "Speak", text }));
             }
           }
         }
         
-        if (isAITalking && elevenLabsWs?.readyState === WebSocket.OPEN) {
-          elevenLabsWs.send(JSON.stringify({ text: "" })); // End of stream signal
+        if (isAITalking) {
+          if (ttsEngine === "elevenlabs" && elevenLabsWs?.readyState === WebSocket.OPEN) {
+            elevenLabsWs.send(JSON.stringify({ text: "" }));
+          } else if (ttsEngine === "deepgram" && auraWs?.readyState === WebSocket.OPEN) {
+            auraWs.send(JSON.stringify({ type: "Flush" }));
+          }
         }
       } catch (err) {
-        console.error("OpenAI/ElevenLabs Error", err);
+        console.error("OpenAI/TTS Error", err);
         isAITalking = false;
       }
     }
@@ -184,7 +213,6 @@ wss.on('connection', (ws, req) => {
       streamSid = msg.start.streamSid;
       console.log(`Stream started: ${streamSid}`);
     } else if (msg.event === 'media') {
-      // Pipe raw mu-law to Deepgram
       if (deepgramLive && deepgramLive.readyState === WebSocket.OPEN) {
         deepgramLive.send(Buffer.from(msg.media.payload, 'base64'));
       }
@@ -192,6 +220,7 @@ wss.on('connection', (ws, req) => {
       console.log(`Stream stopped: ${streamSid}`);
       if (deepgramLive) deepgramLive.close();
       if (elevenLabsWs) elevenLabsWs.close();
+      if (auraWs) auraWs.close();
     }
   });
 
@@ -199,6 +228,7 @@ wss.on('connection', (ws, req) => {
     console.log('Twilio stream closed');
     if (deepgramLive) deepgramLive.close();
     if (elevenLabsWs) elevenLabsWs.close();
+    if (auraWs) auraWs.close();
   });
 });
 

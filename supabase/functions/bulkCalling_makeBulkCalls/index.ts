@@ -14,7 +14,7 @@ serve(async (req) => {
   }
 
   try {
-    const { numbers, message, voice } = await req.json()
+    const { numbers, message, voice, ttsEngine: reqTtsEngine } = await req.json()
 
     // Twilio Credentials from Supabase Secrets
     const twilioAccountSid = Deno.env.get("TWILIO_ACCOUNT_SID")
@@ -43,6 +43,7 @@ serve(async (req) => {
       systemPrompt = encodeURIComponent("You are a helpful AI sales agent for Leadzo. Keep responses short and helpful.");
     }
     const selectedVoice = encodeURIComponent(voice || "rachel");
+    const ttsEngine = encodeURIComponent(reqTtsEngine || "elevenlabs");
 
     const results = []
 
@@ -58,7 +59,7 @@ serve(async (req) => {
       
       // We pass the TwiML directly instead of providing a Url to bypass the 4000 char Url limit
       const wssUrl = wsServerUrl.replace('http', 'ws');
-      const twiml = `<Response><Connect><Stream url="${wssUrl}/stream?voice=${selectedVoice}&amp;prompt=${systemPrompt}" /></Connect></Response>`;
+      const twiml = `<Response><Connect><Stream url="${wssUrl}/stream?voice=${selectedVoice}&amp;ttsEngine=${ttsEngine}&amp;prompt=${systemPrompt}" /></Connect></Response>`;
       formData.append("Twiml", twiml)
 
       const twilioRes = await fetch(twilioUrl, {

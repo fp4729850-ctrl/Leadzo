@@ -259,6 +259,7 @@ export default function BulkCallingPage() {
   const [script, setScript] = useState("");
   const [voice, setVoice] = useState("rachel");
   const [engine, setEngine] = useState<"premium" | "gemini">("premium");
+  const [ttsEngine, setTtsEngine] = useState<"elevenlabs" | "deepgram">("elevenlabs");
   const [showGenerator, setShowGenerator] = useState(false);
   const [showTest, setShowTest] = useState(false);
   const [calling, setCalling] = useState(false);
@@ -339,7 +340,7 @@ export default function BulkCallingPage() {
       if (stopRef.current) break;
       setResults((prev) => { const next = [...prev]; next[i] = { ...next[i], status: "calling" }; return next; });
       try {
-        const res = await makeBulkCalls({ numbers: [numbers[i]], message: script, voice, engine, delayMs: 0 });
+        const res = await makeBulkCalls({ numbers: [numbers[i]], message: script, voice, engine, ttsEngine, delayMs: 0 });
         const r = res.results[0];
         setResults((prev) => { const next = [...prev]; next[i] = { number: numbers[i], status: r?.success ? "connected" : "failed", callSid: r?.callSid, error: r?.error }; return next; });
       } catch (e) { setResults((prev) => { const next = [...prev]; next[i] = { number: numbers[i], status: "failed", error: e instanceof Error ? e.message : "Error" }; return next; }); }
@@ -407,12 +408,26 @@ export default function BulkCallingPage() {
                  </div>
 
                 {engine === "premium" && (
-                  <div className="space-y-3 pt-2 border-t border-border/50">
-                    <div className="flex items-center gap-2">
-                      <Label className="text-sm font-semibold">Voice Model</Label>
-                      <Badge className="text-[9px] bg-purple-500/10 text-purple-400 border-purple-500/20">ElevenLabs</Badge>
+                  <div className="space-y-4 pt-2 border-t border-border/50">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Label className="text-sm font-semibold">TTS Provider (Voice)</Label>
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => setTtsEngine("elevenlabs")} className={cn("flex-1 p-2 text-xs rounded-lg border transition-all text-left", ttsEngine === "elevenlabs" ? "border-purple-500 bg-purple-500/10 shadow-sm" : "border-border bg-muted/30")}>
+                          <span className="font-semibold block text-purple-400">ElevenLabs (Premium)</span>
+                        </button>
+                        <button onClick={() => setTtsEngine("deepgram")} className={cn("flex-1 p-2 text-xs rounded-lg border transition-all text-left", ttsEngine === "deepgram" ? "border-emerald-500 bg-emerald-500/10 shadow-sm" : "border-border bg-muted/30")}>
+                          <span className="font-semibold block text-emerald-400">Deepgram Aura (Fast & Cheap)</span>
+                        </button>
+                      </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Label className="text-sm font-semibold">Voice Model</Label>
+                        <Badge className="text-[9px] bg-primary/10 text-primary border-primary/20">Selected Provider</Badge>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
                       {([{ id: "rachel", label: "Rachel", desc: "Young Female" }, { id: "sarah", label: "Sarah", desc: "Warm Female" }, { id: "drew", label: "Drew", desc: "Energetic Male" }, { id: "paul", label: "Paul", desc: "Pro Male" }] as const).map((v) => (
                         <button key={v.id} onClick={() => setVoice(v.id)} className={cn("flex flex-col items-start p-3 rounded-lg border text-left transition-all", voice === v.id ? "border-primary bg-primary/5 shadow-sm" : "border-border bg-muted/30 hover:bg-muted/50")}>
                           <span className="text-xs font-semibold">{v.label}</span>

@@ -31,3 +31,4 @@ tsconfig.tsbuildinfo
 
 update-supabase.js
 resend.js
+.vercel
