@@ -28,11 +28,8 @@ serve(async (req) => {
       throw new Error("Missing Twilio credentials in Supabase secrets.")
     }
 
-    // Ensure the Twilio URL never exceeds 4000 characters.
-    // We truncate the AI prompt to a very safe length (150 chars) before encoding.
-    const maxPromptLength = 150; // far below the URL limit
-    const truncatedMessage = typeof message === 'string' ? message.slice(0, maxPromptLength) : '';
-    const systemPrompt = encodeURIComponent(truncatedMessage || "You are a helpful AI sales agent for Leadzo. Keep responses short and helpful.");
+    // Use the full message for the AI prompt
+    const systemPrompt = encodeURIComponent(message || "You are a helpful AI sales agent for Leadzo. Keep responses short and helpful.");
     const selectedVoice = encodeURIComponent(voice || "rachel");
 
     const results = []
@@ -46,9 +43,11 @@ serve(async (req) => {
       const formData = new URLSearchParams()
       formData.append("To", number)
       formData.append("From", twilioFromNumber)
-      // Tell Twilio to connect the answered call to our Render WS server
-      formData.append("Url", `${wsServerUrl}/twiml?voice=${selectedVoice}&prompt=${systemPrompt}`)
-      formData.append("Method", "POST")
+      
+      // We pass the TwiML directly instead of providing a Url to bypass the 4000 char Url limit
+      const wssUrl = wsServerUrl.replace('http', 'ws');
+      const twiml = `<Response><Connect><Stream url="${wssUrl}/stream?voice=${selectedVoice}&amp;prompt=${systemPrompt}" /></Connect></Response>`;
+      formData.append("Twiml", twiml)
 
       const twilioRes = await fetch(twilioUrl, {
         method: "POST",
