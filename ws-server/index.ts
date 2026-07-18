@@ -278,6 +278,7 @@ wss.on('connection', (ws, req) => {
     const msg = JSON.parse(message.toString());
     if (msg.event === 'start') {
       streamSid = msg.start.streamSid;
+      lastStreamSid = streamSid;
       console.log(`Stream started: ${streamSid}`);
     } else if (msg.event === 'media') {
       if (deepgramLive && deepgramLive.readyState === WebSocket.OPEN) {
