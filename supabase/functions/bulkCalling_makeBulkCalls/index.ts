@@ -28,8 +28,9 @@ serve(async (req) => {
       throw new Error("Missing Twilio credentials in Supabase secrets.")
     }
 
-    // Truncate prompt to avoid exceeding Twilio URL length limit (max 4000 chars)
-    const maxPromptLength = 500; // safe limit
+    // Ensure the Twilio URL never exceeds 4000 characters.
+    // We truncate the AI prompt to a very safe length (150 chars) before encoding.
+    const maxPromptLength = 150; // far below the URL limit
     const truncatedMessage = typeof message === 'string' ? message.slice(0, maxPromptLength) : '';
     const systemPrompt = encodeURIComponent(truncatedMessage || "You are a helpful AI sales agent for Leadzo. Keep responses short and helpful.");
     const selectedVoice = encodeURIComponent(voice || "rachel");
