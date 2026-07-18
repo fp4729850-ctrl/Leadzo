@@ -434,6 +434,7 @@ export default function BulkCallingPage() {
                           <span className="text-[10px] text-muted-foreground">{v.desc}</span>
                         </button>
                       ))}
+                      </div>
                     </div>
                   </div>
                 )}
