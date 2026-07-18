@@ -93,7 +93,7 @@ wss.on('connection', (ws, req) => {
     headers: { Authorization: `Token ${DEEPGRAM_API_KEY}` }
   });
 
-  deepgramLive.on('error', (err) => {
+  deepgramLive.on('error', (err: any) => {
     lastErrors.push("Deepgram STT Error: " + String(err));
     console.error("Deepgram STT Error", err);
   });
