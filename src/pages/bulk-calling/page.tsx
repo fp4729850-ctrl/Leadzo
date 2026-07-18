@@ -253,6 +253,7 @@ export default function BulkCallingPage() {
   const [numbersRaw, setNumbersRaw] = useState("");
   const [script, setScript] = useState("");
   const [voice, setVoice] = useState("rachel");
+  const [engine, setEngine] = useState<"premium" | "gemini">("premium");
   const [showGenerator, setShowGenerator] = useState(false);
   const [showTest, setShowTest] = useState(false);
   const [calling, setCalling] = useState(false);
@@ -333,7 +334,7 @@ export default function BulkCallingPage() {
       if (stopRef.current) break;
       setResults((prev) => { const next = [...prev]; next[i] = { ...next[i], status: "calling" }; return next; });
       try {
-        const res = await makeBulkCalls({ numbers: [numbers[i]], message: script, voice, delayMs: 0 });
+        const res = await makeBulkCalls({ numbers: [numbers[i]], message: script, voice, engine, delayMs: 0 });
         const r = res.results[0];
         setResults((prev) => { const next = [...prev]; next[i] = { number: numbers[i], status: r?.success ? "connected" : "failed", callSid: r?.callSid, error: r?.error }; return next; });
       } catch (e) { setResults((prev) => { const next = [...prev]; next[i] = { number: numbers[i], status: "failed", error: e instanceof Error ? e.message : "Error" }; return next; }); }
@@ -383,19 +384,40 @@ export default function BulkCallingPage() {
                   <Upload size={13} /> Upload .txt / .csv
                   <Input type="file" accept=".txt,.csv" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (!f) return; const r = new FileReader(); r.onload = (ev) => { setNumbersRaw(ev.target?.result as string); toast.success(`${f.name} loaded!`); }; r.readAsText(f); }} />
                 </label>
-                 <div className="rounded-xl border border-border bg-card p-4 space-y-3">
-                <div className="flex items-center gap-2">
-                  <Label className="text-sm font-semibold">AI Voice (ElevenLabs)</Label>
-                  <Badge className="text-[9px] bg-purple-500/10 text-purple-400 border-purple-500/20">Ultra-Realistic</Badge>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {([{ id: "rachel", label: "Rachel", desc: "Young Female" }, { id: "sarah", label: "Sarah", desc: "Warm Female" }, { id: "drew", label: "Drew", desc: "Energetic Male" }, { id: "paul", label: "Paul", desc: "Pro Male" }] as const).map((v) => (
-                    <button key={v.id} onClick={() => setVoice(v.id)} className={cn("flex flex-col items-start p-3 rounded-lg border text-left transition-all", voice === v.id ? "border-primary bg-primary/5 shadow-sm" : "border-border bg-muted/30 hover:bg-muted/50")}>
-                      <span className="text-xs font-semibold">{v.label}</span>
-                      <span className="text-[10px] text-muted-foreground">{v.desc}</span>
+                 <div className="rounded-xl border border-border bg-card p-4 space-y-4">
+                 <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Label className="text-sm font-semibold">AI Engine (Brain & Voice)</Label>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => setEngine("premium")} className={cn("flex-1 p-2 text-xs rounded-lg border transition-all text-left", engine === "premium" ? "border-purple-500 bg-purple-500/10 shadow-sm" : "border-border bg-muted/30")}>
+                      <span className="font-semibold block text-purple-400">Premium (OpenAI + 11Labs)</span>
+                      <span className="text-[10px] text-muted-foreground mt-0.5 block">Ultra-realistic, best quality. ~$0.15/min</span>
                     </button>
-                  ))}
-                </div>            </div>
+                    <button onClick={() => setEngine("gemini")} className={cn("flex-1 p-2 text-xs rounded-lg border transition-all text-left", engine === "gemini" ? "border-blue-500 bg-blue-500/10 shadow-sm" : "border-border bg-muted/30")}>
+                      <span className="font-semibold block text-blue-400">Economy (Google Gemini)</span>
+                      <span className="text-[10px] text-muted-foreground mt-0.5 block">Cost-effective, highly capable. ~$0.05/min</span>
+                    </button>
+                  </div>
+                 </div>
+
+                {engine === "premium" && (
+                  <div className="space-y-3 pt-2 border-t border-border/50">
+                    <div className="flex items-center gap-2">
+                      <Label className="text-sm font-semibold">Voice Model</Label>
+                      <Badge className="text-[9px] bg-purple-500/10 text-purple-400 border-purple-500/20">ElevenLabs</Badge>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {([{ id: "rachel", label: "Rachel", desc: "Young Female" }, { id: "sarah", label: "Sarah", desc: "Warm Female" }, { id: "drew", label: "Drew", desc: "Energetic Male" }, { id: "paul", label: "Paul", desc: "Pro Male" }] as const).map((v) => (
+                        <button key={v.id} onClick={() => setVoice(v.id)} className={cn("flex flex-col items-start p-3 rounded-lg border text-left transition-all", voice === v.id ? "border-primary bg-primary/5 shadow-sm" : "border-border bg-muted/30 hover:bg-muted/50")}>
+                          <span className="text-xs font-semibold">{v.label}</span>
+                          <span className="text-[10px] text-muted-foreground">{v.desc}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                </div>
                 <Button variant="secondary" size="sm" className="w-full gap-2 text-xs cursor-pointer" onClick={handlePreview} disabled={previewing || !script.trim()}>
                   {previewing ? <><Loader2 size={11} className="animate-spin" /> Playing preview…</> : <><Volume2 size={11} /> Preview Voice</>}
                 </Button>

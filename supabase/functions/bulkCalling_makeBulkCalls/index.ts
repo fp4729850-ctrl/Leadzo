@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { numbers, message, voice } = await req.json()
+    const { numbers, message, voice, engine } = await req.json()
     const vapiApiKey = Deno.env.get("VAPI_API_KEY")
     let vapiPhoneNumberId = Deno.env.get("VAPI_PHONE_NUMBER_ID")
 
@@ -47,6 +47,23 @@ serve(async (req) => {
       console.log("No VAPI_API_KEY found, returning mock success.");
     } else {
       // Vapi API Integration
+      let modelConfig: any = {
+        provider: "openai",
+        model: "gpt-4o",
+        messages: [{ role: "system", content: message || "You are an AI assistant." }]
+      };
+      
+      let voiceConfig: any = { provider: "11labs", voiceId: voice || "rachel" };
+
+      if (engine === "gemini") {
+        modelConfig = {
+          provider: "google",
+          model: "gemini-1.5-pro",
+          messages: [{ role: "system", content: message || "You are an AI assistant." }]
+        };
+        voiceConfig = { provider: "google", voiceId: "en-US-Journey-F" }; // High quality low cost google voice
+      }
+
       const vapiRes = await fetch("https://api.vapi.ai/call/phone", {
         method: "POST",
         headers: {
@@ -62,18 +79,9 @@ serve(async (req) => {
               model: "nova-2",
               language: "hi"
             },
-            model: {
-              provider: "openai",
-              model: "gpt-4o",
-              messages: [
-                {
-                  role: "system",
-                  content: message || "You are an AI assistant."
-                }
-              ]
-            },
+            model: modelConfig,
             firstMessage: "Hello?",
-            voice: { provider: "11labs", voiceId: voice || "rachel" }
+            voice: voiceConfig
           }
         })
       });
