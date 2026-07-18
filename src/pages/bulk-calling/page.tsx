@@ -230,7 +230,12 @@ function CallingProgressPanel({ results, calling, onStop, onClose }: { results: 
             {r.status === "pending" && <span className="text-muted-foreground/40">—</span>}
             {r.status === "calling" && <span className="flex items-center gap-1.5 text-blue-400 font-semibold"><Loader2 size={10} className="animate-spin" /> Calling…</span>}
             {r.status === "connected" && <span className="flex items-center gap-1 text-blue-400"><CheckCircle2 size={10} /> Called ✓</span>}
-            {r.status === "failed" && <span className="flex items-center gap-1 text-red-400" title={r.error}><PhoneOff size={10} /> Failed</span>}
+            {r.status === "failed" && (
+              <span className="flex items-center gap-1 text-red-400" title={r.error}>
+                <PhoneOff size={10} /> Failed
+                {r.error && <span className="ml-1 text-xs">{r.error}</span>}
+              </span>
+            )}
           </div>
         ))}
       </div>
