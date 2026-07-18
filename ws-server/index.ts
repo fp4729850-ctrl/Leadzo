@@ -125,8 +125,9 @@ wss.on('connection', (ws, req) => {
           stream: true,
         });
 
-        // 3. TTS (Speaking)
         let fullAIResponse = "";
+        let textBufferQueue: string[] = [];
+        let flushPending = false;
 
         if (ttsEngine === "elevenlabs") {
           const elevenUrl = `wss://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_VOICE_ID}/stream-input?model_id=eleven_multilingual_v2&output_format=pcm_16000`;
@@ -139,6 +140,14 @@ wss.on('connection', (ws, req) => {
               text: " ",
               voice_settings: { stability: 0.5, similarity_boost: 0.8 }
             }));
+            for (const t of textBufferQueue) {
+              elevenLabsWs?.send(JSON.stringify({ text: t, try_trigger_generation: true }));
+            }
+            textBufferQueue = [];
+            if (flushPending) {
+              elevenLabsWs?.send(JSON.stringify({ text: "" }));
+              flushPending = false;
+            }
           });
 
           elevenLabsWs.on('message', (data) => {
@@ -159,6 +168,17 @@ wss.on('connection', (ws, req) => {
           const auraUrl = `wss://api.deepgram.com/v1/speak?model=aura-asteria-en&encoding=mulaw&sample_rate=8000`;
           auraWs = new WebSocket(auraUrl, {
             headers: { Authorization: `Token ${DEEPGRAM_API_KEY}` }
+          });
+
+          auraWs.on('open', () => {
+            for (const t of textBufferQueue) {
+              auraWs?.send(JSON.stringify({ type: "Speak", text: t }));
+            }
+            textBufferQueue = [];
+            if (flushPending) {
+              auraWs?.send(JSON.stringify({ type: "Flush" }));
+              flushPending = false;
+            }
           });
 
           auraWs.on('message', (data, isBinary) => {
@@ -183,19 +203,35 @@ wss.on('connection', (ws, req) => {
           const text = chunk.choices[0]?.delta?.content || "";
           if (text) {
             fullAIResponse += text;
-            if (ttsEngine === "elevenlabs" && elevenLabsWs?.readyState === WebSocket.OPEN) {
-              elevenLabsWs.send(JSON.stringify({ text, try_trigger_generation: true }));
-            } else if (ttsEngine === "deepgram" && auraWs?.readyState === WebSocket.OPEN) {
-              auraWs.send(JSON.stringify({ type: "Speak", text }));
+            if (ttsEngine === "elevenlabs") {
+              if (elevenLabsWs?.readyState === WebSocket.OPEN) {
+                elevenLabsWs.send(JSON.stringify({ text, try_trigger_generation: true }));
+              } else {
+                textBufferQueue.push(text);
+              }
+            } else if (ttsEngine === "deepgram") {
+              if (auraWs?.readyState === WebSocket.OPEN) {
+                auraWs.send(JSON.stringify({ type: "Speak", text }));
+              } else {
+                textBufferQueue.push(text);
+              }
             }
           }
         }
         
         if (isAITalking) {
-          if (ttsEngine === "elevenlabs" && elevenLabsWs?.readyState === WebSocket.OPEN) {
-            elevenLabsWs.send(JSON.stringify({ text: "" }));
-          } else if (ttsEngine === "deepgram" && auraWs?.readyState === WebSocket.OPEN) {
-            auraWs.send(JSON.stringify({ type: "Flush" }));
+          if (ttsEngine === "elevenlabs") {
+            if (elevenLabsWs?.readyState === WebSocket.OPEN) {
+              elevenLabsWs.send(JSON.stringify({ text: "" }));
+            } else {
+              flushPending = true;
+            }
+          } else if (ttsEngine === "deepgram") {
+            if (auraWs?.readyState === WebSocket.OPEN) {
+              auraWs.send(JSON.stringify({ type: "Flush" }));
+            } else {
+              flushPending = true;
+            }
           }
         }
       } catch (err) {
