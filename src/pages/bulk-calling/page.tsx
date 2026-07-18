@@ -233,8 +233,18 @@ export default function BulkCallingPage() {
   const handleScanWebsite = async () => {
     if (!url.trim() || !url.includes(".")) { toast.error("Sahi website URL daalo"); return; }
     setScanning(true);
+    
+    let persona = "";
+    if (voice === "nova" || voice === "shimmer") {
+      const name = (scanLanguage === "Hindi" || scanLanguage === "Hinglish") ? "Pooja" : "Sarah";
+      persona = `You are a FEMALE sales agent named ${name}. Adopt a confident, professional female persona.`;
+    } else {
+      const name = (scanLanguage === "Hindi" || scanLanguage === "Hinglish") ? "Rahul" : "Alex";
+      persona = `You are a MALE sales agent named ${name}. Adopt a confident, authoritative male persona.`;
+    }
+
     try {
-      const res = await scanWebsiteAction({ url: url.trim(), goal: `Create a system prompt for a highly aggressive and professional sales AI voice agent that books appointments. The AI MUST speak strictly in ${scanLanguage}. Translate all reasoning, rules, and scripts into ${scanLanguage}.` });
+      const res = await scanWebsiteAction({ url: url.trim(), goal: `Create a system prompt for a highly aggressive and professional sales AI voice agent that books appointments. ${persona} The AI MUST speak strictly in ${scanLanguage}. Translate all reasoning, rules, and scripts into ${scanLanguage}.` });
       if (res && res.ideas && res.ideas.length > 0) {
         setScript(res.ideas[0].script || "You are an AI sales agent for this business. You must talk politely, answer queries from the website, and book appointments.");
         toast.success("Website scanned! System Prompt is ready.");
