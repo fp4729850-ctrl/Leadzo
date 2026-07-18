@@ -165,8 +165,13 @@ wss.on('connection', (ws, req) => {
             }
           });
         } else {
-          // Deepgram Aura TTS
-          const auraUrl = `wss://api.deepgram.com/v1/speak?model=aura-asteria-en&encoding=mulaw&sample_rate=8000`;
+          // Deepgram Aura TTS Voice Mapping
+          let auraModel = "aura-asteria-en"; // default female
+          if (selectedVoice === "sarah") auraModel = "aura-luna-en";
+          if (selectedVoice === "drew") auraModel = "aura-orion-en";
+          if (selectedVoice === "paul") auraModel = "aura-arcas-en";
+
+          const auraUrl = `wss://api.deepgram.com/v1/speak?model=${auraModel}&encoding=mulaw&sample_rate=8000`;
           auraWs = new WebSocket(auraUrl, {
             headers: { Authorization: `Token ${DEEPGRAM_API_KEY}` }
           });
