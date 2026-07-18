@@ -28,8 +28,20 @@ serve(async (req) => {
       throw new Error("Missing Twilio credentials in Supabase secrets.")
     }
 
-    // Use the full message for the AI prompt
-    const systemPrompt = encodeURIComponent(message || "You are a helpful AI sales agent for Leadzo. Keep responses short and helpful.");
+    // Dynamically truncate the message so its encoded length fits well within Twilio's 4000 char limit
+    let truncatedMessage = typeof message === 'string' ? message : '';
+    let systemPrompt = encodeURIComponent(truncatedMessage);
+    
+    // Twilio has a strict 4000 char limit for both Url and Twiml length. 
+    // We leave ~1000 chars room for the XML tags, voice parameter, and URL structure.
+    while (systemPrompt.length > 2500) {
+      truncatedMessage = truncatedMessage.slice(0, -50);
+      systemPrompt = encodeURIComponent(truncatedMessage);
+    }
+
+    if (!truncatedMessage) {
+      systemPrompt = encodeURIComponent("You are a helpful AI sales agent for Leadzo. Keep responses short and helpful.");
+    }
     const selectedVoice = encodeURIComponent(voice || "rachel");
 
     const results = []
