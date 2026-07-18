@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils.ts";
 type CallStatus = "pending" | "calling" | "connected" | "failed";
 interface CallResult { number: string; status: CallStatus; callSid?: string; error?: string; }
 
-function SetupPanel({ onTest, url, setUrl, scanWebsite, scanning }: { onTest: () => void; url: string; setUrl: (u: string) => void; scanWebsite: () => void; scanning: boolean }) {
+function SetupPanel({ onTest, url, setUrl, scanWebsite, scanning, language, setLanguage }: { onTest: () => void; url: string; setUrl: (u: string) => void; scanWebsite: () => void; scanning: boolean; language: string; setLanguage: (l: string) => void }) {
   return (
     <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-4 space-y-4">
       <div className="flex items-start gap-3">
@@ -38,7 +38,15 @@ function SetupPanel({ onTest, url, setUrl, scanWebsite, scanning }: { onTest: ()
             <div className="space-y-1.5">
                <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Business Website URL</Label>
                <div className="flex gap-2">
-                 <Input placeholder="https://example.com" className="h-8 text-xs bg-muted/30 font-mono" value={url} onChange={e => setUrl(e.target.value)} />
+                 <Input placeholder="https://example.com" className="h-8 text-xs bg-muted/30 font-mono flex-1" value={url} onChange={e => setUrl(e.target.value)} />
+                 <Select value={language} onValueChange={setLanguage}>
+                   <SelectTrigger className="h-8 text-xs w-[110px] bg-muted/30"><SelectValue /></SelectTrigger>
+                   <SelectContent>
+                     <SelectItem value="English">English</SelectItem>
+                     <SelectItem value="Hindi">Hindi</SelectItem>
+                     <SelectItem value="Hinglish">Hinglish</SelectItem>
+                   </SelectContent>
+                 </Select>
                  <Button size="sm" className="h-8 text-xs gap-1.5 whitespace-nowrap" onClick={scanWebsite} disabled={scanning}>
                    {scanning ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
                    Scan & Learn
@@ -220,11 +228,13 @@ export default function BulkCallingPage() {
   const [scanning, setScanning] = useState(false);
   const scanWebsiteAction = useAction(api.campaignAi.scanWebsiteForCampaign);
 
+  const [scanLanguage, setScanLanguage] = useState("Hinglish");
+
   const handleScanWebsite = async () => {
     if (!url.trim() || !url.includes(".")) { toast.error("Sahi website URL daalo"); return; }
     setScanning(true);
     try {
-      const res = await scanWebsiteAction({ url: url.trim(), goal: "Create a system prompt for a highly aggressive and professional sales AI voice agent that books appointments." });
+      const res = await scanWebsiteAction({ url: url.trim(), goal: `Create a system prompt for a highly aggressive and professional sales AI voice agent that books appointments. The AI MUST speak strictly in ${scanLanguage}. Translate all reasoning, rules, and scripts into ${scanLanguage}.` });
       if (res && res.ideas && res.ideas.length > 0) {
         setScript(res.ideas[0].script || "You are an AI sales agent for this business. You must talk politely, answer queries from the website, and book appointments.");
         toast.success("Website scanned! System Prompt is ready.");
@@ -291,7 +301,7 @@ export default function BulkCallingPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="space-y-4">
-          <SetupPanel onTest={() => setShowTest(true)} url={url} setUrl={setUrl} scanWebsite={handleScanWebsite} scanning={scanning} />
+          <SetupPanel onTest={() => setShowTest(true)} url={url} setUrl={setUrl} scanWebsite={handleScanWebsite} scanning={scanning} language={scanLanguage} setLanguage={setScanLanguage} />
           <AnimatePresence>
             {showTest && (
               <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>
