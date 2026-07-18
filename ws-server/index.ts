@@ -72,7 +72,7 @@ wss.on('connection', (ws, req) => {
   const selectedVoice = urlParams.get('voice') || 'rachel';
   const customPrompt = urlParams.get('prompt') ? decodeURIComponent(urlParams.get('prompt')!) : '';
 
-  const ttsEngine = urlParams.get('ttsEngine') || 'elevenlabs';
+  const ttsEngine = urlParams.get('ttsEngine') || urlParams.get('amp;ttsEngine') || 'elevenlabs';
 
   let streamSid = '';
   let deepgramLive: any = null;
@@ -101,7 +101,8 @@ wss.on('connection', (ws, req) => {
     const response = JSON.parse(data.toString());
     if (response.type === 'Results') {
       const transcript = response.channel.alternatives[0].transcript;
-      if (transcript && response.is_final) {
+      const cleanTranscript = transcript ? transcript.trim().replace(/[^a-zA-Z0-9]/g, '') : '';
+      if (cleanTranscript.length > 0 && response.is_final) {
       console.log(`User: ${transcript}`);
       
       // VAD Interruption Logic MVP:
