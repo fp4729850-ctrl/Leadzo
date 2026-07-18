@@ -182,7 +182,7 @@ wss.on('connection', (ws, req) => {
           });
 
           auraWs.on('message', (data, isBinary) => {
-            if (isBinary || Buffer.isBuffer(data)) {
+            if (isBinary) {
               // Direct mulaw audio
               if (ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({ event: "media", streamSid, media: { payload: data.toString('base64') } }));
