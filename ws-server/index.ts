@@ -3,7 +3,7 @@ import { WebSocketServer, WebSocket } from 'ws';
 import * as http from 'http';
 import dotenv from 'dotenv';
 import cors from 'cors';
-import { mulaw } from 'alawmulaw';
+import { WaveFile } from 'wavefile';
 import OpenAI from 'openai';
 
 dotenv.config();
@@ -16,49 +16,44 @@ app.use(express.urlencoded({ extended: true }));
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
-const { DEEPGRAM_API_KEY, OPENAI_API_KEY, ELEVENLABS_API_KEY } = process.env;
+const { DEEPGRAM_API_KEY, OPENAI_API_KEY } = process.env;
 
-if (!DEEPGRAM_API_KEY || !OPENAI_API_KEY || !ELEVENLABS_API_KEY) {
+if (!DEEPGRAM_API_KEY || !OPENAI_API_KEY) {
   console.error("Missing critical API Keys in .env");
   process.exit(1);
 }
 
 const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
 
-// ElevenLabs Voice ID Mapping (natural, human-like voices)
-const ELEVENLABS_VOICES: Record<string, string> = {
-  rachel: "21m00Tcm4TlvDq8ikWAM",   // Rachel - calm young female
-  sarah:  "EXAVITQu4vr4xnSDxMaL",   // Bella/Sarah - warm female
-  drew:   "29vD33N1CtxCmqQRPOHJ",    // Drew - energetic male
-  paul:   "5Q0t7uMcjvnagumLfvZi",    // Paul - pro male
+// OpenAI Voices mapping
+const OPENAI_VOICES: Record<string, string> = {
+  rachel: "nova",   
+  sarah:  "shimmer", 
+  drew:   "echo",    
+  paul:   "onyx",    
 };
-
-// Helper: Convert 16kHz PCM16 (ElevenLabs) to 8kHz mu-law (Twilio)
-function transcodePcm16ToMulaw(base64Pcm16: string): string {
-  const pcmBuffer = Buffer.from(base64Pcm16, 'base64');
-  const sampleCount = Math.floor(pcmBuffer.length / 2);
-  const targetCount = Math.floor(sampleCount / 2); // 16kHz to 8kHz
-  const mulawBuffer = Buffer.alloc(targetCount);
-  
-  let mulawOffset = 0;
-  for (let i = 0; i < sampleCount; i += 2) {
-    if (i * 2 + 1 < pcmBuffer.length) {
-      const pcmSample = pcmBuffer.readInt16LE(i * 2);
-      // @ts-ignore
-      const mulawSample = mulaw.encodeSample(pcmSample);
-      mulawBuffer[mulawOffset++] = mulawSample;
-    }
-  }
-  return mulawBuffer.toString('base64');
-}
 
 app.post('/twiml', (req, res) => {
   const voice = req.query.voice || 'rachel';
   const prompt = req.query.prompt || '';
+  // Escape XML for TwiML parameter
+  const escapedPrompt = prompt.replace(/[<>&'"]/g, function (c) {
+    switch (c) {
+        case '<': return '&lt;';
+        case '>': return '&gt;';
+        case '&': return '&amp;';
+        case '\'': return '&apos;';
+        case '"': return '&quot;';
+        default: return c;
+    }
+  });
+
   const twiml = `
     <Response>
       <Connect>
-        <Stream url="wss://${req.headers.host}/stream?voice=${voice}&prompt=${prompt}" />
+        <Stream url="wss://${req.headers.host}/stream?voice=${voice}">
+          <Parameter name="prompt" value="${escapedPrompt}" />
+        </Stream>
       </Connect>
     </Response>
   `;
@@ -74,157 +69,57 @@ wss.on('connection', (ws, req) => {
   
   const urlParams = new URLSearchParams(req.url.split('?')[1] || '');
   const selectedVoice = urlParams.get('voice') || 'rachel';
-  const customPrompt = urlParams.get('prompt') ? decodeURIComponent(urlParams.get('prompt')!) : '';
+  const openAIVoice = OPENAI_VOICES[selectedVoice] || OPENAI_VOICES.rachel;
 
   let streamSid = '';
   let deepgramLive: any = null;
-  let activeElevenLabsWs: WebSocket | null = null;
   let isAITalking = false;
-  const systemContent = customPrompt || "You are a helpful AI assistant for Leadzo. Keep responses short (1-2 sentences). Respond in Hinglish (mix of Hindi and English).";
-  console.log(`🧠 System Prompt initialized: ${systemContent.substring(0, 100)}...`);
-  
-  let conversationHistory: any[] = [{
-    role: "system",
-    content: systemContent
-  }];
+  let currentPlaybackChain: Promise<void> | null = null;
+  let conversationHistory: any[] = [];
+  let activeTurnId = 0;
 
-  const elevenVoiceId = ELEVENLABS_VOICES[selectedVoice] || ELEVENLABS_VOICES.rachel;
+  console.log(`📞 New call connected | Voice: ${selectedVoice} (OpenAI: ${openAIVoice})`);
 
-  console.log(`📞 New call connected | Voice: ${selectedVoice} (ElevenLabs: ${elevenVoiceId})`);
+  // ===== OpenAI TTS Helper: Speak a text phrase and stream PCM to Twilio =====
+  async function speakViaOpenAITTS(textToSpeak: string, currentTurnId: number): Promise<void> {
+    if (!isAITalking || currentTurnId !== activeTurnId) return; 
 
-  // ===== ElevenLabs TTS Helper: Speak a single text (fresh WS each time) =====
-  function speakViaElevenLabs(textToSpeak: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const elUrl = `wss://api.elevenlabs.io/v1/text-to-speech/${elevenVoiceId}/stream-input?model_id=eleven_turbo_v2_5&output_format=ulaw_8000`;
-      const elWs = new WebSocket(elUrl);
-      activeElevenLabsWs = elWs;
-
-      elWs.on('open', () => {
-        console.log(`🔊 ElevenLabs TTS opened for: "${textToSpeak.substring(0, 50)}..."`);
-        // BOS (Beginning of Stream)
-        elWs.send(JSON.stringify({
-          text: " ",
-          voice_settings: { stability: 0.5, similarity_boost: 0.8, use_speaker_boost: true },
-          xi_api_key: ELEVENLABS_API_KEY,
-        }));
-        // Send the actual text
-        elWs.send(JSON.stringify({ text: textToSpeak, try_trigger_generation: true }));
-        // EOS (End of Stream)
-        elWs.send(JSON.stringify({ text: "" }));
+    try {
+      console.log(`🔊 Generating OpenAI TTS for: "${textToSpeak.substring(0, 50)}..."`);
+      const response = await openai.audio.speech.create({
+        model: "tts-1",
+        voice: openAIVoice as any,
+        input: textToSpeak,
+        response_format: "wav" // Request WAV format for wavefile parser
       });
-
-      elWs.on('message', (data: any) => {
-        let res;
-        try { res = JSON.parse(data.toString()); } catch(e) { return; }
-        if (res.audio) {
-          // ulaw_8000 audio - send directly to Twilio (no transcoding needed!)
-          if (ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ event: "media", streamSid, media: { payload: res.audio } }));
-          }
+      
+      const arrayBuffer = await response.arrayBuffer();
+      if (!isAITalking || currentTurnId !== activeTurnId) return;
+      
+      // Use wavefile to resample and convert to mu-law properly without aliasing
+      const wav = new WaveFile(Buffer.from(arrayBuffer));
+      wav.toSampleRate(8000); // Properly resample from 24kHz to 8kHz
+      wav.toMuLaw();          // Convert to 8-bit mu-law (G.711)
+      
+      const mulawBuffer = Buffer.from(wav.data.samples);
+      
+      // Send mu-law audio to Twilio
+      if (ws.readyState === WebSocket.OPEN && isAITalking && currentTurnId === activeTurnId) {
+        // Send in chunks of ~0.5s to prevent buffer bloat
+        const CHUNK_SIZE = 4000; 
+        for (let i = 0; i < mulawBuffer.length; i += CHUNK_SIZE) {
+          if (!isAITalking || currentTurnId !== activeTurnId) break; 
+          const end = Math.min(i + CHUNK_SIZE, mulawBuffer.length);
+          const chunk = mulawBuffer.subarray(i, end);
+          ws.send(JSON.stringify({ event: "media", streamSid, media: { payload: chunk.toString('base64') } }));
+          // Wait slightly to simulate realtime streaming
+          await new Promise(r => setTimeout(r, 100)); 
         }
-        if (res.isFinal) {
-          console.log("🔊 ElevenLabs TTS finished speaking");
-          isAITalking = false;
-          elWs.close();
-          resolve();
-        }
-      });
-
-      elWs.on('error', (err: any) => {
-        console.error("ElevenLabs TTS Error", err);
-        lastErrors.push("ElevenLabs TTS Error: " + String(err));
-        isAITalking = false;
-        reject(err);
-      });
-
-      elWs.on('close', () => {
-        if (isAITalking) {
-          isAITalking = false;
-          resolve();
-        }
-      });
-    });
-  }
-
-  // ===== ElevenLabs TTS Helper: Stream OpenAI response (fresh WS each time) =====
-  function speakStreamViaElevenLabs(openaiStream: any): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const elUrl = `wss://api.elevenlabs.io/v1/text-to-speech/${elevenVoiceId}/stream-input?model_id=eleven_turbo_v2_5&output_format=ulaw_8000`;
-      const elWs = new WebSocket(elUrl);
-      activeElevenLabsWs = elWs;
-      let fullResponse = "";
-
-      elWs.on('open', async () => {
-        console.log(`🔊 ElevenLabs TTS opened for streaming response`);
-        // BOS
-        elWs.send(JSON.stringify({
-          text: " ",
-          voice_settings: { stability: 0.5, similarity_boost: 0.8, use_speaker_boost: true },
-          xi_api_key: ELEVENLABS_API_KEY,
-        }));
-
-        try {
-          let sentenceBuffer = "";
-          for await (const chunk of openaiStream) {
-            if (!isAITalking) break;
-            const text = chunk.choices[0]?.delta?.content || "";
-            if (text) {
-              fullResponse += text;
-              sentenceBuffer += text;
-              
-              // If the text contains punctuation that signals a pause, flush the buffer to ElevenLabs
-              if (/[.,!?;:।\n]/.test(text)) {
-                // Send the completed phrase
-                elWs.send(JSON.stringify({ text: sentenceBuffer, try_trigger_generation: true }));
-                sentenceBuffer = ""; // Reset buffer
-              }
-            }
-          }
-          // Flush any remaining text in the buffer
-          if (sentenceBuffer.trim().length > 0) {
-            elWs.send(JSON.stringify({ text: sentenceBuffer, try_trigger_generation: true }));
-          }
-          // EOS
-          elWs.send(JSON.stringify({ text: "" }));
-        } catch (err: any) {
-          console.error("OpenAI stream error", err);
-          lastErrors.push("OpenAI Stream Error: " + String(err));
-          elWs.close();
-          reject(err);
-        }
-      });
-
-      elWs.on('message', (data: any) => {
-        let res;
-        try { res = JSON.parse(data.toString()); } catch(e) { return; }
-        if (res.audio) {
-          // ulaw_8000 audio - send directly to Twilio
-          if (ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ event: "media", streamSid, media: { payload: res.audio } }));
-          }
-        }
-        if (res.isFinal) {
-          console.log(`🔊 ElevenLabs TTS finished: "${fullResponse.substring(0, 80)}..."`);
-          isAITalking = false;
-          elWs.close();
-          resolve(fullResponse);
-        }
-      });
-
-      elWs.on('error', (err: any) => {
-        console.error("ElevenLabs TTS Error", err);
-        lastErrors.push("ElevenLabs TTS Error: " + String(err));
-        isAITalking = false;
-        reject(err);
-      });
-
-      elWs.on('close', () => {
-        if (isAITalking) {
-          isAITalking = false;
-          resolve(fullResponse);
-        }
-      });
-    });
+      }
+    } catch (err: any) {
+      console.error("OpenAI TTS Error", err);
+      lastErrors.push("OpenAI TTS Error: " + String(err));
+    }
   }
 
   // ===== 1. Initialize Deepgram STT (Listening) =====
@@ -242,31 +137,29 @@ wss.on('connection', (ws, req) => {
     console.log("✅ Deepgram STT connected");
   });
 
-  // ===== Handle STT results -> OpenAI -> ElevenLabs TTS =====
+  // ===== Handle STT results -> OpenAI LLM -> OpenAI TTS =====
   deepgramLive.on('message', async (data: any) => {
     let response;
     try {
       response = JSON.parse(data.toString());
     } catch (e) {
-      lastErrors.push("Deepgram STT JSON Parse Error: " + String(e));
-      console.error("Failed to parse Deepgram STT message", e);
       return;
     }
     if (response.type === 'Results') {
       const transcript = response.channel.alternatives[0].transcript;
       const cleanTranscript = transcript ? transcript.trim().replace(/[.,!?]/g, '') : '';
+      
       if (cleanTranscript.length > 0 && response.is_final) {
         console.log(`👤 User said: "${transcript}"`);
 
-        // Skip if AI is already talking (prevent echo) - Wait, we WANT interruption!
-        // We will only interrupt if it's a significant utterance
+        // Interruption Logic
         if (isAITalking && transcript.length > 5) {
           console.log("🛑 INTERRUPTION DETECTED! Stopping AI.");
+          activeTurnId++; 
           ws.send(JSON.stringify({ event: "clear", streamSid }));
-          if (activeElevenLabsWs) activeElevenLabsWs.close();
           isAITalking = false;
         } else if (isAITalking) {
-          console.log("⏭️ Skipping user input (too short, likely echo) - AI is currently talking");
+          console.log("⏭️ Skipping user input (too short, likely echo)");
           return;
         }
 
@@ -274,6 +167,9 @@ wss.on('connection', (ws, req) => {
 
         // Generate AI response via OpenAI
         isAITalking = true;
+        activeTurnId++;
+        const myTurnId = activeTurnId;
+        
         try {
           const stream = await openai.chat.completions.create({
             model: "gpt-4o",
@@ -281,14 +177,43 @@ wss.on('connection', (ws, req) => {
             stream: true,
           });
 
-          // Stream OpenAI response to ElevenLabs TTS
-          const aiResponse = await speakStreamViaElevenLabs(stream);
-          if (aiResponse) {
-            conversationHistory.push({ role: "assistant", content: aiResponse });
+          let fullResponse = "";
+          let sentenceBuffer = "";
+          currentPlaybackChain = Promise.resolve();
+
+          for await (const chunk of stream) {
+            if (!isAITalking || myTurnId !== activeTurnId) break;
+            const text = chunk.choices[0]?.delta?.content || "";
+            if (text) {
+              fullResponse += text;
+              sentenceBuffer += text;
+              
+              if (/[.,!?;:।\n]/.test(text)) {
+                const phrase = sentenceBuffer.trim();
+                sentenceBuffer = ""; 
+                if (phrase.length > 0) {
+                  currentPlaybackChain = currentPlaybackChain.then(() => speakViaOpenAITTS(phrase, myTurnId));
+                }
+              }
+            }
           }
+          
+          if (sentenceBuffer.trim().length > 0) {
+            const phrase = sentenceBuffer.trim();
+            currentPlaybackChain = currentPlaybackChain.then(() => speakViaOpenAITTS(phrase, myTurnId));
+          }
+
+          await currentPlaybackChain;
+          
+          if (isAITalking && myTurnId === activeTurnId) {
+            console.log(`🔊 AI finished speaking response.`);
+            isAITalking = false;
+            conversationHistory.push({ role: "assistant", content: fullResponse });
+          }
+          
         } catch (err) {
-          lastErrors.push("OpenAI/TTS Error: " + String(err));
-          console.error("OpenAI/TTS Error", err);
+          lastErrors.push("OpenAI LLM Error: " + String(err));
+          console.error("OpenAI LLM Error", err);
           isAITalking = false;
         }
       }
@@ -303,16 +228,33 @@ wss.on('connection', (ws, req) => {
       lastStreamSid = streamSid;
       console.log(`🎙️ Stream started: ${streamSid}`);
       
+      // Initialize System Prompt from Twilio Custom Parameters
+      const customParams = msg.start.customParameters || {};
+      let receivedPrompt = customParams.prompt;
+      if (!receivedPrompt) {
+        // Fallback to URL prompt for backward compatibility
+        receivedPrompt = urlParams.get('prompt') ? decodeURIComponent(urlParams.get('prompt')!) : '';
+      }
+      const systemContent = receivedPrompt || "You are a helpful AI assistant for Leadzo. Keep responses short (1-2 sentences). Respond in Hinglish (mix of Hindi and English).";
+      
+      console.log(`🧠 System Prompt loaded: ${systemContent.substring(0, 100)}...`);
+      conversationHistory = [{ role: "system", content: systemContent }];
+      
       // Trigger Initial Greeting after 1.5 seconds
       setTimeout(async () => {
         if (!isAITalking) {
           isAITalking = true;
+          activeTurnId++;
+          const myTurnId = activeTurnId;
           const greeting = "Namaste! Main Leadzo se baat kar rahi hoon. Main aapki kaise madad kar sakti hoon?";
           console.log("🗣️ Sending initial greeting:", greeting);
           try {
-            await speakViaElevenLabs(greeting);
-            conversationHistory.push({ role: "assistant", content: greeting });
-            console.log("✅ Greeting delivered successfully");
+            await speakViaOpenAITTS(greeting, myTurnId);
+            if (isAITalking && myTurnId === activeTurnId) {
+              conversationHistory.push({ role: "assistant", content: greeting });
+              console.log("✅ Greeting delivered successfully");
+              isAITalking = false;
+            }
           } catch (err) {
             console.error("❌ Greeting failed:", err);
             isAITalking = false;
@@ -349,5 +291,5 @@ app.get('/ping', (req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`Leadzo AI Voice Agent listening on port ${PORT}`);
+  console.log(`Leadzo Full Vapi Clone listening on port ${PORT}`);
 });
