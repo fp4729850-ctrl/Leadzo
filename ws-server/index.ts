@@ -233,7 +233,7 @@ wss.on('connection', (ws, req) => {
       let receivedPrompt = customParams.prompt;
       if (!receivedPrompt) {
         // Fallback to URL prompt for backward compatibility
-        receivedPrompt = urlParams.get('prompt') ? decodeURIComponent(urlParams.get('prompt')!) : '';
+        receivedPrompt = urlParams.get('prompt') || '';
       }
       const systemContent = receivedPrompt || "You are a helpful AI assistant for Leadzo. Keep responses short (1-2 sentences). Respond in Hinglish (mix of Hindi and English).";
       

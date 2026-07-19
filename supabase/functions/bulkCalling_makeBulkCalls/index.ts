@@ -60,19 +60,9 @@ serve(async (req) => {
       // We pass the TwiML directly instead of providing a Url to bypass the 4000 char Url limit
       const wssUrl = wsServerUrl.replace('http', 'ws');
       
-      // Escape XML for the parameter value
-      const escapedPrompt = (typeof message === 'string' ? message : '').replace(/[<>&'"]/g, function (c) {
-          switch (c) {
-              case '<': return '&lt;';
-              case '>': return '&gt;';
-              case '&': return '&amp;';
-              case '\'': return '&apos;';
-              case '"': return '&quot;';
-              default: return c;
-          }
-      }) || "You are a helpful AI sales agent for Leadzo. Keep responses short and helpful.";
+      const encodedPrompt = encodeURIComponent(typeof message === 'string' ? message : "You are a helpful AI sales agent.");
 
-      const twiml = `<Response><Connect><Stream url="${wssUrl}/stream?voice=${selectedVoice}&amp;ttsEngine=${ttsEngine}"><Parameter name="prompt" value="${escapedPrompt}" /></Stream></Connect></Response>`;
+      const twiml = `<Response><Connect><Stream url="${wssUrl}/stream?voice=${selectedVoice}&amp;ttsEngine=${ttsEngine}&amp;prompt=${encodedPrompt}" /></Connect></Response>`;
       formData.append("Twiml", twiml)
 
       const twilioRes = await fetch(twilioUrl, {
