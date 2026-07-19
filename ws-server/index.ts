@@ -61,6 +61,22 @@ app.post('/twiml', (req, res) => {
   res.send(twiml);
 });
 
+const promptRegistry = new Map<string, string>();
+
+app.post('/register-prompt', (req, res) => {
+  const { prompt } = req.body;
+  if (!prompt) return res.status(400).json({ error: "Missing prompt" });
+  
+  // Generate random 8-char ID
+  const promptId = Math.random().toString(36).substring(2, 10);
+  promptRegistry.set(promptId, prompt);
+  
+  // Clean up after 1 hour (to prevent memory leaks)
+  setTimeout(() => promptRegistry.delete(promptId), 3600000);
+  
+  res.json({ promptId });
+});
+
 wss.on('connection', (ws, req) => {
   if (!req.url?.startsWith('/stream')) {
     ws.close();
@@ -228,9 +244,10 @@ wss.on('connection', (ws, req) => {
       lastStreamSid = streamSid;
       console.log(`🎙️ Stream started: ${streamSid}`);
       
-      // Initialize System Prompt from Twilio Custom Parameters
-      const customParams = msg.start.customParameters || {};
-      let receivedPrompt = customParams.prompt;
+      // Initialize System Prompt from Registry
+      const promptId = urlParams.get('promptId');
+      let receivedPrompt = promptId ? promptRegistry.get(promptId) : null;
+      
       if (!receivedPrompt) {
         // Fallback to URL prompt for backward compatibility
         receivedPrompt = urlParams.get('prompt') || '';

@@ -60,9 +60,24 @@ serve(async (req) => {
       // We pass the TwiML directly instead of providing a Url to bypass the 4000 char Url limit
       const wssUrl = wsServerUrl.replace('http', 'ws');
       
-      const encodedPrompt = encodeURIComponent(typeof message === 'string' ? message : "You are a helpful AI sales agent.");
+      const promptText = typeof message === 'string' ? message : "You are a helpful AI sales agent.";
+      let promptId = "";
+      
+      try {
+        const regRes = await fetch(`${wsServerUrl.replace('ws://', 'http://').replace('wss://', 'https://')}/register-prompt`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt: promptText })
+        });
+        if (regRes.ok) {
+          const { promptId: id } = await regRes.json();
+          promptId = id;
+        }
+      } catch (e) {
+        console.error("Failed to register prompt", e);
+      }
 
-      const twiml = `<Response><Connect><Stream url="${wssUrl}/stream?voice=${selectedVoice}&amp;ttsEngine=${ttsEngine}&amp;prompt=${encodedPrompt}" /></Connect></Response>`;
+      const twiml = `<Response><Connect><Stream url="${wssUrl}/stream?voice=${selectedVoice}&amp;ttsEngine=${ttsEngine}&amp;promptId=${promptId}" /></Connect></Response>`;
       formData.append("Twiml", twiml)
 
       const twilioRes = await fetch(twilioUrl, {
