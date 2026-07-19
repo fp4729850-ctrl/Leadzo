@@ -54,14 +54,10 @@ serve(async (req) => {
 
 ध्यान दें: Call End करने का टूल इस्तेमाल करने से पहले हमेशा ऊपर दिया गया WhatsApp वाला मैसेज ज़रूर बोलें।`
 
-    // ElevenLabs Hindi-capable voice via Vapi
-    // Using ElevenLabs "Aria" multilingual model for stable, high-quality Hindi
+    // Vapi native "Sagar" voice - best quality for Hindi
     const vapiVoice = {
-      provider: "11labs",
-      voiceId: "9BWtsMINqrJLrRacOk9x", // Aria
-      model: "eleven_multilingual_v2", // Multilingual v2 is best for Hindi pronunciation
-      stability: 0.7, // Higher stability prevents voice from breaking or sounding weird
-      similarityBoost: 0.75
+      provider: "vapi",
+      voiceId: "Sagar"
     }
 
     const results = []
