@@ -61,20 +61,20 @@ app.post('/twiml', (req, res) => {
   res.send(twiml);
 });
 
-const promptRegistry = new Map<string, string>();
+// Pending prompts queue - FIFO. register-prompt pushes, next WebSocket connection shifts.
+const pendingPrompts: string[] = [];
 
 app.post('/register-prompt', (req, res) => {
   const { prompt } = req.body;
   if (!prompt) return res.status(400).json({ error: "Missing prompt" });
-  
-  // Generate random 8-char ID
-  const promptId = Math.random().toString(36).substring(2, 10);
-  promptRegistry.set(promptId, prompt);
-  
-  // Clean up after 1 hour (to prevent memory leaks)
-  setTimeout(() => promptRegistry.delete(promptId), 3600000);
-  
-  res.json({ promptId });
+  pendingPrompts.push(prompt);
+  console.log(`📝 Prompt queued (${pendingPrompts.length} pending). Length: ${prompt.length} chars`);
+  // Auto-cleanup after 5 minutes if not consumed
+  setTimeout(() => {
+    const idx = pendingPrompts.indexOf(prompt);
+    if (idx !== -1) pendingPrompts.splice(idx, 1);
+  }, 300000);
+  res.json({ success: true, pending: pendingPrompts.length });
 });
 
 wss.on('connection', (ws, req) => {
@@ -244,22 +244,14 @@ wss.on('connection', (ws, req) => {
       lastStreamSid = streamSid;
       console.log(`🎙️ Stream started: ${streamSid}`);
       
-      // Read parameters passed from Twilio URL
-      const promptId = urlParams.get('promptId');
-      selectedVoice = urlParams.get('voice') || 'rachel';
-      openAIVoice = OPENAI_VOICES[selectedVoice] || OPENAI_VOICES.rachel;
+      // Pop the next pending prompt from the queue (registered via /register-prompt)
+      const receivedPrompt = pendingPrompts.shift() || '';
       
-      let receivedPrompt = promptId ? promptRegistry.get(promptId) : null;
-      
-      const debugInfo = `[DEBUG] req.url=${req.url}, promptId=${promptId}, foundInRegistry=${!!receivedPrompt}, voice=${selectedVoice}`;
+      const debugInfo = `[DEBUG] pendingPrompts remaining=${pendingPrompts.length}, gotPrompt=${!!receivedPrompt}, promptLength=${receivedPrompt.length}`;
       console.log(debugInfo);
-      lastErrors.push(debugInfo); // store it in errors just so we can read it easily from ping
+      lastErrors.push(debugInfo);
       if (lastErrors.length > 10) lastErrors.shift();
       
-      if (!receivedPrompt) {
-        // Fallback to URL prompt for backward compatibility
-        receivedPrompt = urlParams.get('prompt') || '';
-      }
       const systemContent = receivedPrompt || "You are a helpful AI assistant for Leadzo. Keep responses short (1-2 sentences). Respond in Hinglish (mix of Hindi and English).";
       
       console.log(`🧠 System Prompt loaded: ${systemContent.substring(0, 100)}...`);
@@ -316,7 +308,8 @@ app.get('/ping', (req, res) => {
     status: "running",
     lastStreamSid,
     lastErrors,
-    lastPrompts
+    lastPrompts,
+    pendingPromptsCount: pendingPrompts.length
   });
 });
 
