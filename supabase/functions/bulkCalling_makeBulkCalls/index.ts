@@ -95,8 +95,8 @@ serve(async (req) => {
             assistant: {
               firstMessage: extractedFirstMessage,
               model: {
-                provider: "deep-seek",
-                model: "deepseek-chat", // DeepSeek-V3
+                provider: "openai",
+                model: "gpt-4o",
                 messages: [
                   {
                     role: "system",
@@ -110,9 +110,8 @@ serve(async (req) => {
                 voiceId: "Sagar"
               },
               transcriber: {
-                provider: "google",
-                model: "gemini-2.0-flash", // Gemini 2.0 Flash as seen in screenshot
-                language: "Hindi" 
+                provider: "11labs",
+                language: "hi"
               },
               language: "hi",
               recordingEnabled: false,
