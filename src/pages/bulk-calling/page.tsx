@@ -301,7 +301,8 @@ export default function BulkCallingPage() {
     }
 
     try {
-      const res = await scanWebsiteAction({ url: url.trim(), goal: `Create a highly effective, conversational system prompt for an AI voice agent. ${persona} The AI MUST speak to the customer strictly in ${scanLanguage} (use a natural, conversational tone, not overly formal). Instruct the AI to keep its responses extremely short (1-2 sentences max), act like a real human on a phone call, handle objections politely, and focus on booking an appointment or answering questions about the company. Output the system prompt instructions in English.` });
+      const goalStr = `Create a highly effective, detailed, and conversational system prompt for an AI voice agent. ${persona} The AI MUST speak to the customer strictly in ${scanLanguage} (use a natural, conversational tone). Provide a LONG, COMPREHENSIVE system prompt that includes the business context, exact rules for answering questions, how to handle objections, and how to book appointments. Output the ENTIRE system prompt text strictly in ${scanLanguage}, written exactly as you would instruct the AI.`;
+      const res = await scanWebsiteAction({ url: url.trim(), goal: goalStr });
       if (res && res.ideas && res.ideas.length > 0) {
         setScript(res.ideas[0].script || "You are an AI sales agent for this business. You must talk politely, answer queries from the website, and book appointments.");
         toast.success("Website scanned! System Prompt is ready.");
