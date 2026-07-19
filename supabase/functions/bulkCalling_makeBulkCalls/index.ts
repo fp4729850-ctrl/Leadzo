@@ -54,10 +54,22 @@ serve(async (req) => {
 
 ध्यान दें: Call End करने का टूल इस्तेमाल करने से पहले हमेशा ऊपर दिया गया WhatsApp वाला मैसेज ज़रूर बोलें।`
 
-    // Vapi native "Sagar" voice - best quality for Hindi
-    const vapiVoice = {
-      provider: "vapi",
-      voiceId: "Sagar"
+    // Map UI voice parameter to actual voice model settings
+    let vapiVoice;
+    if (voice === "aria") {
+      vapiVoice = {
+        provider: "11labs",
+        voiceId: "9BWtsMINqrJLrRacOk9x", // Aria
+        model: "eleven_multilingual_v2",
+        stability: 0.7,
+        similarityBoost: 0.75
+      };
+    } else {
+      // Default to Sagar
+      vapiVoice = {
+        provider: "vapi",
+        voiceId: "Sagar"
+      };
     }
 
     const results = []

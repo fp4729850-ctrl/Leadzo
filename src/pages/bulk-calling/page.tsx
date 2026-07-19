@@ -257,7 +257,7 @@ export default function BulkCallingPage() {
 
   const [numbersRaw, setNumbersRaw] = useState("");
   const [script, setScript] = useState("");
-  const [voice, setVoice] = useState("rachel");
+  const [voice, setVoice] = useState("sagar");
   const [engine, setEngine] = useState<"premium" | "gemini">("premium");
   const [ttsEngine, setTtsEngine] = useState<"elevenlabs" | "deepgram">("elevenlabs");
   const [showGenerator, setShowGenerator] = useState(false);
@@ -429,7 +429,7 @@ export default function BulkCallingPage() {
                         <Badge className="text-[9px] bg-primary/10 text-primary border-primary/20">Selected Provider</Badge>
                       </div>
                       <div className="grid grid-cols-2 gap-2">
-                      {([{ id: "rachel", label: "Rachel", desc: "Young Female" }, { id: "sarah", label: "Sarah", desc: "Warm Female" }, { id: "drew", label: "Drew", desc: "Energetic Male" }, { id: "paul", label: "Paul", desc: "Pro Male" }] as const).map((v) => (
+                      {([{ id: "sagar", label: "Sagar", desc: "Indian Male (Vapi)" }, { id: "aria", label: "Aria", desc: "Indian Female (11Labs)" }, { id: "rachel", label: "Rachel", desc: "Young Female" }, { id: "drew", label: "Drew", desc: "Energetic Male" }] as const).map((v) => (
                         <button key={v.id} onClick={() => setVoice(v.id)} className={cn("flex flex-col items-start p-3 rounded-lg border text-left transition-all", voice === v.id ? "border-primary bg-primary/5 shadow-sm" : "border-border bg-muted/30 hover:bg-muted/50")}>
                           <span className="text-xs font-semibold">{v.label}</span>
                           <span className="text-[10px] text-muted-foreground">{v.desc}</span>
