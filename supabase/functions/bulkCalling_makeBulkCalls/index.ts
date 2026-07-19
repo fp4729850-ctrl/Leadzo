@@ -110,7 +110,7 @@ serve(async (req) => {
             phoneNumberId: vapiPhoneNumberId,
             customer: { number: formattedNumber },
             metadata: { userId, whatsappLink: whatsappLink || "" },
-            assistantOverrides: {
+            assistant: {
               firstMessage: extractedFirstMessage,
               model: {
                 provider: "groq",
@@ -123,7 +123,25 @@ serve(async (req) => {
                 ],
                 temperature: 0.4,
                 maxTokens: 250,
-                toolIds: []
+                // Tool to send WhatsApp link when customer agrees
+                ...(whatsappLink ? {
+                  tools: [
+                    {
+                      type: "function",
+                      function: {
+                        name: "sendWhatsAppLink",
+                        description: "जब कस्टमर agree करे तो इस tool को call करो ताकि उन्हें WhatsApp पर link मिल सके। यह tool call करो और साथ में बोलो: 'मैंने आपको WhatsApp पर link भेज दी है।'",
+                        parameters: {
+                          type: "object",
+                          properties: {}
+                        }
+                      },
+                      server: {
+                        url: "https://stbqeiapgdaklktrlrjm.supabase.co/functions/v1/vapi_tool_handler"
+                      }
+                    }
+                  ]
+                } : {})
               },
               voice: {
                 provider: "vapi",
@@ -141,26 +159,7 @@ serve(async (req) => {
               endCallFunctionEnabled: true,
               endCallPhrases: ["धन्यवाद! नमस्ते", "धन्यवाद नमस्ते", "आपका समय देने के लिए बहुत-बहुत धन्यवाद"],
               endCallMessage: "आपका समय देने के लिए बहुत-बहुत धन्यवाद! नमस्ते!"
-            },
-            // Server-side tool that AI can trigger to send WhatsApp link
-            ...(whatsappLink ? {
-              tools: [
-                {
-                  type: "function",
-                  function: {
-                    name: "sendWhatsAppLink",
-                    description: "जब कस्टमर agree करे तो इस tool को call करो ताकि उन्हें WhatsApp पर link मिल सके। यह tool call करो और साथ में बोलो: 'मैंने आपको WhatsApp पर link भेज दी है।'",
-                    parameters: {
-                      type: "object",
-                      properties: {}
-                    }
-                  },
-                  server: {
-                    url: "https://stbqeiapgdaklktrlrjm.supabase.co/functions/v1/vapi_tool_handler"
-                  }
-                }
-              ]
-            } : {})
+            }
           })
         })
 
