@@ -14,7 +14,7 @@ serve(async (req) => {
   }
 
   try {
-    const { numbers, message, voice, whatsappLink } = await req.json()
+    const { numbers, message, voice, whatsappLink, waMediaUrl } = await req.json()
 
     // Get user id from token
     const authHeader = req.headers.get('Authorization')
@@ -109,7 +109,7 @@ serve(async (req) => {
           body: JSON.stringify({
             phoneNumberId: vapiPhoneNumberId,
             customer: { number: formattedNumber },
-            metadata: { userId, whatsappLink: whatsappLink || "" },
+            metadata: { userId, whatsappLink: whatsappLink || "", waMediaUrl: waMediaUrl || "" },
             assistant: {
               firstMessage: extractedFirstMessage,
               model: {

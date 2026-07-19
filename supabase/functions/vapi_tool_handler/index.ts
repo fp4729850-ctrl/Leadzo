@@ -38,7 +38,8 @@ serve(async (req) => {
           
           const userId = metadata.userId
           const whatsappLink = metadata.whatsappLink
-          
+          const waMediaUrl = metadata.waMediaUrl || null
+
           if (!userId || !customerNumber || !whatsappLink) {
             console.error("Missing required data for WhatsApp tool", { userId, customerNumber, whatsappLink })
             results.push({ toolCallId: toolCall.id, result: "Failed: Missing data (userId, customerNumber, or whatsappLink)" })
@@ -50,14 +51,13 @@ serve(async (req) => {
             Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
           )
 
-          const messageText = whatsappLink // Only send the link as instructed
-
           const { error } = await supabaseAdmin
             .from('whatsapp_queue')
             .insert({
               user_id: userId,
               phone_number: customerNumber,
-              message: messageText,
+              message: whatsappLink,
+              media_url: waMediaUrl,
               status: 'pending'
             })
 

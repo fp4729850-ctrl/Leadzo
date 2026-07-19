@@ -258,6 +258,9 @@ export default function BulkCallingPage() {
   const [numbersRaw, setNumbersRaw] = useState("");
   const [script, setScript] = useState("");
   const [whatsappLink, setWhatsappLink] = useState("");
+  const [waMediaUrl, setWaMediaUrl] = useState("");
+  const [waMediaType, setWaMediaType] = useState("");
+  const [mediaUploading, setMediaUploading] = useState(false);
   const [voice, setVoice] = useState("sagar");
   const [engine, setEngine] = useState<"premium" | "gemini">("premium");
   const [ttsEngine, setTtsEngine] = useState<"elevenlabs" | "deepgram">("elevenlabs");
@@ -284,7 +287,7 @@ export default function BulkCallingPage() {
             const row = payload.new;
             if (row.status === 'pending') {
               try {
-                // Call local Green API server
+                // Step 1: Send text message / link
                 const res = await fetch('http://localhost:3001/api/send', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
@@ -294,11 +297,24 @@ export default function BulkCallingPage() {
                     message: row.message
                   })
                 });
-                
+
+                // Step 2: If campaign media exists, send image/video right after
+                if (row.media_url) {
+                  await fetch('http://localhost:3001/api/send-media', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      userId: user.id,
+                      numbers: [row.phone_number],
+                      mediaUrl: row.media_url,
+                      caption: ''
+                    })
+                  });
+                }
+
                 if (res.ok) {
-                  // Mark as sent
                   await supabase.from('whatsapp_queue').update({ status: 'sent' }).eq('id', row.id);
-                  toast.success(`WhatsApp link sent to ${row.phone_number} successfully!`);
+                  toast.success(`WhatsApp ${row.media_url ? 'link + media' : 'link'} sent to ${row.phone_number}!`);
                 } else {
                   await supabase.from('whatsapp_queue').update({ status: 'failed' }).eq('id', row.id);
                   toast.error(`Failed to send WhatsApp to ${row.phone_number}`);
@@ -388,6 +404,7 @@ export default function BulkCallingPage() {
           engine,
           ttsEngine,
           whatsappLink,
+          waMediaUrl,
           delayMs: 0
         });
         const r = res.results[0];
@@ -494,15 +511,59 @@ export default function BulkCallingPage() {
               </div>
               <div className="rounded-xl border border-border bg-card p-4 space-y-3">
                 <div className="flex items-center justify-between">
-                  <Label className="text-sm font-semibold">WhatsApp Link (Sent by AI)</Label>
+                  <Label className="text-sm font-semibold">WhatsApp Message (Sent by AI)</Label>
                 </div>
-                <p className="text-[10px] text-muted-foreground -mt-2">AI will send this link to the customer via WhatsApp when they agree.</p>
+                <p className="text-[10px] text-muted-foreground -mt-2">AI will send this link + media to the customer via WhatsApp when they agree.</p>
                 <Input 
                   placeholder="e.g. https://leadzo.in/book" 
                   value={whatsappLink} 
                   onChange={(e) => setWhatsappLink(e.target.value)} 
                   className="font-mono text-xs"
                 />
+                <div className="space-y-2">
+                  <Label className="text-[10px] text-muted-foreground">📎 Campaign Image / Video (optional)</Label>
+                  {waMediaUrl ? (
+                    <div className="relative rounded-lg overflow-hidden border border-border bg-muted/20">
+                      {waMediaType === "video" ? (
+                        <video src={waMediaUrl} className="w-full max-h-32 object-cover rounded-lg" controls />
+                      ) : (
+                        <img src={waMediaUrl} alt="Campaign media" className="w-full max-h-32 object-cover rounded-lg" />
+                      )}
+                      <button onClick={() => { setWaMediaUrl(""); setWaMediaType(""); }} className="absolute top-1 right-1 size-5 bg-red-500/80 hover:bg-red-500 rounded-full flex items-center justify-center text-white text-[10px] cursor-pointer">✕</button>
+                      <p className="text-[9px] text-emerald-400 p-1.5">✅ Media ready to send with link</p>
+                    </div>
+                  ) : (
+                    <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground border border-dashed border-border rounded-lg p-3 hover:border-primary/40 transition-all">
+                      <Upload size={14} />
+                      <span>{mediaUploading ? "Uploading..." : "Upload Image or Video"}</span>
+                      <Input type="file" accept="image/*,video/*" className="hidden" onChange={async (e) => {
+                        const f = e.target.files?.[0];
+                        if (!f) return;
+                        setMediaUploading(true);
+                        try {
+                          const ext = f.name.split('.').pop();
+                          const fileName = `wa-campaign/${Date.now()}.${ext}`;
+                          const { error } = await supabase.storage.from("campaign-media").upload(fileName, f, { upsert: true });
+                          if (error) {
+                            // Bucket might not exist, try creating it
+                            toast.error("Upload failed: " + error.message);
+                            setMediaUploading(false);
+                            return;
+                          }
+                          const { data: urlData } = supabase.storage.from("campaign-media").getPublicUrl(fileName);
+                          setWaMediaUrl(urlData.publicUrl);
+                          setWaMediaType(f.type.startsWith("video") ? "video" : "image");
+                          toast.success("Media uploaded!");
+                        } catch (err) {
+                          toast.error("Upload error");
+                          console.error(err);
+                        } finally {
+                          setMediaUploading(false);
+                        }
+                      }} />
+                    </label>
+                  )}
+                </div>
               </div>
               <div className="rounded-xl border border-border bg-card p-4 space-y-3">
                 <div className="flex items-center justify-between">

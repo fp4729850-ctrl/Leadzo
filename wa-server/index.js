@@ -120,6 +120,41 @@ app.post('/api/send', async (req, res) => {
   res.json({ status: 'success', results });
 });
 
+// Send media (image/video) from URL
+app.post('/api/send-media', async (req, res) => {
+  const { userId, numbers, mediaUrl, caption } = req.body;
+  if (!userId || !numbers || !mediaUrl) return res.status(400).json({ error: 'Missing parameters' });
+
+  if (!sessions.has(userId) || sessions.get(userId).status !== 'connected') {
+    return res.status(401).json({ error: 'WhatsApp not connected' });
+  }
+
+  const client = sessions.get(userId).client;
+  const { MessageMedia } = require('whatsapp-web.js');
+  const results = [];
+
+  for (let num of numbers) {
+    try {
+      let cleanNum = num.replace(/[^0-9]/g, '');
+      if (!cleanNum.endsWith('@c.us')) cleanNum += '@c.us';
+
+      // Download media from URL and send
+      const media = await MessageMedia.fromUrl(mediaUrl, { unsafeMime: true });
+      await client.sendMessage(cleanNum, media, { caption: caption || '' });
+      results.push({ number: num, success: true });
+
+      // Small delay to avoid ban
+      await new Promise(r => setTimeout(r, 2000));
+    } catch (err) {
+      console.error(`Failed to send media to ${num}:`, err);
+      results.push({ number: num, success: false, error: err.message });
+    }
+  }
+
+  res.json({ status: 'success', results });
+});
+
+
 const PORT = 3001;
 app.listen(PORT, () => {
   console.log(`wa-server running on http://localhost:${PORT}`);
