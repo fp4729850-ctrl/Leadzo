@@ -78,8 +78,11 @@ wss.on('connection', (ws, req) => {
 
   let streamSid = '';
   let deepgramLive: any = null;
+  let activeElevenLabsWs: WebSocket | null = null;
   let isAITalking = false;
   const systemContent = customPrompt || "You are a helpful AI assistant for Leadzo. Keep responses short (1-2 sentences). Respond in Hinglish (mix of Hindi and English).";
+  console.log(`🧠 System Prompt initialized: ${systemContent.substring(0, 100)}...`);
+  
   let conversationHistory: any[] = [{
     role: "system",
     content: systemContent
@@ -94,6 +97,7 @@ wss.on('connection', (ws, req) => {
     return new Promise((resolve, reject) => {
       const elUrl = `wss://api.elevenlabs.io/v1/text-to-speech/${elevenVoiceId}/stream-input?model_id=eleven_turbo_v2_5&output_format=ulaw_8000`;
       const elWs = new WebSocket(elUrl);
+      activeElevenLabsWs = elWs;
 
       elWs.on('open', () => {
         console.log(`🔊 ElevenLabs TTS opened for: "${textToSpeak.substring(0, 50)}..."`);
@@ -147,6 +151,7 @@ wss.on('connection', (ws, req) => {
     return new Promise((resolve, reject) => {
       const elUrl = `wss://api.elevenlabs.io/v1/text-to-speech/${elevenVoiceId}/stream-input?model_id=eleven_turbo_v2_5&output_format=ulaw_8000`;
       const elWs = new WebSocket(elUrl);
+      activeElevenLabsWs = elWs;
       let fullResponse = "";
 
       elWs.on('open', async () => {
@@ -164,7 +169,7 @@ wss.on('connection', (ws, req) => {
             const text = chunk.choices[0]?.delta?.content || "";
             if (text) {
               fullResponse += text;
-              elWs.send(JSON.stringify({ text, try_trigger_generation: true }));
+              elWs.send(JSON.stringify({ text })); // Removed try_trigger_generation to allow natural prosody buffer
             }
           }
           // EOS
@@ -241,9 +246,15 @@ wss.on('connection', (ws, req) => {
       if (cleanTranscript.length > 0 && response.is_final) {
         console.log(`👤 User said: "${transcript}"`);
 
-        // Skip if AI is already talking (prevent echo)
-        if (isAITalking) {
-          console.log("⏭️ Skipping user input - AI is currently talking");
+        // Skip if AI is already talking (prevent echo) - Wait, we WANT interruption!
+        // We will only interrupt if it's a significant utterance
+        if (isAITalking && transcript.length > 5) {
+          console.log("🛑 INTERRUPTION DETECTED! Stopping AI.");
+          ws.send(JSON.stringify({ event: "clear", streamSid }));
+          if (activeElevenLabsWs) activeElevenLabsWs.close();
+          isAITalking = false;
+        } else if (isAITalking) {
+          console.log("⏭️ Skipping user input (too short, likely echo) - AI is currently talking");
           return;
         }
 
