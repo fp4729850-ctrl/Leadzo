@@ -95,8 +95,8 @@ serve(async (req) => {
             assistant: {
               firstMessage: extractedFirstMessage,
               model: {
-                provider: "openai",
-                model: "gpt-4o",
+                provider: "deepseek",
+                model: "deepseek-chat", // DeepSeek-V3
                 messages: [
                   {
                     role: "system",
@@ -105,10 +105,17 @@ serve(async (req) => {
                 ],
                 temperature: 0.7
               },
-              voice: vapiVoice,
-              transcriber: {
+              voice: {
                 provider: "11labs",
-                language: "hi" // Vapi defaults to Scribe v1 for 11labs transcriber
+                voiceId: "EXAVITQu4vr4xnSDxMaL", // Sarah - mature, reassuring
+                model: "eleven_turbo_v2_5",
+                stability: 0.5,
+                similarityBoost: 0.8
+              },
+              transcriber: {
+                provider: "google",
+                model: "gemini-2.0-flash", // Gemini 2.0 Flash as seen in screenshot
+                language: "hi" 
               },
               language: "hi",
               recordingEnabled: false,
