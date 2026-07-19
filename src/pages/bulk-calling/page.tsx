@@ -477,19 +477,6 @@ export default function BulkCallingPage() {
                   <div className="space-y-4 pt-2 border-t border-border/50">
                     <div className="space-y-2">
                       <div className="flex items-center gap-2">
-                        <Label className="text-sm font-semibold">TTS Provider (Voice)</Label>
-                      </div>
-                      <div className="flex gap-2">
-                        <button onClick={() => setTtsEngine("elevenlabs")} className={cn("flex-1 p-2 text-xs rounded-lg border transition-all text-left", ttsEngine === "elevenlabs" ? "border-purple-500 bg-purple-500/10 shadow-sm" : "border-border bg-muted/30")}>
-                          <span className="font-semibold block text-purple-400">ElevenLabs (Premium)</span>
-                        </button>
-                        <button onClick={() => setTtsEngine("deepgram")} className={cn("flex-1 p-2 text-xs rounded-lg border transition-all text-left", ttsEngine === "deepgram" ? "border-emerald-500 bg-emerald-500/10 shadow-sm" : "border-border bg-muted/30")}>
-                          <span className="font-semibold block text-emerald-400">Deepgram Aura (Fast & Cheap)</span>
-                        </button>
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
                         <Label className="text-sm font-semibold">Voice Model</Label>
                         <Badge className="text-[9px] bg-primary/10 text-primary border-primary/20">Selected Provider</Badge>
                       </div>
