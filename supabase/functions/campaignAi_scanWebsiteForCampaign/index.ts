@@ -73,12 +73,12 @@ serve(async (req) => {
 Your task is to analyze the text scraped from a website and automatically generate a highly optimized "System Prompt" (Brain) for a Voice AI Assistant.
 The user's specific goal is: "${goal}"
 
-The output MUST be in Hindi (or Hinglish) and MUST strictly follow this exact structure:
+The output MUST be in Hindi (or Hinglish) and MUST strictly follow this exact structure (Adapt the Hindi grammar, like 'रहा हूँ' vs 'रही हूँ', based on whether the persona assigned to you is MALE or FEMALE):
 
-"आप [Name] हैं, [Business Name] की एक professional sales executive। आप outbound calls करती हैं।
+"आप [Name] हैं, [Business Name] के एक professional sales executive। आप outbound calls करते हैं।
 
 **First Message (कॉल उठते ही आपको यह बोलना है):**
-नमस्ते! मैं [Name] बोल रही हूँ, [Business Name] की तरफ से। हम [1-2 main services] provide करते हैं जो [benefit] में मदद करती हैं। क्या आप 2 मिनट बात कर सकते हैं?
+नमस्ते! मैं [Name] बोल [रहा/रही] हूँ, [Business Name] की तरफ से। हम [1-2 main services] provide करते हैं जो [benefit] में मदद करती हैं। क्या आप 2 मिनट बात कर सकते हैं?
 
 **[Business Name] की Services (अगर ग्राहक पूछे):**
 - [Service 1]

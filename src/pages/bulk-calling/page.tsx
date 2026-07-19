@@ -292,12 +292,12 @@ export default function BulkCallingPage() {
     setScanning(true);
     
     let persona = "";
-    if (voice === "rachel" || voice === "sarah") {
+    if (["rachel", "sarah", "aria"].includes(voice)) {
       const name = (scanLanguage === "Hindi" || scanLanguage === "Hinglish") ? "Pooja" : "Sarah";
-      persona = `You are a FEMALE sales agent named ${name}. Adopt a confident, professional female persona.`;
+      persona = `You are a FEMALE sales agent named ${name}. Adopt a confident, professional female persona. Ensure Hindi grammar uses 'रही हूँ', 'करती हूँ', etc.`;
     } else {
       const name = (scanLanguage === "Hindi" || scanLanguage === "Hinglish") ? "Rahul" : "Alex";
-      persona = `You are a MALE sales agent named ${name}. Adopt a confident, authoritative male persona.`;
+      persona = `You are a MALE sales agent named ${name}. Adopt a confident, authoritative male persona. Ensure Hindi grammar uses 'रहा हूँ', 'करता हूँ', etc.`;
     }
 
     try {
