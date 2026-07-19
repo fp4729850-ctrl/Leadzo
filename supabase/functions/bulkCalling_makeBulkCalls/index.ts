@@ -107,7 +107,7 @@ serve(async (req) => {
               },
               voice: {
                 provider: "vapi",
-                voiceId: "sagar"
+                voiceId: "Sagar"
               },
               transcriber: {
                 provider: "google",
