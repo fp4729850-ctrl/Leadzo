@@ -117,7 +117,8 @@ serve(async (req) => {
               backgroundDenoisingEnabled: true,
               backchannelingEnabled: true, // AI will say "hmm", "yeah" while user speaks
               endCallFunctionEnabled: true,
-              endCallMessage: "जी, आपका समय देने के लिए बहुत-बहुत धन्यवाद! ... Leadzo AI के बारे में कोई भी जानकारी के लिए हमसे फिर से संपर्क करें। ... नमस्ते!"
+              endCallPhrases: ["धन्यवाद! नमस्ते", "धन्यवाद नमस्ते", "आपका समय देने के लिए बहुत-बहुत धन्यवाद"],
+              endCallMessage: "आपका समय देने के लिए बहुत-बहुत धन्यवाद! नमस्ते!"
             }
           })
         })

@@ -98,9 +98,9 @@ The output MUST be in Hindi (or Hinglish) and MUST strictly follow this exact st
 **Call कैसे खत्म करें (2-Step Process):**
 1. जब appointment book हो जाए या ग्राहक सहमत हो, तो पहले यह बोलें: "बहुत अच्छा! आपकी appointment book हो गई है। मैंने आपको WhatsApp पर मीटिंग की link/details share कर दी है, आप उस से connect हो जाना।" 
 2. यह बोलने के बाद, ग्राहक के जवाब (जैसे "ठीक है" या "धन्यवाद") का इंतज़ार करें।
-3. ग्राहक के जवाब देने के बाद, या जब ग्राहक clearly interested नहीं है, तब Call End करने का action (tool) trigger करें।
+3. ग्राहक के जवाब देने के बाद, या जब ग्राहक clearly interested नहीं है, तब Call End करने के लिए 'endCall' function/tool का इस्तेमाल करें। (आपको बस 'endCall' ट्रिगर करना है, बाकी सिस्टम खुद कॉल कट कर देगा)।
 
-ध्यान दें: Call End करने का टूल इस्तेमाल करने से पहले हमेशा ऊपर दिया गया WhatsApp वाला मैसेज ज़रूर बोलें।"
+ध्यान दें: 'endCall' टूल इस्तेमाल करने से पहले हमेशा ऊपर दिया गया WhatsApp वाला मैसेज ज़रूर बोलें।"
 
 Respond ONLY with a JSON object containing EXACTLY these keys:
 - ideas: array of objects, each containing:
