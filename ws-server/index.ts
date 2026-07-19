@@ -103,7 +103,7 @@ wss.on('connection', (ws, req) => {
     try {
       console.log(`🔊 Generating OpenAI TTS for: "${textToSpeak.substring(0, 50)}..."`);
       const response = await openai.audio.speech.create({
-        model: "tts-1",
+        model: "tts-1-hd",
         voice: openAIVoice as any,
         input: textToSpeak,
         response_format: "wav" // Request WAV format for wavefile parser
@@ -139,7 +139,7 @@ wss.on('connection', (ws, req) => {
   }
 
   // ===== 1. Initialize Deepgram STT (Listening) =====
-  const deepgramUrl = `wss://api.deepgram.com/v1/listen?model=nova-2&language=hi&encoding=mulaw&sample_rate=8000&interim_results=true&endpointing=300`;
+  const deepgramUrl = `wss://api.deepgram.com/v1/listen?model=nova-2-general&language=hi&encoding=mulaw&sample_rate=8000&interim_results=true&endpointing=400&punctuate=true&smart_format=true`;
   deepgramLive = new WebSocket(deepgramUrl, {
     headers: { Authorization: `Token ${DEEPGRAM_API_KEY}` }
   });
@@ -252,7 +252,8 @@ wss.on('connection', (ws, req) => {
       lastErrors.push(debugInfo);
       if (lastErrors.length > 10) lastErrors.shift();
       
-      const systemContent = receivedPrompt || "You are a helpful AI assistant for Leadzo. Keep responses short (1-2 sentences). Respond in Hinglish (mix of Hindi and English).";
+      const basePrompt = receivedPrompt || "You are a helpful AI assistant for Leadzo. Keep responses short (1-2 sentences).";      
+      const systemContent = basePrompt + "\n\nIMPORTANT LANGUAGE RULE: Always respond in Hindi (Devanagari script). Keep responses SHORT - maximum 2-3 sentences per reply. Speak naturally like a real person, not like a robot. Never mention you are an AI unless directly asked.";
       
       console.log(`🧠 System Prompt loaded: ${systemContent.substring(0, 100)}...`);
       lastPrompts.push(systemContent);
