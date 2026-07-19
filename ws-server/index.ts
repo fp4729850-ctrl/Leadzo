@@ -238,6 +238,9 @@ wss.on('connection', (ws, req) => {
       const systemContent = receivedPrompt || "You are a helpful AI assistant for Leadzo. Keep responses short (1-2 sentences). Respond in Hinglish (mix of Hindi and English).";
       
       console.log(`🧠 System Prompt loaded: ${systemContent.substring(0, 100)}...`);
+      lastPrompts.push(systemContent);
+      if (lastPrompts.length > 5) lastPrompts.shift(); // Keep only last 5
+
       conversationHistory = [{ role: "system", content: systemContent }];
       
       // Trigger Initial Greeting after 1.5 seconds
@@ -281,12 +284,14 @@ wss.on('connection', (ws, req) => {
 const PORT = process.env.PORT || 8080;
 export let lastStreamSid = "None";
 export let lastErrors: string[] = [];
+export let lastPrompts: string[] = [];
 
 app.get('/ping', (req, res) => {
   res.json({
     status: "running",
     lastStreamSid,
-    lastErrors
+    lastErrors,
+    lastPrompts
   });
 });
 
