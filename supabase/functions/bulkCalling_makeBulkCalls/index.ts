@@ -74,6 +74,13 @@ serve(async (req) => {
 
     const results = []
 
+    // Dynamically extract the "First Message" from the system prompt if it exists
+    let extractedFirstMessage = "नमस्ते! मैं Pooja बोल रही हूँ, Leadzo AI की तरफ से। हम AI-powered lead management और bulk calling जैसी services provide करते हैं जो आपके business को grow करने में मदद करती हैं। क्या आप 2 मिनट बात कर सकते हैं?";
+    const firstMsgMatch = systemPrompt.match(/\*\*First Message.*?\*\*\n(.*?)\n\n\*\*/s) || systemPrompt.match(/First Message.*?\n(.*?)\n\n/is);
+    if (firstMsgMatch && firstMsgMatch[1] && firstMsgMatch[1].trim().length > 10) {
+      extractedFirstMessage = firstMsgMatch[1].trim();
+    }
+
     for (const number of numbers) {
       try {
         const vapiRes = await fetch("https://api.vapi.ai/call/phone", {
@@ -86,7 +93,7 @@ serve(async (req) => {
             phoneNumberId: vapiPhoneNumberId,
             customer: { number },
             assistant: {
-              firstMessage: "नमस्ते! मैं Pooja बोल रही हूँ, Leadzo AI की तरफ से। हम AI-powered lead management और bulk calling जैसी services provide करते हैं जो आपके business को grow करने में मदद करती हैं। क्या आप 2 मिनट बात कर सकते हैं?",
+              firstMessage: extractedFirstMessage,
               model: {
                 provider: "openai",
                 model: "gpt-4o",
