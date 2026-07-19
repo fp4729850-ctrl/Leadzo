@@ -55,12 +55,12 @@ serve(async (req) => {
 ध्यान दें: Call End करने का टूल इस्तेमाल करने से पहले हमेशा ऊपर दिया गया WhatsApp वाला मैसेज ज़रूर बोलें।`
 
     // ElevenLabs Hindi-capable voice via Vapi
-    // Using ElevenLabs "Aria" with Turbo v2.5 for low latency and conversational tone
+    // Using ElevenLabs "Aria" multilingual model for stable, high-quality Hindi
     const vapiVoice = {
       provider: "11labs",
       voiceId: "9BWtsMINqrJLrRacOk9x", // Aria
-      model: "eleven_turbo_v2_5", // Faster, better for conversation
-      stability: 0.3, // Lower stability makes it much more expressive/human
+      model: "eleven_multilingual_v2", // Multilingual v2 is best for Hindi pronunciation
+      stability: 0.7, // Higher stability prevents voice from breaking or sounding weird
       similarityBoost: 0.75
     }
 
@@ -78,7 +78,7 @@ serve(async (req) => {
             phoneNumberId: vapiPhoneNumberId,
             customer: { number },
             assistant: {
-              firstMessage: "जी नमस्ते! ... मैं Pooja बोल रही हूँ, Leadzo AI की तरफ से। ... हम AI-powered lead management और bulk calling जैसी services provide करते हैं, जो आपके business को grow करने में मदद करती हैं। ... क्या आप 2 मिनट बात कर सकते हैं?",
+              firstMessage: "नमस्ते! मैं Pooja बोल रही हूँ, Leadzo AI की तरफ से। हम AI-powered lead management और bulk calling जैसी services provide करते हैं जो आपके business को grow करने में मदद करती हैं। क्या आप 2 मिनट बात कर सकते हैं?",
               model: {
                 provider: "openai",
                 model: "gpt-4o",
