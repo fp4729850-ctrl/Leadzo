@@ -77,15 +77,7 @@ serve(async (req) => {
         console.error("Failed to register prompt", e);
       }
 
-      const twiml = `<Response>
-        <Connect>
-          <Stream url="${wssUrl}/stream">
-            <Parameter name="voice" value="${selectedVoice}" />
-            <Parameter name="ttsEngine" value="${ttsEngine}" />
-            <Parameter name="promptId" value="${promptId}" />
-          </Stream>
-        </Connect>
-      </Response>`;
+      const twiml = `<Response><Connect><Stream url="${wssUrl}/stream?voice=${selectedVoice}&amp;ttsEngine=${ttsEngine}&amp;promptId=${promptId}" /></Connect></Response>`;
       formData.append("Twiml", twiml)
 
       const twilioRes = await fetch(twilioUrl, {

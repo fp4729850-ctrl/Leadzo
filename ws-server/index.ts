@@ -244,15 +244,14 @@ wss.on('connection', (ws, req) => {
       lastStreamSid = streamSid;
       console.log(`🎙️ Stream started: ${streamSid}`);
       
-      // Read parameters passed from Twilio TwiML
-      const customParams = msg.start.customParameters || {};
-      const promptId = customParams.promptId;
-      selectedVoice = customParams.voice || 'rachel';
+      // Read parameters passed from Twilio URL
+      const promptId = urlParams.get('promptId');
+      selectedVoice = urlParams.get('voice') || 'rachel';
       openAIVoice = OPENAI_VOICES[selectedVoice] || OPENAI_VOICES.rachel;
       
       let receivedPrompt = promptId ? promptRegistry.get(promptId) : null;
       
-      const debugInfo = `[DEBUG] promptId=${promptId}, foundInRegistry=${!!receivedPrompt}, voice=${selectedVoice}`;
+      const debugInfo = `[DEBUG] req.url=${req.url}, promptId=${promptId}, foundInRegistry=${!!receivedPrompt}, voice=${selectedVoice}`;
       console.log(debugInfo);
       lastErrors.push(debugInfo); // store it in errors just so we can read it easily from ping
       if (lastErrors.length > 10) lastErrors.shift();
