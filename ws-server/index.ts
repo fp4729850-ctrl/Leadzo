@@ -24,7 +24,14 @@ if (!DEEPGRAM_API_KEY || !OPENAI_API_KEY || !ELEVENLABS_API_KEY) {
 }
 
 const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
-const ELEVENLABS_VOICE_ID = "21m00Tcm4TlvDq8ikWAM"; // Rachel
+
+// ElevenLabs Voice ID Mapping (natural, human-like voices)
+const ELEVENLABS_VOICES: Record<string, string> = {
+  rachel: "21m00Tcm4TlvDq8ikWAM",   // Rachel - calm young female
+  sarah:  "EXAVITQu4vr4xnSDxMaL",   // Bella/Sarah - warm female
+  drew:   "29vD33N1CtxCmqQRPOHJ",    // Drew - energetic male
+  paul:   "5Q0t7uMcjvnagumLfvZi",    // Paul - pro male
+};
 
 // Helper: Convert 16kHz PCM16 (ElevenLabs) to 8kHz mu-law (Twilio)
 function transcodePcm16ToMulaw(base64Pcm16: string): string {
@@ -46,7 +53,6 @@ function transcodePcm16ToMulaw(base64Pcm16: string): string {
 }
 
 app.post('/twiml', (req, res) => {
-  // Pass voice and prompt params from outbound calls
   const voice = req.query.voice || 'rachel';
   const prompt = req.query.prompt || '';
   const twiml = `
@@ -66,71 +72,68 @@ wss.on('connection', (ws, req) => {
     return;
   }
   
-  // Parse URL params for outbound calls
   const urlParams = new URLSearchParams(req.url.split('?')[1] || '');
   const selectedVoice = urlParams.get('voice') || 'rachel';
   const customPrompt = urlParams.get('prompt') ? decodeURIComponent(urlParams.get('prompt')!) : '';
-  const ttsEngine = urlParams.get('ttsEngine') || urlParams.get('amp;ttsEngine') || 'deepgram';
 
   let streamSid = '';
   let deepgramLive: any = null;
-  let elevenLabsWs: WebSocket | null = null;
   let isAITalking = false;
-  const systemContent = customPrompt || "You are a helpful AI assistant for Leadzo. Keep responses short (1-2 sentences).";
+  const systemContent = customPrompt || "You are a helpful AI assistant for Leadzo. Keep responses short (1-2 sentences). Respond in Hinglish (mix of Hindi and English).";
   let conversationHistory: any[] = [{
     role: "system",
     content: systemContent
   }];
 
-  // Deepgram Aura voice mapping
-  let auraModel = "aura-asteria-en"; // default female
-  if (selectedVoice === "sarah") auraModel = "aura-luna-en";
-  if (selectedVoice === "drew") auraModel = "aura-orion-en";
-  if (selectedVoice === "paul") auraModel = "aura-arcas-en";
+  const elevenVoiceId = ELEVENLABS_VOICES[selectedVoice] || ELEVENLABS_VOICES.rachel;
 
-  console.log(`📞 New call connected | Voice: ${selectedVoice} (${auraModel}) | TTS: ${ttsEngine}`);
+  console.log(`📞 New call connected | Voice: ${selectedVoice} (ElevenLabs: ${elevenVoiceId})`);
 
-  // Helper: Speak text via Deepgram Aura (creates a FRESH WebSocket each time)
-  function speakViaAura(textToSpeak: string): Promise<void> {
+  // ===== ElevenLabs TTS Helper: Speak a single text (fresh WS each time) =====
+  function speakViaElevenLabs(textToSpeak: string): Promise<void> {
     return new Promise((resolve, reject) => {
-      const auraUrl = `wss://api.deepgram.com/v1/speak?model=${auraModel}&encoding=mulaw&sample_rate=8000`;
-      const freshAuraWs = new WebSocket(auraUrl, {
-        headers: { Authorization: `Token ${DEEPGRAM_API_KEY}` }
+      const elUrl = `wss://api.elevenlabs.io/v1/text-to-speech/${elevenVoiceId}/stream-input?model_id=eleven_turbo_v2_5&output_format=ulaw_8000`;
+      const elWs = new WebSocket(elUrl);
+
+      elWs.on('open', () => {
+        console.log(`🔊 ElevenLabs TTS opened for: "${textToSpeak.substring(0, 50)}..."`);
+        // BOS (Beginning of Stream)
+        elWs.send(JSON.stringify({
+          text: " ",
+          voice_settings: { stability: 0.5, similarity_boost: 0.8, use_speaker_boost: true },
+          xi_api_key: ELEVENLABS_API_KEY,
+        }));
+        // Send the actual text
+        elWs.send(JSON.stringify({ text: textToSpeak, try_trigger_generation: true }));
+        // EOS (End of Stream)
+        elWs.send(JSON.stringify({ text: "" }));
       });
 
-      freshAuraWs.on('open', () => {
-        console.log(`🔊 Aura TTS opened, sending text: "${textToSpeak.substring(0, 50)}..."`);
-        freshAuraWs.send(JSON.stringify({ type: "Speak", text: textToSpeak }));
-        freshAuraWs.send(JSON.stringify({ type: "Flush" }));
-      });
-
-      freshAuraWs.on('message', (data: any, isBinary: boolean) => {
-        if (isBinary) {
-          // Raw mulaw audio - send directly to Twilio
+      elWs.on('message', (data: any) => {
+        let res;
+        try { res = JSON.parse(data.toString()); } catch(e) { return; }
+        if (res.audio) {
+          // ulaw_8000 audio - send directly to Twilio (no transcoding needed!)
           if (ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ event: "media", streamSid, media: { payload: data.toString('base64') } }));
+            ws.send(JSON.stringify({ event: "media", streamSid, media: { payload: res.audio } }));
           }
-        } else {
-          let res;
-          try { res = JSON.parse(data.toString()); } catch(e) { return; }
-          if (res.type === "Flushed") {
-            console.log("🔊 Aura TTS finished speaking");
-            isAITalking = false;
-            freshAuraWs.close();
-            resolve();
-          }
+        }
+        if (res.isFinal) {
+          console.log("🔊 ElevenLabs TTS finished speaking");
+          isAITalking = false;
+          elWs.close();
+          resolve();
         }
       });
 
-      freshAuraWs.on('error', (err: any) => {
-        console.error("Deepgram Aura TTS Error", err);
-        lastErrors.push("Aura TTS Error: " + String(err));
+      elWs.on('error', (err: any) => {
+        console.error("ElevenLabs TTS Error", err);
+        lastErrors.push("ElevenLabs TTS Error: " + String(err));
         isAITalking = false;
         reject(err);
       });
 
-      freshAuraWs.on('close', () => {
-        // Safety: if closed without Flushed event
+      elWs.on('close', () => {
         if (isAITalking) {
           isAITalking = false;
           resolve();
@@ -139,61 +142,66 @@ wss.on('connection', (ws, req) => {
     });
   }
 
-  // Helper: Speak text via Deepgram Aura with OpenAI STREAMING (creates a FRESH WebSocket)
-  function speakStreamViaAura(openaiStream: any): Promise<string> {
+  // ===== ElevenLabs TTS Helper: Stream OpenAI response (fresh WS each time) =====
+  function speakStreamViaElevenLabs(openaiStream: any): Promise<string> {
     return new Promise((resolve, reject) => {
-      const auraUrl = `wss://api.deepgram.com/v1/speak?model=${auraModel}&encoding=mulaw&sample_rate=8000`;
-      const freshAuraWs = new WebSocket(auraUrl, {
-        headers: { Authorization: `Token ${DEEPGRAM_API_KEY}` }
-      });
+      const elUrl = `wss://api.elevenlabs.io/v1/text-to-speech/${elevenVoiceId}/stream-input?model_id=eleven_turbo_v2_5&output_format=ulaw_8000`;
+      const elWs = new WebSocket(elUrl);
       let fullResponse = "";
 
-      freshAuraWs.on('open', async () => {
-        console.log(`🔊 Aura TTS opened for streaming response`);
+      elWs.on('open', async () => {
+        console.log(`🔊 ElevenLabs TTS opened for streaming response`);
+        // BOS
+        elWs.send(JSON.stringify({
+          text: " ",
+          voice_settings: { stability: 0.5, similarity_boost: 0.8, use_speaker_boost: true },
+          xi_api_key: ELEVENLABS_API_KEY,
+        }));
+
         try {
           for await (const chunk of openaiStream) {
             if (!isAITalking) break;
             const text = chunk.choices[0]?.delta?.content || "";
             if (text) {
               fullResponse += text;
-              freshAuraWs.send(JSON.stringify({ type: "Speak", text }));
+              elWs.send(JSON.stringify({ text, try_trigger_generation: true }));
             }
           }
-          // Signal end of text
-          freshAuraWs.send(JSON.stringify({ type: "Flush" }));
+          // EOS
+          elWs.send(JSON.stringify({ text: "" }));
         } catch (err: any) {
           console.error("OpenAI stream error", err);
           lastErrors.push("OpenAI Stream Error: " + String(err));
-          freshAuraWs.close();
+          elWs.close();
           reject(err);
         }
       });
 
-      freshAuraWs.on('message', (data: any, isBinary: boolean) => {
-        if (isBinary) {
+      elWs.on('message', (data: any) => {
+        let res;
+        try { res = JSON.parse(data.toString()); } catch(e) { return; }
+        if (res.audio) {
+          // ulaw_8000 audio - send directly to Twilio
           if (ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ event: "media", streamSid, media: { payload: data.toString('base64') } }));
+            ws.send(JSON.stringify({ event: "media", streamSid, media: { payload: res.audio } }));
           }
-        } else {
-          let res;
-          try { res = JSON.parse(data.toString()); } catch(e) { return; }
-          if (res.type === "Flushed") {
-            console.log(`🔊 Aura TTS finished: "${fullResponse.substring(0, 80)}..."`);
-            isAITalking = false;
-            freshAuraWs.close();
-            resolve(fullResponse);
-          }
+        }
+        if (res.isFinal) {
+          console.log(`🔊 ElevenLabs TTS finished: "${fullResponse.substring(0, 80)}..."`);
+          isAITalking = false;
+          elWs.close();
+          resolve(fullResponse);
         }
       });
 
-      freshAuraWs.on('error', (err: any) => {
-        console.error("Deepgram Aura TTS Error", err);
-        lastErrors.push("Aura TTS Error: " + String(err));
+      elWs.on('error', (err: any) => {
+        console.error("ElevenLabs TTS Error", err);
+        lastErrors.push("ElevenLabs TTS Error: " + String(err));
         isAITalking = false;
         reject(err);
       });
 
-      freshAuraWs.on('close', () => {
+      elWs.on('close', () => {
         if (isAITalking) {
           isAITalking = false;
           resolve(fullResponse);
@@ -202,7 +210,7 @@ wss.on('connection', (ws, req) => {
     });
   }
 
-  // 1. Initialize Deepgram STT (Listening) via WebSockets
+  // ===== 1. Initialize Deepgram STT (Listening) =====
   const deepgramUrl = `wss://api.deepgram.com/v1/listen?model=nova-2&language=hi&encoding=mulaw&sample_rate=8000&interim_results=true&endpointing=300`;
   deepgramLive = new WebSocket(deepgramUrl, {
     headers: { Authorization: `Token ${DEEPGRAM_API_KEY}` }
@@ -217,7 +225,7 @@ wss.on('connection', (ws, req) => {
     console.log("✅ Deepgram STT connected");
   });
 
-  // Handle STT results -> OpenAI -> TTS
+  // ===== Handle STT results -> OpenAI -> ElevenLabs TTS =====
   deepgramLive.on('message', async (data: any) => {
     let response;
     try {
@@ -250,57 +258,10 @@ wss.on('connection', (ws, req) => {
             stream: true,
           });
 
-          if (ttsEngine === "deepgram") {
-            // Stream OpenAI response directly to a fresh Aura WebSocket
-            const aiResponse = await speakStreamViaAura(stream);
-            if (aiResponse) {
-              conversationHistory.push({ role: "assistant", content: aiResponse });
-            }
-          } else if (ttsEngine === "elevenlabs") {
-            // ElevenLabs path (kept for compatibility)
-            const elevenUrl = `wss://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_VOICE_ID}/stream-input?model_id=eleven_multilingual_v2&output_format=pcm_16000`;
-            elevenLabsWs = new WebSocket(elevenUrl, {
-              headers: { "xi-api-key": ELEVENLABS_API_KEY }
-            });
-
-            let fullAIResponse = "";
-
-            elevenLabsWs.on('open', () => {
-              elevenLabsWs?.send(JSON.stringify({
-                text: " ",
-                voice_settings: { stability: 0.5, similarity_boost: 0.8 }
-              }));
-            });
-
-            elevenLabsWs.on('message', (data) => {
-              let res;
-              try { res = JSON.parse(data.toString()); } catch(e) { return; }
-              if (res.audio) {
-                const mulawAudio = transcodePcm16ToMulaw(res.audio);
-                if (ws.readyState === WebSocket.OPEN) {
-                  ws.send(JSON.stringify({ event: "media", streamSid, media: { payload: mulawAudio } }));
-                }
-              }
-              if (res.isFinal) {
-                isAITalking = false;
-                conversationHistory.push({ role: "assistant", content: fullAIResponse });
-              }
-            });
-
-            // Stream text to ElevenLabs
-            for await (const chunk of stream) {
-              if (!isAITalking) break;
-              const text = chunk.choices[0]?.delta?.content || "";
-              if (text) {
-                fullAIResponse += text;
-                if (elevenLabsWs?.readyState === WebSocket.OPEN) {
-                  elevenLabsWs.send(JSON.stringify({ text, try_trigger_generation: true }));
-                }
-              }
-            }
-            if (isAITalking && elevenLabsWs?.readyState === WebSocket.OPEN) {
-              elevenLabsWs.send(JSON.stringify({ text: "" }));
-            }
+          // Stream OpenAI response to ElevenLabs TTS
+          const aiResponse = await speakStreamViaElevenLabs(stream);
+          if (aiResponse) {
+            conversationHistory.push({ role: "assistant", content: aiResponse });
           }
         } catch (err) {
           lastErrors.push("OpenAI/TTS Error: " + String(err));
@@ -311,7 +272,7 @@ wss.on('connection', (ws, req) => {
     }
   });
 
-  // Handle Twilio Messages
+  // ===== Handle Twilio Messages =====
   ws.on('message', (message) => {
     const msg = JSON.parse(message.toString());
     if (msg.event === 'start') {
@@ -319,14 +280,14 @@ wss.on('connection', (ws, req) => {
       lastStreamSid = streamSid;
       console.log(`🎙️ Stream started: ${streamSid}`);
       
-      // Trigger Initial Greeting after 1 second!
+      // Trigger Initial Greeting after 1.5 seconds
       setTimeout(async () => {
         if (!isAITalking) {
           isAITalking = true;
           const greeting = "Namaste! Main Leadzo se baat kar rahi hoon. Main aapki kaise madad kar sakti hoon?";
           console.log("🗣️ Sending initial greeting:", greeting);
           try {
-            await speakViaAura(greeting);
+            await speakViaElevenLabs(greeting);
             conversationHistory.push({ role: "assistant", content: greeting });
             console.log("✅ Greeting delivered successfully");
           } catch (err) {
@@ -343,14 +304,12 @@ wss.on('connection', (ws, req) => {
     } else if (msg.event === 'stop') {
       console.log(`Stream stopped: ${streamSid}`);
       if (deepgramLive) deepgramLive.close();
-      if (elevenLabsWs) elevenLabsWs.close();
     }
   });
 
   ws.on('close', () => {
     console.log('Twilio stream closed');
     if (deepgramLive) deepgramLive.close();
-    if (elevenLabsWs) elevenLabsWs.close();
   });
 });
 
@@ -367,5 +326,5 @@ app.get('/ping', (req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`Leadzo Full Vapi Clone listening on port ${PORT}`);
+  console.log(`Leadzo AI Voice Agent listening on port ${PORT}`);
 });
