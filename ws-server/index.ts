@@ -84,8 +84,8 @@ wss.on('connection', (ws, req) => {
   }
   
   const urlParams = new URLSearchParams(req.url.split('?')[1] || '');
-  const selectedVoice = urlParams.get('voice') || 'rachel';
-  const openAIVoice = OPENAI_VOICES[selectedVoice] || OPENAI_VOICES.rachel;
+  let selectedVoice = urlParams.get('voice') || 'rachel';
+  let openAIVoice = OPENAI_VOICES[selectedVoice] || OPENAI_VOICES.rachel;
 
   let streamSid = '';
   let deepgramLive: any = null;
@@ -244,11 +244,15 @@ wss.on('connection', (ws, req) => {
       lastStreamSid = streamSid;
       console.log(`🎙️ Stream started: ${streamSid}`);
       
-      // Initialize System Prompt from Registry
-      const promptId = urlParams.get('promptId');
+      // Read parameters passed from Twilio TwiML
+      const customParams = msg.start.customParameters || {};
+      const promptId = customParams.promptId;
+      selectedVoice = customParams.voice || 'rachel';
+      openAIVoice = OPENAI_VOICES[selectedVoice] || OPENAI_VOICES.rachel;
+      
       let receivedPrompt = promptId ? promptRegistry.get(promptId) : null;
       
-      const debugInfo = `[DEBUG] req.url=${req.url}, promptId=${promptId}, foundInRegistry=${!!receivedPrompt}`;
+      const debugInfo = `[DEBUG] promptId=${promptId}, foundInRegistry=${!!receivedPrompt}, voice=${selectedVoice}`;
       console.log(debugInfo);
       lastErrors.push(debugInfo); // store it in errors just so we can read it easily from ping
       if (lastErrors.length > 10) lastErrors.shift();
