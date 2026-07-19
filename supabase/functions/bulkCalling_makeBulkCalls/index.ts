@@ -35,11 +35,12 @@ serve(async (req) => {
 - Analytics Dashboard - business performance देखना  
 - SEO AI Agent - website की Google ranking improve करना
 
-**बातचीत का तरीका:**
-- हमेशा Hindi में बात करें
-- छोटे और clear जवाब दें (2-3 sentences)
-- Professional और friendly tone रखें
-- विनम्र रहें, लेकिन Leadzo AI के फायदों को स्पष्टता के साथ प्रस्तुत करें।
+**बातचीत का तरीका (Human-like Conversational Style):**
+- हमेशा Hindi में बात करें।
+- बात करते समय इंसानों की तरह filler शब्दों का इस्तेमाल करें (जैसे: "जी...", "अच्छा...", "हाँ बिल्कुल...", "हम्म...")।
+- छोटे और clear जवाब दें (2-3 sentences), न्यूज़ रीडर की तरह ना बोलें।
+- वाक्यों के बीच में थोड़े pauses लें (कॉमा ',' और डॉट्स '...' का ज़्यादा इस्तेमाल करें)।
+- Professional और friendly tone रखें।
 
 **आपत्तियों (Objections) को संभालना:**
 - ग्राहक की चिंताओं को गंभीरता से लें।
@@ -54,12 +55,12 @@ serve(async (req) => {
 ध्यान दें: Call End करने का टूल इस्तेमाल करने से पहले हमेशा ऊपर दिया गया WhatsApp वाला मैसेज ज़रूर बोलें।`
 
     // ElevenLabs Hindi-capable voice via Vapi
-    // Using ElevenLabs "Aria" multilingual model - natural Hindi female voice
+    // Using ElevenLabs "Aria" with Turbo v2.5 for low latency and conversational tone
     const vapiVoice = {
       provider: "11labs",
-      voiceId: "9BWtsMINqrJLrRacOk9x", // Aria - multilingual, natural Hindi
-      model: "eleven_multilingual_v2",
-      stability: 0.5,
+      voiceId: "9BWtsMINqrJLrRacOk9x", // Aria
+      model: "eleven_turbo_v2_5", // Faster, better for conversation
+      stability: 0.3, // Lower stability makes it much more expressive/human
       similarityBoost: 0.75
     }
 
@@ -77,7 +78,7 @@ serve(async (req) => {
             phoneNumberId: vapiPhoneNumberId,
             customer: { number },
             assistant: {
-              firstMessage: "नमस्ते! मैं Pooja बोल रही हूँ, Leadzo AI की तरफ से। हम AI-powered lead management और bulk calling जैसी services provide करते हैं जो आपके business को grow करने में मदद करती हैं। क्या आप 2 मिनट बात कर सकते हैं?",
+              firstMessage: "जी नमस्ते! ... मैं Pooja बोल रही हूँ, Leadzo AI की तरफ से। ... हम AI-powered lead management और bulk calling जैसी services provide करते हैं, जो आपके business को grow करने में मदद करती हैं। ... क्या आप 2 मिनट बात कर सकते हैं?",
               model: {
                 provider: "openai",
                 model: "gpt-4o",
@@ -99,8 +100,9 @@ serve(async (req) => {
               recordingEnabled: false,
               backgroundSound: "off",
               backgroundDenoisingEnabled: true,
+              backchannelingEnabled: true, // AI will say "hmm", "yeah" while user speaks
               endCallFunctionEnabled: true,
-              endCallMessage: "आपका समय देने के लिए बहुत-बहुत धन्यवाद! Leadzo AI के बारे में कोई भी जानकारी के लिए हमसे फिर से संपर्क करें। नमस्ते!"
+              endCallMessage: "जी, आपका समय देने के लिए बहुत-बहुत धन्यवाद! ... Leadzo AI के बारे में कोई भी जानकारी के लिए हमसे फिर से संपर्क करें। ... नमस्ते!"
             }
           })
         })
