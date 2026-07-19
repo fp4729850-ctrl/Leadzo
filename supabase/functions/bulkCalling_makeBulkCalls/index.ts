@@ -95,15 +95,16 @@ serve(async (req) => {
             assistant: {
               firstMessage: extractedFirstMessage,
               model: {
-                provider: "openai",
-                model: "gpt-4o",
+                provider: "groq",
+                model: "llama3-70b-8192", // Groq's fastest large model
                 messages: [
                   {
                     role: "system",
                     content: systemPrompt
                   }
                 ],
-                temperature: 0.7
+                temperature: 0.4,
+                maxTokens: 250
               },
               voice: {
                 provider: "vapi",
@@ -111,7 +112,7 @@ serve(async (req) => {
               },
               transcriber: {
                 provider: "11labs",
-                language: "hi"
+                language: "hi" // Keeping Hindi so it understands Indian users
               },
               language: "hi",
               recordingEnabled: false,
