@@ -1,7 +1,6 @@
 // Supabase Edge Function: bulkCalling_makeBulkCalls
-// UPDATED: Now uses Twilio directly instead of Vapi
+// UPDATED: Reverted to Vapi.ai for best-in-class AI voice quality
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -14,89 +13,69 @@ serve(async (req) => {
   }
 
   try {
-    const { numbers, message, voice, ttsEngine: reqTtsEngine } = await req.json()
+    const { numbers, message, voice } = await req.json()
 
-    // Twilio Credentials from Supabase Secrets
-    const twilioAccountSid = Deno.env.get("TWILIO_ACCOUNT_SID")
-    const twilioAuthToken = Deno.env.get("TWILIO_AUTH_TOKEN")
-    const twilioFromNumber = Deno.env.get("TWILIO_PHONE_NUMBER") || "+14787807948"
+    const vapiApiKey = Deno.env.get("VAPI_API_KEY")
+    const vapiPhoneNumberId = Deno.env.get("VAPI_PHONE_NUMBER_ID")
 
-    // Our custom Render WebSocket server
-    const wsServerUrl = Deno.env.get("WS_SERVER_URL") || "https://leadzo-e0wy.onrender.com"
-
-    if (!twilioAccountSid || !twilioAuthToken) {
-      throw new Error("Missing Twilio credentials in Supabase secrets.")
+    if (!vapiApiKey || !vapiPhoneNumberId) {
+      throw new Error("Missing VAPI_API_KEY or VAPI_PHONE_NUMBER_ID in Supabase secrets.")
     }
 
-    // Dynamically truncate the message so its encoded length fits well within Twilio's 4000 char limit
-    let truncatedMessage = typeof message === 'string' ? message : '';
-    let systemPrompt = encodeURIComponent(truncatedMessage);
-    
-    // Twilio has a strict 4000 char limit for both Url and Twiml length. 
-    // We leave ~1000 chars room for the XML tags, voice parameter, and URL structure.
-    while (systemPrompt.length > 2500) {
-      truncatedMessage = truncatedMessage.slice(0, -50);
-      systemPrompt = encodeURIComponent(truncatedMessage);
-    }
+    const systemPrompt = message || "You are a helpful AI sales agent for Leadzo. Keep responses short and helpful. Speak in Hindi."
 
-    if (!truncatedMessage) {
-      systemPrompt = encodeURIComponent("You are a helpful AI sales agent for Leadzo. Keep responses short and helpful.");
+    // Vapi voice mapping
+    const vapiVoice = {
+      provider: "openai",
+      voiceId: voice || "nova"
     }
-    const selectedVoice = encodeURIComponent(voice || "rachel");
-    const ttsEngine = encodeURIComponent(reqTtsEngine || "elevenlabs");
 
     const results = []
 
     for (const number of numbers) {
-      // Call Twilio REST API to initiate outbound call
-      const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${twilioAccountSid}/Calls.json`
-      
-      const credentials = btoa(`${twilioAccountSid}:${twilioAuthToken}`)
-      
-      const formData = new URLSearchParams()
-      formData.append("To", number)
-      formData.append("From", twilioFromNumber)
-      
-      // We pass the TwiML directly instead of providing a Url to bypass the 4000 char Url limit
-      const wssUrl = wsServerUrl.replace('http', 'ws');
-      
-      const promptText = typeof message === 'string' ? message : "You are a helpful AI sales agent.";
-      let promptId = "";
-      
       try {
-        const regRes = await fetch(`${wsServerUrl.replace('ws://', 'http://').replace('wss://', 'https://')}/register-prompt`, {
+        const vapiRes = await fetch("https://api.vapi.ai/call/phone", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ prompt: promptText })
-        });
-        if (regRes.ok) {
-          const { promptId: id } = await regRes.json();
-          promptId = id;
+          headers: {
+            "Authorization": `Bearer ${vapiApiKey}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            phoneNumberId: vapiPhoneNumberId,
+            customer: { number },
+            assistant: {
+              firstMessage: "नमस्ते! मैं Pooja हूँ, Leadzo AI से। क्या मैं आपकी कुछ मदद कर सकती हूँ?",
+              model: {
+                provider: "openai",
+                model: "gpt-4o",
+                messages: [
+                  {
+                    role: "system",
+                    content: systemPrompt
+                  }
+                ],
+                temperature: 0.7
+              },
+              voice: vapiVoice,
+              language: "hi",
+              recordingEnabled: false,
+              endCallFunctionEnabled: true,
+              endCallMessage: "धन्यवाद! आपसे बात करके अच्छा लगा। नमस्ते!"
+            }
+          })
+        })
+
+        const vapiData = await vapiRes.json()
+
+        if (!vapiRes.ok) {
+          console.error(`Failed to call ${number}:`, vapiData)
+          results.push({ success: false, number, error: vapiData.message || "Vapi call failed" })
+        } else {
+          console.log(`✅ Vapi call initiated to ${number}, ID: ${vapiData.id}`)
+          results.push({ success: true, number, callSid: vapiData.id })
         }
-      } catch (e) {
-        console.error("Failed to register prompt", e);
-      }
-
-      const twiml = `<Response><Connect><Stream url="${wssUrl}/stream?voice=${selectedVoice}&amp;ttsEngine=${ttsEngine}&amp;promptId=${promptId}" /></Connect></Response>`;
-      formData.append("Twiml", twiml)
-
-      const twilioRes = await fetch(twilioUrl, {
-        method: "POST",
-        headers: {
-          "Authorization": `Basic ${credentials}`,
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: formData.toString(),
-      })
-
-      const twilioData = await twilioRes.json()
-
-      if (!twilioRes.ok) {
-        console.error(`Failed to call ${number}:`, twilioData)
-        results.push({ success: false, number, error: twilioData.message })
-      } else {
-        console.log(`✅ Call initiated to ${number}, SID: ${twilioData.sid}`)
-        results.push({ success: true, number, callSid: twilioData.sid })
+      } catch (e: any) {
+        results.push({ success: false, number, error: e.message })
       }
 
       // Small delay between calls to avoid rate limiting
