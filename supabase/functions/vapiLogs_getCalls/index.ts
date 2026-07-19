@@ -20,10 +20,9 @@ serve(async (req) => {
     const limit = body.limit ?? 10
     const page = body.page ?? 0
 
-    // Build query params for Vapi
+    // Build query params for Vapi - only 'limit' is supported
     const params = new URLSearchParams({
       limit: String(limit),
-      createdAtGte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(), // last 30 days
     })
 
     const vapiRes = await fetch(`https://api.vapi.ai/call?${params}`, {
