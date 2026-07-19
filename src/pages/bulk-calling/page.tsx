@@ -494,6 +494,18 @@ export default function BulkCallingPage() {
               </div>
               <div className="rounded-xl border border-border bg-card p-4 space-y-3">
                 <div className="flex items-center justify-between">
+                  <Label className="text-sm font-semibold">WhatsApp Link (Sent by AI)</Label>
+                </div>
+                <p className="text-[10px] text-muted-foreground -mt-2">AI will send this link to the customer via WhatsApp when they agree.</p>
+                <Input 
+                  placeholder="e.g. https://leadzo.in/book" 
+                  value={whatsappLink} 
+                  onChange={(e) => setWhatsappLink(e.target.value)} 
+                  className="font-mono text-xs"
+                />
+              </div>
+              <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+                <div className="flex items-center justify-between">
                   <Label className="text-sm font-semibold">AI System Prompt (Brain)</Label>
                   <button onClick={() => setShowGenerator(!showGenerator)} className="text-[10px] text-primary font-semibold cursor-pointer hover:underline">{showGenerator ? "Hide" : "✶ AI Generate"}</button>
                 </div>
