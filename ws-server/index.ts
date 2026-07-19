@@ -164,13 +164,25 @@ wss.on('connection', (ws, req) => {
         }));
 
         try {
+          let sentenceBuffer = "";
           for await (const chunk of openaiStream) {
             if (!isAITalking) break;
             const text = chunk.choices[0]?.delta?.content || "";
             if (text) {
               fullResponse += text;
-              elWs.send(JSON.stringify({ text })); // Removed try_trigger_generation to allow natural prosody buffer
+              sentenceBuffer += text;
+              
+              // If the text contains punctuation that signals a pause, flush the buffer to ElevenLabs
+              if (/[.,!?;:।\n]/.test(text)) {
+                // Send the completed phrase
+                elWs.send(JSON.stringify({ text: sentenceBuffer, try_trigger_generation: true }));
+                sentenceBuffer = ""; // Reset buffer
+              }
             }
+          }
+          // Flush any remaining text in the buffer
+          if (sentenceBuffer.trim().length > 0) {
+            elWs.send(JSON.stringify({ text: sentenceBuffer, try_trigger_generation: true }));
           }
           // EOS
           elWs.send(JSON.stringify({ text: "" }));
