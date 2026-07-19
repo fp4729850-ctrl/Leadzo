@@ -523,29 +523,152 @@ export default function BulkCallingPage() {
           )}
         </div>
         <div className="space-y-3">
-          <p className="text-sm font-semibold">Call Campaign History</p>
-          {!campaigns ? (
-            <div className="space-y-3">{[1, 2].map((i) => <Skeleton key={i} className="h-28 rounded-xl" />)}</div>
-          ) : campaigns.length === 0 ? (
-            <Empty><EmptyHeader><EmptyMedia variant="icon"><Phone /></EmptyMedia><EmptyTitle>No call campaigns yet</EmptyTitle><EmptyDescription>Apna pehla bulk calling campaign launch karo</EmptyDescription></EmptyHeader></Empty>
-          ) : (
-            <div className="space-y-3">
-              {campaigns.map((c) => (
-                <div key={c._id} className="rounded-xl border border-border bg-card p-4 space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Phone size={13} className="text-blue-400 shrink-0" />
-                      <p className="text-xs font-semibold truncate">{c.prompt.slice(0, 60)}{c.prompt.length > 60 ? "…" : ""}</p>
-                    </div>
-                    <Badge variant="secondary" className="text-[10px] shrink-0">{c.totalRecipients} numbers</Badge>
-                  </div>
-                  <p className="text-[10px] text-muted-foreground">{new Date(c._creationTime).toLocaleString()}</p>
-                </div>
-              ))}
-            </div>
-          )}
+          <VapiCallLogsPanel />
         </div>
       </div>
     </div>
   );
 }
+
+// ────────────────────────────────────────────────────────────────────────────
+// Vapi Call Logs Panel
+// ────────────────────────────────────────────────────────────────────────────
+
+interface VapiMessage { role: string; message: string; time?: number; }
+interface VapiCall {
+  id: string;
+  status: string;
+  customer?: { number?: string };
+  startedAt?: string;
+  endedAt?: string;
+  endedReason?: string;
+  cost?: number;
+  durationSeconds?: number;
+  messages?: VapiMessage[];
+  summary?: string;
+  transcript?: string;
+}
+
+function VapiCallLogsPanel() {
+  const [calls, setCalls] = useState<VapiCall[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedCall, setSelectedCall] = useState<VapiCall | null>(null);
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 10;
+
+  const fetchLogs = async () => {
+    setLoading(true);
+    try {
+      const res = await supabase.functions.invoke("vapiLogs_getCalls", {
+        body: { limit: PAGE_SIZE, page }
+      });
+      if (res.data?.calls) {
+        setCalls(res.data.calls);
+      }
+    } catch (e) {
+      console.error("Failed to fetch Vapi logs:", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchLogs(); }, [page]);
+
+  const statusColor = (s: string) => {
+    if (s === "ended") return "text-emerald-400 bg-emerald-500/10";
+    if (s === "failed") return "text-red-400 bg-red-500/10";
+    if (s === "in-progress") return "text-blue-400 bg-blue-500/10 animate-pulse";
+    return "text-muted-foreground bg-muted";
+  };
+
+  const formatDur = (sec?: number) => {
+    if (!sec) return "-";
+    const m = Math.floor(sec / 60), s = Math.floor(sec % 60);
+    return m > 0 ? `${m}m ${s}s` : `${s}s`;
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-semibold">📞 Vapi Call Logs</p>
+        <button onClick={fetchLogs} className="text-[10px] text-primary hover:underline flex items-center gap-1 cursor-pointer">
+          <RefreshCw size={10} /> Refresh
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-20 rounded-xl" />)}</div>
+      ) : calls.length === 0 ? (
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon"><Phone /></EmptyMedia>
+            <EmptyTitle>No calls yet</EmptyTitle>
+            <EmptyDescription>Launch a bulk calling campaign to see logs here</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      ) : (
+        <div className="space-y-2">
+          {calls.map((call) => (
+            <div key={call.id} className="rounded-xl border border-border bg-card p-3 space-y-2 hover:border-primary/40 transition-all cursor-pointer" onClick={() => setSelectedCall(selectedCall?.id === call.id ? null : call)}>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <PhoneCall size={12} className="text-blue-400 shrink-0" />
+                  <span className="text-xs font-mono font-semibold truncate">{call.customer?.number || "Unknown"}</span>
+                </div>
+                <span className={cn("text-[9px] font-semibold px-1.5 py-0.5 rounded-full", statusColor(call.status))}>
+                  {call.status}
+                </span>
+              </div>
+              <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                <span>⏱ {formatDur(call.durationSeconds)}</span>
+                {call.cost !== undefined && <span>💰 ${call.cost.toFixed(3)}</span>}
+                {call.startedAt && <span>{new Date(call.startedAt).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" })}</span>}
+                {call.endedReason && <span className="text-amber-400/80">{call.endedReason}</span>}
+              </div>
+
+              {/* Expanded transcript */}
+              {selectedCall?.id === call.id && (
+                <div className="mt-2 space-y-2 border-t border-border/50 pt-2">
+                  {call.summary && (
+                    <div className="bg-muted/40 rounded-lg p-2.5">
+                      <p className="text-[10px] font-semibold text-primary mb-1">📝 AI Summary</p>
+                      <p className="text-[10px] text-muted-foreground leading-relaxed">{call.summary}</p>
+                    </div>
+                  )}
+                  {call.messages && call.messages.length > 0 ? (
+                    <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
+                      <p className="text-[10px] font-semibold text-muted-foreground">💬 Conversation</p>
+                      {call.messages.filter(m => m.role !== "tool_call" && m.role !== "tool_result" && m.message?.trim()).map((msg, idx) => (
+                        <div key={idx} className={cn("flex gap-2", msg.role === "user" ? "justify-end" : "justify-start")}>
+                          <div className={cn("max-w-[85%] rounded-lg px-2.5 py-1.5 text-[10px] leading-relaxed",
+                            msg.role === "user" ? "bg-blue-500/20 text-blue-100" : "bg-muted/60 text-foreground")}>
+                            <span className="font-semibold text-[9px] opacity-60 block mb-0.5">
+                              {msg.role === "user" ? "👤 Customer" : "🤖 AI"}
+                            </span>
+                            {msg.message}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : call.transcript ? (
+                    <div className="bg-muted/20 rounded-lg p-2.5 max-h-48 overflow-y-auto">
+                      <p className="text-[10px] text-muted-foreground leading-relaxed whitespace-pre-wrap">{call.transcript}</p>
+                    </div>
+                  ) : (
+                    <p className="text-[10px] text-muted-foreground italic">No transcript available</p>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+          <div className="flex items-center justify-between pt-1">
+            <button disabled={page === 0} onClick={() => setPage(p => p - 1)} className="text-[10px] text-primary hover:underline disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer">← Previous</button>
+            <span className="text-[10px] text-muted-foreground">Page {page + 1}</span>
+            <button disabled={calls.length < PAGE_SIZE} onClick={() => setPage(p => p + 1)} className="text-[10px] text-primary hover:underline disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer">Next →</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
