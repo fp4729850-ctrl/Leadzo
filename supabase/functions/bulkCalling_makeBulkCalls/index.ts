@@ -107,9 +107,8 @@ serve(async (req) => {
               },
               voice: vapiVoice,
               transcriber: {
-                provider: "deepgram",
-                model: "nova-2",
-                language: "hi"
+                provider: "11labs",
+                language: "hi" // Vapi defaults to Scribe v1 for 11labs transcriber
               },
               language: "hi",
               recordingEnabled: false,
