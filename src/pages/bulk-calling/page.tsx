@@ -556,8 +556,26 @@ function VapiCallLogsPanel() {
   const [page, setPage] = useState(0);
   const PAGE_SIZE = 10;
 
+  // WhatsApp stats
+  const [waSent, setWaSent] = useState(0);
+  const [waFailed, setWaFailed] = useState(0);
+  const [statsLoading, setStatsLoading] = useState(true);
+
+  const fetchWaStats = async () => {
+    setStatsLoading(true);
+    try {
+      const { data } = await supabase.from("whatsapp_queue").select("status");
+      if (data) {
+        setWaSent(data.filter(r => r.status === "sent").length);
+        setWaFailed(data.filter(r => r.status === "failed").length);
+      }
+    } catch(e) { console.error(e); }
+    finally { setStatsLoading(false); }
+  };
+
   const fetchLogs = async () => {
     setLoading(true);
+    fetchWaStats();
     try {
       const res = await supabase.functions.invoke("vapiLogs_getCalls", {
         body: { limit: PAGE_SIZE, page }
@@ -594,6 +612,24 @@ function VapiCallLogsPanel() {
         <button onClick={fetchLogs} className="text-[10px] text-primary hover:underline flex items-center gap-1 cursor-pointer">
           <RefreshCw size={10} /> Refresh
         </button>
+      </div>
+
+      {/* WhatsApp & Call Stats */}
+      <div className="grid grid-cols-3 gap-2">
+        <div className="rounded-xl border border-border bg-card p-3 text-center">
+          <p className="text-lg font-bold text-blue-400">{loading ? "…" : calls.length}</p>
+          <p className="text-[9px] text-muted-foreground">Total Calls</p>
+        </div>
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3 text-center">
+          <p className="text-lg font-bold text-emerald-400">{statsLoading ? "…" : waSent}</p>
+          <p className="text-[9px] text-muted-foreground">✅ WhatsApp Link Sent</p>
+          <p className="text-[8px] text-emerald-400/70">Customers Agreed</p>
+        </div>
+        <div className="rounded-xl border border-red-500/30 bg-red-500/5 p-3 text-center">
+          <p className="text-lg font-bold text-red-400">{statsLoading ? "…" : waFailed}</p>
+          <p className="text-[9px] text-muted-foreground">❌ Failed</p>
+          <p className="text-[8px] text-red-400/70">Link Not Sent</p>
+        </div>
       </div>
 
       {loading ? (
