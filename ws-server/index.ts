@@ -248,6 +248,11 @@ wss.on('connection', (ws, req) => {
       const promptId = urlParams.get('promptId');
       let receivedPrompt = promptId ? promptRegistry.get(promptId) : null;
       
+      const debugInfo = `[DEBUG] req.url=${req.url}, promptId=${promptId}, foundInRegistry=${!!receivedPrompt}`;
+      console.log(debugInfo);
+      lastErrors.push(debugInfo); // store it in errors just so we can read it easily from ping
+      if (lastErrors.length > 10) lastErrors.shift();
+      
       if (!receivedPrompt) {
         // Fallback to URL prompt for backward compatibility
         receivedPrompt = urlParams.get('prompt') || '';
