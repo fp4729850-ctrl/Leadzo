@@ -94,6 +94,12 @@ serve(async (req) => {
 
     for (const number of numbers) {
       try {
+        // Format number to E.164 (ensure it starts with +)
+        let formattedNumber = number.trim();
+        if (!formattedNumber.startsWith('+')) {
+          formattedNumber = '+' + formattedNumber;
+        }
+
         const vapiRes = await fetch("https://api.vapi.ai/call/phone", {
           method: "POST",
           headers: {
@@ -102,13 +108,13 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             phoneNumberId: vapiPhoneNumberId,
-            customer: { number },
+            customer: { number: formattedNumber },
             metadata: { userId, whatsappLink: whatsappLink || "" },
-            assistant: {
+            assistantOverrides: {
               firstMessage: extractedFirstMessage,
               model: {
                 provider: "groq",
-                model: "llama3-70b-8192", // Groq's fastest large model
+                model: "llama3-70b-8192",
                 messages: [
                   {
                     role: "system",
@@ -116,7 +122,8 @@ serve(async (req) => {
                   }
                 ],
                 temperature: 0.4,
-                maxTokens: 250
+                maxTokens: 250,
+                toolIds: []
               },
               voice: {
                 provider: "vapi",
@@ -124,22 +131,25 @@ serve(async (req) => {
               },
               transcriber: {
                 provider: "11labs",
-                language: "hi" // Keeping Hindi so it understands Indian users
+                language: "hi"
               },
               language: "hi",
               recordingEnabled: false,
               backgroundSound: "off",
               backgroundDenoisingEnabled: true,
-              backchannelingEnabled: true, // AI will say "hmm", "yeah" while user speaks
+              backchannelingEnabled: true,
               endCallFunctionEnabled: true,
               endCallPhrases: ["धन्यवाद! नमस्ते", "धन्यवाद नमस्ते", "आपका समय देने के लिए बहुत-बहुत धन्यवाद"],
-              endCallMessage: "आपका समय देने के लिए बहुत-बहुत धन्यवाद! नमस्ते!",
+              endCallMessage: "आपका समय देने के लिए बहुत-बहुत धन्यवाद! नमस्ते!"
+            },
+            // Server-side tool that AI can trigger to send WhatsApp link
+            ...(whatsappLink ? {
               tools: [
                 {
                   type: "function",
                   function: {
                     name: "sendWhatsAppLink",
-                    description: "Use this tool to send a WhatsApp message containing the link to the user. Call this tool exactly when you say 'I have sent the link on WhatsApp' to the user.",
+                    description: "जब कस्टमर agree करे तो इस tool को call करो ताकि उन्हें WhatsApp पर link मिल सके। यह tool call करो और साथ में बोलो: 'मैंने आपको WhatsApp पर link भेज दी है।'",
                     parameters: {
                       type: "object",
                       properties: {}
@@ -150,7 +160,7 @@ serve(async (req) => {
                   }
                 }
               ]
-            }
+            } : {})
           })
         })
 
