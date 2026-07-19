@@ -24,10 +24,14 @@ serve(async (req) => {
 
     const systemPrompt = message || "You are a helpful AI sales agent for Leadzo. Keep responses short and helpful. Speak in Hindi."
 
-    // Vapi voice mapping
+    // ElevenLabs Hindi-capable voice via Vapi
+    // Using ElevenLabs "Aria" multilingual model - natural Hindi female voice
     const vapiVoice = {
-      provider: "openai",
-      voiceId: voice || "nova"
+      provider: "11labs",
+      voiceId: "9BWtsMINqrJLrRacOk9x", // Aria - multilingual, natural Hindi
+      model: "eleven_multilingual_v2",
+      stability: 0.5,
+      similarityBoost: 0.75
     }
 
     const results = []
@@ -44,7 +48,7 @@ serve(async (req) => {
             phoneNumberId: vapiPhoneNumberId,
             customer: { number },
             assistant: {
-              firstMessage: "नमस्ते! मैं Pooja हूँ, Leadzo AI से। क्या मैं आपकी कुछ मदद कर सकती हूँ?",
+              firstMessage: "नमस्ते! मैं Pooja बोल रही हूँ, Leadzo AI की तरफ से। हम AI-powered lead management और bulk calling जैसी services provide करते हैं जो आपके business को grow करने में मदद करती हैं। क्या आप 2 मिनट बात कर सकते हैं?",
               model: {
                 provider: "openai",
                 model: "gpt-4o",
