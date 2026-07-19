@@ -106,11 +106,8 @@ serve(async (req) => {
                 temperature: 0.7
               },
               voice: {
-                provider: "11labs",
-                voiceId: "EXAVITQu4vr4xnSDxMaL", // Sarah - mature, reassuring
-                model: "eleven_turbo_v2_5",
-                stability: 0.5,
-                similarityBoost: 0.8
+                provider: "vapi",
+                voiceId: "sagar"
               },
               transcriber: {
                 provider: "google",
