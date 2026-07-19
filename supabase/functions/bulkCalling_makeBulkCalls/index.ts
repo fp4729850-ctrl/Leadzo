@@ -1,6 +1,7 @@
 // Supabase Edge Function: bulkCalling_makeBulkCalls
 // UPDATED: Reverted to Vapi.ai for best-in-class AI voice quality
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,7 +14,17 @@ serve(async (req) => {
   }
 
   try {
-    const { numbers, message, voice } = await req.json()
+    const { numbers, message, voice, whatsappLink } = await req.json()
+
+    // Get user id from token
+    const authHeader = req.headers.get('Authorization')
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: authHeader || '' } } }
+    )
+    const { data: { user } } = await supabase.auth.getUser()
+    const userId = user?.id || ""
 
     const vapiApiKey = Deno.env.get("VAPI_API_KEY")
     const vapiPhoneNumberId = Deno.env.get("VAPI_PHONE_NUMBER_ID")
@@ -92,6 +103,7 @@ serve(async (req) => {
           body: JSON.stringify({
             phoneNumberId: vapiPhoneNumberId,
             customer: { number },
+            metadata: { userId, whatsappLink: whatsappLink || "" },
             assistant: {
               firstMessage: extractedFirstMessage,
               model: {
@@ -121,7 +133,23 @@ serve(async (req) => {
               backchannelingEnabled: true, // AI will say "hmm", "yeah" while user speaks
               endCallFunctionEnabled: true,
               endCallPhrases: ["धन्यवाद! नमस्ते", "धन्यवाद नमस्ते", "आपका समय देने के लिए बहुत-बहुत धन्यवाद"],
-              endCallMessage: "आपका समय देने के लिए बहुत-बहुत धन्यवाद! नमस्ते!"
+              endCallMessage: "आपका समय देने के लिए बहुत-बहुत धन्यवाद! नमस्ते!",
+              tools: [
+                {
+                  type: "function",
+                  function: {
+                    name: "sendWhatsAppLink",
+                    description: "Use this tool to send a WhatsApp message containing the link to the user. Call this tool exactly when you say 'I have sent the link on WhatsApp' to the user.",
+                    parameters: {
+                      type: "object",
+                      properties: {}
+                    }
+                  },
+                  server: {
+                    url: "https://stbqeiapgdaklktrlrjm.supabase.co/functions/v1/vapi_tool_handler"
+                  }
+                }
+              ]
             }
           })
         })

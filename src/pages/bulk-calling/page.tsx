@@ -257,6 +257,7 @@ export default function BulkCallingPage() {
 
   const [numbersRaw, setNumbersRaw] = useState("");
   const [script, setScript] = useState("");
+  const [whatsappLink, setWhatsappLink] = useState("");
   const [voice, setVoice] = useState("sagar");
   const [engine, setEngine] = useState<"premium" | "gemini">("premium");
   const [ttsEngine, setTtsEngine] = useState<"elevenlabs" | "deepgram">("elevenlabs");
@@ -275,6 +276,45 @@ export default function BulkCallingPage() {
         supabase.from("user_phone_numbers").select("phone_number").eq("user_id", user.id).eq("status", "active").single().then(({ data }) => {
           if (data?.phone_number) setMyNumber(data.phone_number);
         });
+
+        // Listen for new WhatsApp messages from Vapi AI tool
+        const channel = supabase
+          .channel('whatsapp_queue_listener')
+          .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'whatsapp_queue', filter: `user_id=eq.${user.id}` }, async (payload) => {
+            const row = payload.new;
+            if (row.status === 'pending') {
+              try {
+                // Call local Green API server
+                const res = await fetch('http://localhost:3001/api/send', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    userId: user.id,
+                    numbers: [row.phone_number],
+                    message: row.message
+                  })
+                });
+                
+                if (res.ok) {
+                  // Mark as sent
+                  await supabase.from('whatsapp_queue').update({ status: 'sent' }).eq('id', row.id);
+                  toast.success(`WhatsApp link sent to ${row.phone_number} successfully!`);
+                } else {
+                  await supabase.from('whatsapp_queue').update({ status: 'failed' }).eq('id', row.id);
+                  toast.error(`Failed to send WhatsApp to ${row.phone_number}`);
+                }
+              } catch (e) {
+                console.error("Local Green API error:", e);
+                await supabase.from('whatsapp_queue').update({ status: 'failed' }).eq('id', row.id);
+                toast.error(`Ensure Green API server is running on port 3001`);
+              }
+            }
+          })
+          .subscribe();
+          
+        return () => {
+          supabase.removeChannel(channel);
+        };
       }
     });
   }, []);
@@ -341,7 +381,15 @@ export default function BulkCallingPage() {
       if (stopRef.current) break;
       setResults((prev) => { const next = [...prev]; next[i] = { ...next[i], status: "calling" }; return next; });
       try {
-        const res = await makeBulkCalls({ numbers: [numbers[i]], message: script, voice, engine, ttsEngine, delayMs: 0 });
+        const res = await makeBulkCalls({
+          numbers: [numbers[i]],
+          message: script,
+          voice,
+          engine,
+          ttsEngine,
+          whatsappLink,
+          delayMs: 0
+        });
         const r = res.results[0];
         setResults((prev) => { const next = [...prev]; next[i] = { number: numbers[i], status: r?.success ? "connected" : "failed", callSid: r?.callSid, error: r?.error }; return next; });
       } catch (e) { setResults((prev) => { const next = [...prev]; next[i] = { number: numbers[i], status: "failed", error: e instanceof Error ? e.message : "Error" }; return next; }); }
