@@ -35,9 +35,9 @@ const OPENAI_VOICES: Record<string, string> = {
 
 app.post('/twiml', (req, res) => {
   const voice = req.query.voice || 'rachel';
-  const prompt = req.query.prompt || '';
+  const prompt = (req.query.prompt as string) || '';
   // Escape XML for TwiML parameter
-  const escapedPrompt = prompt.replace(/[<>&'"]/g, function (c) {
+  const escapedPrompt = prompt.replace(/[<>&'"]/g, function (c: string) {
     switch (c) {
         case '<': return '&lt;';
         case '>': return '&gt;';
@@ -101,7 +101,7 @@ wss.on('connection', (ws, req) => {
       wav.toSampleRate(8000); // Properly resample from 24kHz to 8kHz
       wav.toMuLaw();          // Convert to 8-bit mu-law (G.711)
       
-      const mulawBuffer = Buffer.from(wav.data.samples);
+      const mulawBuffer = Buffer.from((wav.data as any).samples);
       
       // Send mu-law audio to Twilio
       if (ws.readyState === WebSocket.OPEN && isAITalking && currentTurnId === activeTurnId) {
