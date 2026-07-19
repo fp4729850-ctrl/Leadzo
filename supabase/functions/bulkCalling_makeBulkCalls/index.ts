@@ -95,7 +95,7 @@ serve(async (req) => {
             assistant: {
               firstMessage: extractedFirstMessage,
               model: {
-                provider: "deepseek",
+                provider: "deep-seek",
                 model: "deepseek-chat", // DeepSeek-V3
                 messages: [
                   {
@@ -115,7 +115,7 @@ serve(async (req) => {
               transcriber: {
                 provider: "google",
                 model: "gemini-2.0-flash", // Gemini 2.0 Flash as seen in screenshot
-                language: "hi" 
+                language: "Hindi" 
               },
               language: "hi",
               recordingEnabled: false,
