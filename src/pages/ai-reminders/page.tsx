@@ -130,6 +130,39 @@ export default function AiRemindersPage() {
             <Button onClick={handleParse} disabled={!file || isParsing} className="w-full mt-4">
               {isParsing ? <><Loader2 className="animate-spin mr-2" size={16} /> Analyzing AI...</> : "Parse with Gemini AI"}
             </Button>
+
+            <div className="mt-6 p-4 bg-muted/30 rounded-lg border border-border">
+              <p className="text-xs font-semibold mb-2 text-muted-foreground">Example File Format (CSV/Excel/PDF):</p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs border border-border bg-background text-left">
+                  <thead className="bg-muted">
+                    <tr>
+                      <th className="px-2 py-1.5 border-b border-border">Client Name</th>
+                      <th className="px-2 py-1.5 border-b border-border">Phone Number</th>
+                      <th className="px-2 py-1.5 border-b border-border">Due Date</th>
+                      <th className="px-2 py-1.5 border-b border-border">Amount / Context</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className="px-2 py-1 border-b border-border">Rahul Sharma</td>
+                      <td className="px-2 py-1 border-b border-border">+91 9876543210</td>
+                      <td className="px-2 py-1 border-b border-border">2023-11-25</td>
+                      <td className="px-2 py-1 border-b border-border">₹12,000 Premium</td>
+                    </tr>
+                    <tr>
+                      <td className="px-2 py-1">Priya Patel</td>
+                      <td className="px-2 py-1">+91 9123456789</td>
+                      <td className="px-2 py-1">2023-11-26</td>
+                      <td className="px-2 py-1">Car Loan EMI</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-[10.5px] text-muted-foreground mt-2 leading-tight">
+                * Note: AI is smart enough to extract data even if your columns have different names or if the details are just paragraphs inside a PDF.
+              </p>
+            </div>
           </div>
 
           <div className="p-6 border border-border rounded-xl bg-card">
