@@ -7,6 +7,7 @@ import { FileUp, Loader2, Save, Play, CheckCircle2 } from "lucide-react";
 export default function AiRemindersPage() {
   const [file, setFile] = useState<File | null>(null);
   const [isParsing, setIsParsing] = useState(false);
+  const [isGeneratingScript, setIsGeneratingScript] = useState(false);
   const [reminders, setReminders] = useState<any[]>([]);
   const [scriptTemplate, setScriptTemplate] = useState("Hello {name}, your payment of {amount} is due on {due_date}. Please make the payment as soon as possible.");
   const [language, setLanguage] = useState("Hindi/English");
@@ -126,6 +127,30 @@ export default function AiRemindersPage() {
     }
   };
 
+  const generateScript = async (templateName: string) => {
+    if (templateName === 'custom') {
+      setScriptTemplate("");
+      return;
+    }
+    setIsGeneratingScript(true);
+    setScriptTemplate("Generating AI script...");
+    try {
+      const res = await fetch("https://stbqeiapgdaklktrlrjm.supabase.co/functions/v1/aiReminders_generatePrompt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ templateType: templateName, language: language })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to generate");
+      setScriptTemplate(data.script);
+    } catch (e: any) {
+      toast.error(e.message);
+      setScriptTemplate("");
+    } finally {
+      setIsGeneratingScript(false);
+    }
+  };
+
   const handleToggleActive = async (id: string, currentActiveStatus: boolean) => {
     try {
       const { error } = await supabase
@@ -224,14 +249,16 @@ export default function AiRemindersPage() {
                 className="w-full p-2.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 onChange={(e) => {
                   const val = e.target.value;
-                  if (val === 'insurance') setScriptTemplate("Hello {name}, your insurance premium of {amount} is due on {due_date}. Please complete the payment to keep your policy active.");
-                  else if (val === 'loan') setScriptTemplate("Hello {name}, your loan EMI of {amount} is scheduled for {due_date}. Please ensure your account has sufficient balance.");
-                  else if (val === 'subscription') setScriptTemplate("Hi {name}, your subscription plan of {amount} expires on {due_date}. Renew it to enjoy uninterrupted services.");
-                  else if (val === 'credit_card') setScriptTemplate("Hello {name}, your credit card bill of {amount} is due on {due_date}. Kindly pay on time to avoid late payment charges.");
-                  else if (val === 'appointment') setScriptTemplate("Hello {name}, this is a gentle reminder regarding your upcoming {amount} scheduled for {due_date}. We look forward to serving you.");
-                  else if (val === 'education') setScriptTemplate("Dear {name}, this is to remind you that the fee payment of {amount} must be cleared by {due_date}. Please complete it at the earliest.");
-                  else if (val === 'real_estate') setScriptTemplate("Hello {name}, a gentle reminder that your rent or maintenance payment of {amount} is due by {due_date}. Please ensure timely payment.");
-                  else if (val === 'custom') setScriptTemplate("");
+                  let templateName = val;
+                  if (val === 'insurance') templateName = "Insurance Premium Reminder";
+                  else if (val === 'loan') templateName = "Loan EMI Recovery";
+                  else if (val === 'subscription') templateName = "Subscription/Software Renewal";
+                  else if (val === 'credit_card') templateName = "Credit Card Bill Payment";
+                  else if (val === 'appointment') templateName = "Appointment/Booking Reminder";
+                  else if (val === 'education') templateName = "School/College Fee Reminder";
+                  else if (val === 'real_estate') templateName = "Real Estate/Rent Payment";
+                  
+                  generateScript(templateName);
                 }}
                 defaultValue="default"
               >
@@ -269,13 +296,14 @@ export default function AiRemindersPage() {
               Available variables: <code className="bg-muted px-1 rounded text-primary">{"{name}"}</code>, <code className="bg-muted px-1 rounded text-primary">{"{amount}"}</code>, <code className="bg-muted px-1 rounded text-primary">{"{due_date}"}</code>
             </p>
             <textarea 
-              className="w-full h-32 p-3 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full h-32 p-3 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
               value={scriptTemplate}
               onChange={(e) => setScriptTemplate(e.target.value)}
               placeholder="Write your AI prompt here..."
+              disabled={isGeneratingScript}
             />
-            <Button onClick={handleUpdateScript} variant="outline" className="w-full mt-4">
-              Update Script for Active Reminders
+            <Button onClick={handleUpdateScript} variant="outline" className="w-full mt-4" disabled={isGeneratingScript || isSaving}>
+              {isGeneratingScript ? <><Loader2 className="animate-spin mr-2" size={16} /> Generating AI Script...</> : "Update Script for Active Reminders"}
             </Button>
           </div>
         </div>
