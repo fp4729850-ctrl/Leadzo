@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button.tsx";
-import { ArrowRight, Bot, BarChart, Rocket, ShieldCheck } from "lucide-react";
+import { ArrowRight, Bot, BarChart, Rocket, ShieldCheck, MessageCircle, LayoutDashboard } from "lucide-react";
 
 export default function LandingPage() {
   return (
@@ -93,6 +93,55 @@ export default function LandingPage() {
                 <p className="text-xs text-muted-foreground italic">
                   * All actions require explicit user authorization. Leadzo AI complies strictly with Google's API Terms of Service.
                 </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Features Section */}
+        <section id="features" className="py-20">
+          <div className="container mx-auto px-4 max-w-5xl text-center">
+            <h2 className="text-3xl font-bold mb-12">Powerful AI Features</h2>
+            <div className="grid md:grid-cols-3 gap-8 text-left">
+              <div className="p-6 border border-border rounded-2xl bg-card">
+                <Bot className="size-8 text-primary mb-4" />
+                <h3 className="font-bold text-lg mb-2">Autonomous AI Agents</h3>
+                <p className="text-muted-foreground text-sm">Deploy intelligent agents to handle SEO, Reddit outreach, and CRM follow-ups automatically.</p>
+              </div>
+              <div className="p-6 border border-border rounded-2xl bg-card">
+                <MessageCircle className="size-8 text-chart-2 mb-4" />
+                <h3 className="font-bold text-lg mb-2">Bulk Messaging</h3>
+                <p className="text-muted-foreground text-sm">Send personalized bulk campaigns via WhatsApp, Email, and SMS with AI-generated copy.</p>
+              </div>
+              <div className="p-6 border border-border rounded-2xl bg-card">
+                <LayoutDashboard className="size-8 text-chart-3 mb-4" />
+                <h3 className="font-bold text-lg mb-2">Unified CEO Dashboard</h3>
+                <p className="text-muted-foreground text-sm">Get a bird's-eye view of your entire business pipeline, from lead generation to conversion.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Integrations Section */}
+        <section id="integrations" className="py-20 bg-muted/30 border-y border-border">
+          <div className="container mx-auto px-4 max-w-5xl text-center">
+            <h2 className="text-3xl font-bold mb-12">Seamless Integrations</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              <div className="flex flex-col items-center p-6 border border-border rounded-2xl bg-background shadow-sm hover:shadow-md transition-shadow">
+                <div className="size-12 mb-3 bg-muted rounded-full flex items-center justify-center font-bold text-xl">G</div>
+                <h4 className="font-bold text-sm">Google Ads</h4>
+              </div>
+              <div className="flex flex-col items-center p-6 border border-border rounded-2xl bg-background shadow-sm hover:shadow-md transition-shadow">
+                <div className="size-12 mb-3 bg-muted rounded-full flex items-center justify-center font-bold text-xl">M</div>
+                <h4 className="font-bold text-sm">Meta Ads</h4>
+              </div>
+              <div className="flex flex-col items-center p-6 border border-border rounded-2xl bg-background shadow-sm hover:shadow-md transition-shadow">
+                <div className="size-12 mb-3 bg-muted rounded-full flex items-center justify-center font-bold text-xl">T</div>
+                <h4 className="font-bold text-sm">TikTok Ads</h4>
+              </div>
+              <div className="flex flex-col items-center p-6 border border-border rounded-2xl bg-background shadow-sm hover:shadow-md transition-shadow">
+                <div className="size-12 mb-3 bg-muted rounded-full flex items-center justify-center font-bold text-xl">in</div>
+                <h4 className="font-bold text-sm">LinkedIn Ads</h4>
               </div>
             </div>
           </div>
