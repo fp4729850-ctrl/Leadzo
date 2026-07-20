@@ -53,7 +53,7 @@ export default function LandingPage() {
               <div>
                 <h2 className="text-3xl font-bold mb-4">How Leadzo AI Works</h2>
                 <p className="text-muted-foreground mb-6 leading-relaxed">
-                  Leadzo AI is designed to democratize advanced digital marketing for small and medium businesses in India. Our platform acts as a centralized dashboard where business owners can launch and track cross-platform campaigns without needing technical marketing expertise.
+                  Leadzo AI is designed to democratize advanced digital marketing for small and medium businesses globally, including the MENA region. Our platform acts as a centralized dashboard where business owners can launch and track cross-platform campaigns without needing technical marketing expertise.
                 </p>
                 <div className="space-y-4">
                   <div className="flex gap-3">
