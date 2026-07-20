@@ -104,6 +104,23 @@ export default function AiRemindersPage() {
     }
   };
 
+  const handleToggleActive = async (id: string, currentActiveStatus: boolean) => {
+    try {
+      const { error } = await supabase
+        .from("call_reminders")
+        .update({ is_active: !currentActiveStatus })
+        .eq("id", id);
+      
+      if (error) throw error;
+      
+      // Update local state to reflect change instantly
+      setSavedReminders(prev => prev.map(r => r.id === id ? { ...r, is_active: !currentActiveStatus } : r));
+      toast.success(currentActiveStatus ? "Reminder paused" : "Reminder activated");
+    } catch (error: any) {
+      toast.error(error.message);
+    }
+  };
+
   return (
     <div className="max-w-6xl mx-auto space-y-8">
       <div>
@@ -269,12 +286,13 @@ export default function AiRemindersPage() {
                 <th className="px-4 py-3 font-medium">Phone</th>
                 <th className="px-4 py-3 font-medium">Due Date</th>
                 <th className="px-4 py-3 font-medium">Status</th>
+                <th className="px-4 py-3 font-medium text-center">Active</th>
                 <th className="px-4 py-3 font-medium rounded-tr-lg">Created</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border bg-background">
               {savedReminders.length === 0 ? (
-                <tr><td colSpan={5} className="p-4 text-center text-muted-foreground">No reminders found</td></tr>
+                <tr><td colSpan={6} className="p-4 text-center text-muted-foreground">No reminders found</td></tr>
               ) : (
                 savedReminders.map((r) => (
                   <tr key={r.id}>
@@ -289,6 +307,19 @@ export default function AiRemindersPage() {
                       }`}>
                         {r.status.toUpperCase()}
                       </span>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <button 
+                        onClick={() => handleToggleActive(r.id, r.is_active !== false)}
+                        disabled={r.status !== 'pending'}
+                        className={`w-9 h-5 rounded-full relative transition-colors ${
+                          r.status !== 'pending' ? 'opacity-50 cursor-not-allowed bg-muted' :
+                          r.is_active !== false ? 'bg-emerald-500' : 'bg-muted-foreground/30'
+                        }`}
+                        title={r.status !== 'pending' ? 'Already processed' : 'Toggle active status'}
+                      >
+                        <span className={`absolute top-1 left-1 bg-white w-3 h-3 rounded-full transition-transform ${r.is_active !== false ? 'translate-x-4' : 'translate-x-0'}`} />
+                      </button>
                     </td>
                     <td className="px-4 py-3 text-muted-foreground text-xs">
                       {new Date(r.created_at).toLocaleDateString()}

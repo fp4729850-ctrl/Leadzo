@@ -65,9 +65,20 @@ Each object must have these exactly keys:
     const data = await response.json()
     const extractedText = data.candidates[0].content.parts[0].text
     
+    let cleanedText = extractedText.trim();
+    if (cleanedText.startsWith("```json")) {
+      cleanedText = cleanedText.substring(7);
+    } else if (cleanedText.startsWith("```")) {
+      cleanedText = cleanedText.substring(3);
+    }
+    if (cleanedText.endsWith("```")) {
+      cleanedText = cleanedText.substring(0, cleanedText.length - 3);
+    }
+    cleanedText = cleanedText.trim();
+    
     let parsedData = []
     try {
-      parsedData = JSON.parse(extractedText)
+      parsedData = JSON.parse(cleanedText)
     } catch (e) {
       console.error("Failed to parse JSON", extractedText)
       throw new Error("AI returned invalid JSON format")

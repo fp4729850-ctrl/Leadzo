@@ -28,6 +28,7 @@ serve(async (req) => {
       .from("call_reminders")
       .select("*")
       .eq("status", "pending")
+      .eq("is_active", true)
       .lte("due_date", new Date().toISOString().split('T')[0])
 
     if (error) throw error
