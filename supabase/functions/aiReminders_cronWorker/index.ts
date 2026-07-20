@@ -56,7 +56,7 @@ serve(async (req) => {
 
         const systemPrompt = `You are a professional AI assistant making a reminder call. 
 Your primary goal is to deliver this message clearly: "${customPrompt}"
-If they ask questions, provide short and helpful answers. Speak mostly in Hindi or English as they prefer.`
+If they ask questions, provide short and helpful answers. Speak mostly in ${reminder.language || 'Hindi or English'} as they prefer.`
 
         const vapiRes = await fetch("https://api.vapi.ai/call/phone", {
           method: "POST",

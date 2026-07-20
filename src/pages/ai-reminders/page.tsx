@@ -9,6 +9,7 @@ export default function AiRemindersPage() {
   const [isParsing, setIsParsing] = useState(false);
   const [reminders, setReminders] = useState<any[]>([]);
   const [scriptTemplate, setScriptTemplate] = useState("Hello {name}, your payment of {amount} is due on {due_date}. Please make the payment as soon as possible.");
+  const [language, setLanguage] = useState("Hindi/English");
   const [isSaving, setIsSaving] = useState(false);
   const [savedReminders, setSavedReminders] = useState<any[]>([]);
 
@@ -87,6 +88,7 @@ export default function AiRemindersPage() {
         due_date: r.due_date,
         amount_or_context: r.amount_or_context,
         script_template: scriptTemplate,
+        language: language,
         status: "pending"
       }));
 
@@ -111,7 +113,7 @@ export default function AiRemindersPage() {
 
       const { error } = await supabase
         .from("call_reminders")
-        .update({ script_template: scriptTemplate })
+        .update({ script_template: scriptTemplate, language: language })
         .eq("user_id", user.id)
         .eq("status", "pending");
 
@@ -245,8 +247,26 @@ export default function AiRemindersPage() {
               </select>
             </div>
 
+            <div className="mb-4">
+              <label className="text-sm font-medium mb-1 block">Language</label>
+              <select 
+                className="w-full p-2.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                value={language}
+                onChange={(e) => setLanguage(e.target.value)}
+              >
+                <option value="Hindi">Hindi (India)</option>
+                <option value="English">English</option>
+                <option value="Urdu">Urdu</option>
+                <option value="Tamil">Tamil</option>
+                <option value="Gujarati">Gujarati</option>
+                <option value="English (UAE)">English (UAE)</option>
+                <option value="Arabic">Arabic</option>
+                <option value="Hindi/English">Hindi/English (Mixed)</option>
+              </select>
+            </div>
+
             <p className="text-xs text-muted-foreground mb-2">
-              Available variables: <code className="bg-muted px-1 rounded">{"{name}"}</code>, <code className="bg-muted px-1 rounded">{"{amount}"}</code>, <code className="bg-muted px-1 rounded">{"{due_date}"}</code>
+              Available variables: <code className="bg-muted px-1 rounded text-primary">{"{name}"}</code>, <code className="bg-muted px-1 rounded text-primary">{"{amount}"}</code>, <code className="bg-muted px-1 rounded text-primary">{"{due_date}"}</code>
             </p>
             <textarea 
               className="w-full h-32 p-3 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
