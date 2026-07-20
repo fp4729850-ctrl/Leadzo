@@ -24,6 +24,7 @@ import GscCallback from "./pages/auth/gsc-callback/page.tsx";
 import SettingsPage from "./pages/settings/page.tsx";
 import LearningAgentPage from "./pages/learning-agent/page.tsx";
 import BulkCallingPage from "./pages/bulk-calling/page.tsx";
+import AiRemindersPage from "./pages/ai-reminders/page.tsx";
 import GscDashboardPage from "./pages/gsc-dashboard/page.tsx";
 import ScrapersPage from "./pages/scrapers/page.tsx";
 import BlogListingPage from "./pages/blog/page.tsx";
@@ -64,6 +65,7 @@ export default function App() {
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/learning-agent" element={<LearningAgentPage />} />
             <Route path="/bulk-calling" element={<BulkCallingPage />} />
+            <Route path="/ai-reminders" element={<AiRemindersPage />} />
             <Route path="/gsc-dashboard" element={<GscDashboardPage />} />
             <Route path="/scrapers" element={<ScrapersPage />} />
           </Route>

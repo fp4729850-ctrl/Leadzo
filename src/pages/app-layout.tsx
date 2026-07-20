@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { path: "/wa-sender", label: "Bulk Whatsapp", icon: Send },
   { path: "/bulk-calling", label: "Bulk Calling", icon: Phone },
+  { path: "/ai-reminders", label: "AI Reminders", icon: Settings2 }, // Using Settings2 as placeholder, will update later if needed
   { path: "/seo-agent", label: "SEO Agent", icon: Search },
   { path: "/campaign-launch", label: "Insta & Google Campaign", icon: Rocket },
   { path: "/pipeline", label: "Pipeline", icon: Layers },
@@ -33,7 +34,7 @@ const NAV_ITEMS = [
   { path: "/settings", label: "Settings", icon: Settings },
 ] as const;
 
-const LIVE_PATHS = ["/dashboard", "/pipeline", "/inbox", "/analytics", "/ceo-dashboard", "/market-intelligence", "/creative-generation", "/campaign-launch", "/optimization", "/learning-agent", "/crm", "/wa-sender", "/email-campaign", "/insta-campaign", "/bulk-calling", "/seo-agent", "/reddit-agent", "/gsc-dashboard", "/settings"];
+const LIVE_PATHS = ["/dashboard", "/pipeline", "/inbox", "/analytics", "/ceo-dashboard", "/market-intelligence", "/creative-generation", "/campaign-launch", "/optimization", "/learning-agent", "/crm", "/wa-sender", "/email-campaign", "/insta-campaign", "/bulk-calling", "/ai-reminders", "/seo-agent", "/reddit-agent", "/gsc-dashboard", "/settings"];
 
 import InstallBanner from "@/components/install-banner.tsx";
 
