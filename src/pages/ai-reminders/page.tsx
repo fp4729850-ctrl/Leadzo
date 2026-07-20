@@ -248,18 +248,12 @@ export default function AiRemindersPage() {
               <select 
                 className="w-full p-2.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 onChange={(e) => {
-                  const val = e.target.value;
-                  let templateName = val;
-                  if (val === 'insurance') templateName = "Insurance Premium Reminder";
-                  else if (val === 'loan') templateName = "Loan EMI Recovery";
-                  else if (val === 'subscription') templateName = "Subscription/Software Renewal";
-                  else if (val === 'credit_card') templateName = "Credit Card Bill Payment";
-                  else if (val === 'appointment') templateName = "Appointment/Booking Reminder";
-                  else if (val === 'education') templateName = "School/College Fee Reminder";
-                  else if (val === 'real_estate') templateName = "Real Estate/Rent Payment";
-                  
-                  generateScript(templateName);
+                  // Just update state, don't auto-generate to allow language selection first
+                  const selectEl = e.target as HTMLSelectElement;
+                  const text = selectEl.options[selectEl.selectedIndex].text;
+                  selectEl.setAttribute('data-selected-text', text);
                 }}
+                id="template-select"
                 defaultValue="default"
               >
                 <option value="default" disabled>-- Choose an option --</option>
@@ -291,6 +285,23 @@ export default function AiRemindersPage() {
                 <option value="Hindi/English">Hindi/English (Mixed)</option>
               </select>
             </div>
+            
+            <Button 
+              onClick={() => {
+                const selectEl = document.getElementById('template-select') as HTMLSelectElement;
+                const val = selectEl.value;
+                if (val === 'default' || val === 'custom') {
+                  toast.error("Please select a valid template type to generate AI script.");
+                  return;
+                }
+                const text = selectEl.options[selectEl.selectedIndex].text;
+                generateScript(text);
+              }} 
+              disabled={isGeneratingScript}
+              className="w-full mb-4 bg-primary hover:bg-primary/90 text-white"
+            >
+              {isGeneratingScript ? <><Loader2 className="animate-spin mr-2" size={16} /> Generating...</> : "✨ Generate AI Script"}
+            </Button>
 
             <p className="text-xs text-muted-foreground mb-2">
               Available variables: <code className="bg-muted px-1 rounded text-primary">{"{name}"}</code>, <code className="bg-muted px-1 rounded text-primary">{"{amount}"}</code>, <code className="bg-muted px-1 rounded text-primary">{"{due_date}"}</code>
