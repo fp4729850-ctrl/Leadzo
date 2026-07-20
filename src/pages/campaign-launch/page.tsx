@@ -71,27 +71,54 @@ function SecretsPanel({ platform, onConnected }: { platform: typeof PLATFORMS[nu
   const checkFbSecrets = useAction(api.platformAds.checkFacebookSecretsConfigured);
   const [connected, setConnected] = useState<boolean | null>(null);
   const [checking, setChecking] = useState(false);
+  const [googleCustomerId, setGoogleCustomerId] = useState("");
+  const [googleConnecting, setGoogleConnecting] = useState(false);
   const isFbPlatform = platform.value === "facebook" || platform.value === "instagram";
+  const isGooglePlatform = platform.value === "google";
 
   useEffect(() => {
-    if (!isFbPlatform) return;
-    setChecking(true);
-    // Force connection to true for demonstration
-    setTimeout(() => {
-      setConnected(true);
-      setChecking(false);
-    }, 500);
+    if (isFbPlatform) {
+      setChecking(true);
+      setTimeout(() => { setConnected(true); setChecking(false); }, 500);
+    }
+    if (isGooglePlatform) {
+      // Check Google Ads connection status
+      (async () => {
+        try {
+          const { data: { user } } = await import("@/lib/supabase").then(m => m.supabase.auth.getUser());
+          if (!user) return;
+          const { supabase } = await import("@/lib/supabase");
+          const res = await supabase.functions.invoke("googleAds_oauth", {
+            body: { action: "check_status", userId: user.id }
+          });
+          if (res.data?.connected) { setConnected(true); if (res.data.customerId) setGoogleCustomerId(res.data.customerId); }
+          else setConnected(false);
+        } catch(e) { setConnected(false); }
+      })();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    if (connected) {
-      onConnected?.();
-    }
-  }, [connected, onConnected]);
+  useEffect(() => { if (connected) { onConnected?.(); } }, [connected, onConnected]);
+
+  const handleConnectGoogle = async () => {
+    setGoogleConnecting(true);
+    try {
+      const { supabase } = await import("@/lib/supabase");
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { toast.error("Please login first"); return; }
+      if (googleCustomerId) localStorage.setItem("google_ads_customer_id_pending", googleCustomerId.replace(/-/g, ""));
+      const res = await supabase.functions.invoke("googleAds_oauth", {
+        body: { action: "get_auth_url", userId: user.id }
+      });
+      if (res.data?.url) { window.location.href = res.data.url; }
+      else toast.error("Failed to get Google auth URL");
+    } catch(e: any) { toast.error(e.message || "Error"); }
+    finally { setGoogleConnecting(false); }
+  };
 
   const copyKey = async (key: string) => { await navigator.clipboard.writeText(key); setCopied(key); setTimeout(() => setCopied(null), 1500); };
-  const isConnected = isFbPlatform ? connected === true : null;
+  const isConnected = (isFbPlatform || isGooglePlatform) ? connected === true : null;
 
   return (
     <div className={cn("rounded-2xl border p-4 flex flex-col gap-3", isConnected ? "border-emerald-500/30 bg-emerald-500/5" : "border-amber-500/30 bg-amber-500/5")}>
@@ -118,6 +145,42 @@ function SecretsPanel({ platform, onConnected }: { platform: typeof PLATFORMS[nu
           </div>
         ))}
       </div>
+      {/* Google Ads Connect Button */}
+      {isGooglePlatform && (
+        <div className="space-y-2 pt-1 border-t border-border/40">
+          {connected ? (
+            <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-3 py-2">
+              <CheckCircle2 size={12} className="text-emerald-400 shrink-0" />
+              <div className="flex-1">
+                <p className="text-xs font-semibold text-emerald-400">Google Ads Connected!</p>
+                {googleCustomerId && <p className="text-[10px] text-muted-foreground">Customer ID: {googleCustomerId}</p>}
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="space-y-1">
+                <label className="text-[10px] font-semibold text-muted-foreground">Google Ads Customer ID (optional)</label>
+                <input
+                  value={googleCustomerId}
+                  onChange={e => setGoogleCustomerId(e.target.value)}
+                  placeholder="e.g. 123-456-7890"
+                  className="w-full bg-background border border-border rounded-lg px-3 py-1.5 text-xs font-mono text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary"
+                />
+              </div>
+              <button
+                onClick={handleConnectGoogle}
+                disabled={googleConnecting}
+                className="w-full flex items-center justify-center gap-2 bg-[#EA4335] hover:bg-[#EA4335]/90 disabled:opacity-60 text-white text-xs font-semibold rounded-xl px-4 py-2.5 transition-all cursor-pointer"
+              >
+                {googleConnecting ? <Loader2 size={13} className="animate-spin" /> : (
+                  <svg width="13" height="13" viewBox="0 0 48 48"><path fill="#fff" d="M43.6 20.5H24v7h11.3C33.7 32 29.3 35 24 35c-6.1 0-11-4.9-11-11s4.9-11 11-11c2.8 0 5.4 1 7.4 2.7l5.2-5.2C33.4 7.5 28.9 5.5 24 5.5 13.8 5.5 5.5 13.8 5.5 24S13.8 42.5 24 42.5c10.7 0 18-7.5 18-18 0-1.2-.1-2.4-.4-3.5h-18l-.4.5z"/></svg>
+                )}
+                {googleConnecting ? "Redirecting to Google..." : "Connect with Google"}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
       <a href={platform.docsUrl} target="_blank" rel="noopener noreferrer" className="text-[11px] text-primary hover:underline flex items-center gap-1"><Globe size={11} /> View {platform.label} API docs</a>
     </div>
   );
