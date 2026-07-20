@@ -134,6 +134,28 @@ export default function AiRemindersPage() {
 
           <div className="p-6 border border-border rounded-xl bg-card">
             <h2 className="font-semibold text-lg mb-4">2. Customize AI Script</h2>
+            
+            <div className="mb-4">
+              <label className="text-sm font-medium mb-1 block">Select Template Type</label>
+              <select 
+                className="w-full p-2.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === 'insurance') setScriptTemplate("Hello {name}, your insurance premium of {amount} is due on {due_date}. Please complete the payment to keep your policy active.");
+                  else if (val === 'loan') setScriptTemplate("Hello {name}, your loan EMI of {amount} is scheduled for {due_date}. Please ensure your account has sufficient balance.");
+                  else if (val === 'subscription') setScriptTemplate("Hi {name}, your subscription plan of {amount} expires on {due_date}. Renew it to enjoy uninterrupted services.");
+                  else if (val === 'custom') setScriptTemplate("");
+                }}
+                defaultValue="default"
+              >
+                <option value="default" disabled>-- Choose an option --</option>
+                <option value="insurance">Insurance Premium Reminder</option>
+                <option value="loan">Loan EMI Recovery</option>
+                <option value="subscription">Subscription Renewal</option>
+                <option value="custom">Custom (Write your own)</option>
+              </select>
+            </div>
+
             <p className="text-xs text-muted-foreground mb-2">
               Available variables: <code className="bg-muted px-1 rounded">{"{name}"}</code>, <code className="bg-muted px-1 rounded">{"{amount}"}</code>, <code className="bg-muted px-1 rounded">{"{due_date}"}</code>
             </p>
@@ -141,6 +163,7 @@ export default function AiRemindersPage() {
               className="w-full h-32 p-3 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               value={scriptTemplate}
               onChange={(e) => setScriptTemplate(e.target.value)}
+              placeholder="Write your AI prompt here..."
             />
           </div>
         </div>
