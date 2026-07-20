@@ -368,13 +368,14 @@ export default function AiRemindersPage() {
                 <th className="px-4 py-3 font-medium">Phone</th>
                 <th className="px-4 py-3 font-medium">Due Date</th>
                 <th className="px-4 py-3 font-medium">Status</th>
+                <th className="px-4 py-3 font-medium">Script</th>
                 <th className="px-4 py-3 font-medium text-center">Active</th>
                 <th className="px-4 py-3 font-medium rounded-tr-lg">Created</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border bg-background">
               {savedReminders.length === 0 ? (
-                <tr><td colSpan={6} className="p-4 text-center text-muted-foreground">No reminders found</td></tr>
+                <tr><td colSpan={7} className="p-4 text-center text-muted-foreground">No reminders found</td></tr>
               ) : (
                 savedReminders.map((r) => (
                   <tr key={r.id}>
@@ -389,6 +390,11 @@ export default function AiRemindersPage() {
                       }`}>
                         {r.status.toUpperCase()}
                       </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="max-w-[200px] truncate text-xs text-muted-foreground" title={r.script_template}>
+                        {r.script_template}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-center">
                       <button 
