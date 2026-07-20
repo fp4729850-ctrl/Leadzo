@@ -144,6 +144,10 @@ export default function AiRemindersPage() {
                   if (val === 'insurance') setScriptTemplate("Hello {name}, your insurance premium of {amount} is due on {due_date}. Please complete the payment to keep your policy active.");
                   else if (val === 'loan') setScriptTemplate("Hello {name}, your loan EMI of {amount} is scheduled for {due_date}. Please ensure your account has sufficient balance.");
                   else if (val === 'subscription') setScriptTemplate("Hi {name}, your subscription plan of {amount} expires on {due_date}. Renew it to enjoy uninterrupted services.");
+                  else if (val === 'credit_card') setScriptTemplate("Hello {name}, your credit card bill of {amount} is due on {due_date}. Kindly pay on time to avoid late payment charges.");
+                  else if (val === 'appointment') setScriptTemplate("Hello {name}, this is a gentle reminder regarding your upcoming {amount} scheduled for {due_date}. We look forward to serving you.");
+                  else if (val === 'education') setScriptTemplate("Dear {name}, this is to remind you that the fee payment of {amount} must be cleared by {due_date}. Please complete it at the earliest.");
+                  else if (val === 'real_estate') setScriptTemplate("Hello {name}, a gentle reminder that your rent or maintenance payment of {amount} is due by {due_date}. Please ensure timely payment.");
                   else if (val === 'custom') setScriptTemplate("");
                 }}
                 defaultValue="default"
@@ -151,7 +155,11 @@ export default function AiRemindersPage() {
                 <option value="default" disabled>-- Choose an option --</option>
                 <option value="insurance">Insurance Premium Reminder</option>
                 <option value="loan">Loan EMI Recovery</option>
-                <option value="subscription">Subscription Renewal</option>
+                <option value="subscription">Subscription/Software Renewal</option>
+                <option value="credit_card">Credit Card Bill Payment</option>
+                <option value="appointment">Appointment/Booking Reminder</option>
+                <option value="education">School/College Fee Reminder</option>
+                <option value="real_estate">Real Estate/Rent Payment</option>
                 <option value="custom">Custom (Write your own)</option>
               </select>
             </div>
