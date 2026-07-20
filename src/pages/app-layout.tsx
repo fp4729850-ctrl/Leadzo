@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge.tsx";
 import { Separator } from "@/components/ui/separator.tsx";
 
 const NAV_ITEMS = [
-  { path: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
+  { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { path: "/wa-sender", label: "Bulk Whatsapp", icon: Send },
   { path: "/bulk-calling", label: "Bulk Calling", icon: Phone },
   { path: "/seo-agent", label: "SEO Agent", icon: Search },
@@ -33,7 +33,7 @@ const NAV_ITEMS = [
   { path: "/settings", label: "Settings", icon: Settings },
 ] as const;
 
-const LIVE_PATHS = ["/", "/pipeline", "/inbox", "/analytics", "/ceo-dashboard", "/market-intelligence", "/creative-generation", "/campaign-launch", "/optimization", "/learning-agent", "/crm", "/wa-sender", "/email-campaign", "/insta-campaign", "/bulk-calling", "/seo-agent", "/reddit-agent", "/gsc-dashboard", "/settings"];
+const LIVE_PATHS = ["/dashboard", "/pipeline", "/inbox", "/analytics", "/ceo-dashboard", "/market-intelligence", "/creative-generation", "/campaign-launch", "/optimization", "/learning-agent", "/crm", "/wa-sender", "/email-campaign", "/insta-campaign", "/bulk-calling", "/seo-agent", "/reddit-agent", "/gsc-dashboard", "/settings"];
 
 import InstallBanner from "@/components/install-banner.tsx";
 
@@ -87,7 +87,7 @@ export default function AppLayout() {
             Workspace
           </p>
           {NAV_ITEMS.map(({ path, label, icon: Icon, ...rest }) => {
-            const active = isActive(path, "end" in rest ? rest.end : false);
+            const active = isActive(path, (rest as any).end || false);
             const isComingSoon = !LIVE_PATHS.includes(path);
             return (
               <NavLink
@@ -160,7 +160,7 @@ export default function AppLayout() {
         {/* Mobile horizontal nav */}
         <div className="md:hidden flex gap-1 overflow-x-auto px-3 py-2 border-b border-border bg-background/60 backdrop-blur-sm shrink-0">
           {NAV_ITEMS.map(({ path, label, icon: Icon, ...rest }) => {
-            const active = isActive(path, "end" in rest ? rest.end : false);
+            const active = isActive(path, (rest as any).end || false);
             const mobileIsComingSoon = !LIVE_PATHS.includes(path);
             return (
               <NavLink

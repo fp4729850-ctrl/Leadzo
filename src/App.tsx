@@ -5,6 +5,7 @@ import MetaCallback from "./pages/auth/meta-callback.tsx";
 import GoogleAdsCallback from "./pages/auth/google-ads-callback.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import AppLayout from "./pages/app-layout.tsx";
+import LandingPage from "./pages/landing/page.tsx";
 import PipelinePage from "./pages/pipeline/page.tsx";
 import DashboardPage from "./pages/dashboard/page.tsx";
 import InboxPage from "./pages/inbox/page.tsx";
@@ -37,6 +38,7 @@ export default function App() {
     <DefaultProviders>
       <BrowserRouter>
         <Routes>
+          <Route path="/" element={<LandingPage />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/auth/meta-callback" element={<MetaCallback />} />
           <Route path="/auth/gsc-callback" element={<GscCallback />} />
@@ -44,7 +46,7 @@ export default function App() {
           <Route path="/blog" element={<BlogListingPage />} />
           <Route path="/blog/:slug" element={<BlogArticlePage />} />
           <Route element={<AppLayout />}>
-            <Route path="/" element={<DashboardPage />} />
+            <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/pipeline" element={<PipelinePage />} />
             <Route path="/inbox" element={<InboxPage />} />
             <Route path="/analytics" element={<AnalyticsPage />} />
