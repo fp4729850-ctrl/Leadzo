@@ -118,13 +118,24 @@ export default function AiRemindersPage() {
           <div className="p-6 border border-border rounded-xl bg-card">
             <h2 className="font-semibold text-lg mb-4">1. Upload File</h2>
             <div className="border-2 border-dashed border-border rounded-lg p-8 flex flex-col items-center justify-center text-center">
-              <FileUp className="size-10 text-muted-foreground mb-4" />
+              <FileUp className={`size-10 mb-4 transition-colors ${file ? 'text-emerald-500' : 'text-muted-foreground'}`} />
               <input type="file" id="file-upload" className="hidden" accept=".pdf,.csv,.xlsx" onChange={handleFileChange} />
-              <label htmlFor="file-upload" className="cursor-pointer bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
-                Choose File
+              <label 
+                htmlFor="file-upload" 
+                className={`cursor-pointer px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  file 
+                    ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/30 hover:bg-emerald-500/20' 
+                    : 'bg-primary text-primary-foreground hover:bg-primary/90'
+                }`}
+              >
+                {file ? "✓ Uploaded (Change File)" : "Choose File"}
               </label>
-              <p className="text-sm text-muted-foreground mt-2">
-                {file ? file.name : "Supported: PDF, CSV"}
+              <p className="text-sm mt-3">
+                {file ? (
+                  <span className="font-semibold text-foreground">{file.name}</span>
+                ) : (
+                  <span className="text-muted-foreground">Supported: PDF, CSV</span>
+                )}
               </p>
             </div>
             <Button onClick={handleParse} disabled={!file || isParsing} className="w-full mt-4">
