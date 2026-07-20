@@ -104,6 +104,26 @@ export default function AiRemindersPage() {
     }
   };
 
+  const handleUpdateScript = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { error } = await supabase
+        .from("call_reminders")
+        .update({ script_template: scriptTemplate })
+        .eq("user_id", user.id)
+        .eq("status", "pending");
+
+      if (error) throw error;
+      
+      toast.success("AI Script updated successfully for all pending calls!");
+      fetchSavedReminders();
+    } catch (error: any) {
+      toast.error(error.message);
+    }
+  };
+
   const handleToggleActive = async (id: string, currentActiveStatus: boolean) => {
     try {
       const { error } = await supabase
@@ -234,6 +254,9 @@ export default function AiRemindersPage() {
               onChange={(e) => setScriptTemplate(e.target.value)}
               placeholder="Write your AI prompt here..."
             />
+            <Button onClick={handleUpdateScript} variant="outline" className="w-full mt-4">
+              Update Script for Active Reminders
+            </Button>
           </div>
         </div>
 
