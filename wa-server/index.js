@@ -70,22 +70,41 @@ app.post('/api/connect', async (req, res) => {
 
   client.on('message', async (msg) => {
     try {
-      console.log(`New message received on ${userId}'s client:`, msg.body);
-      const fromNumber = msg.from.replace(/[^0-9]/g, '');
+      // Skip group messages
+      if (msg.from.includes('@g.us')) return;
+
+      console.log(`New message received on ${userId}'s client from ${msg.from}:`, msg.body);
+      
+      // Get the actual phone number - remove @c.us suffix and non-numeric chars
+      const rawNumber = msg.from.replace('@c.us', '').replace(/[^0-9]/g, '');
+      
+      // Try to get contact's saved name from WhatsApp
+      let contactName = rawNumber;
+      try {
+        const contact = await msg.getContact();
+        // Use pushname (WhatsApp display name) or saved name, fallback to number
+        contactName = contact.pushname || contact.name || `+${rawNumber}`;
+      } catch(e) {
+        contactName = `+${rawNumber}`;
+      }
+      
+      const fromNumber = rawNumber;
       const content = msg.body;
+      
+      console.log(`From: ${contactName} (${fromNumber})`);
       
       // Send incoming message to Leadzo Edge Function (bypasses RLS automatically)
       try {
         const response = await fetch(`${process.env.VITE_SUPABASE_URL}/functions/v1/whatsapp_local_webhook`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId, fromNumber, content })
+          body: JSON.stringify({ userId, fromNumber, content, contactName })
         });
         
         if (!response.ok) {
           console.error("Webhook failed:", await response.text());
         } else {
-          console.log(`Saved incoming message to Live Inbox for user ${userId}`);
+          console.log(`Saved incoming message from ${contactName} to Live Inbox`);
         }
       } catch (webhookErr) {
         console.error("Webhook fetch error:", webhookErr);
