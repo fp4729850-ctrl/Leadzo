@@ -33,11 +33,14 @@ import RedditAgentPage from "./pages/reddit-agent/page.tsx";
 
 import { useServiceWorker } from "@/hooks/use-service-worker.ts";
 
+import { ErrorBoundary } from "./components/providers/error-boundary.tsx";
+
 export default function App() {
   useServiceWorker();
   return (
     <DefaultProviders>
-      <BrowserRouter>
+      <ErrorBoundary>
+        <BrowserRouter>
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
@@ -72,6 +75,7 @@ export default function App() {
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
+      </ErrorBoundary>
     </DefaultProviders>
   );
 }
