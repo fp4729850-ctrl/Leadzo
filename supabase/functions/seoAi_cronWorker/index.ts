@@ -41,16 +41,22 @@ serve(async (req) => {
       try {
         const publishPlan = setting.publish_plan || [];
         
-        // Find the first item that is NOT published
-        const nextItemIndex = publishPlan.findIndex((item: any) => !item.published);
+        // Find the first unpublished item of each type
+        const blogIndex = publishPlan.findIndex((item: any) => !item.published && (!item.type || item.type === "blog"));
+        const localIndex = publishPlan.findIndex((item: any) => !item.published && item.type === "local_page");
+        const strikingIndex = publishPlan.findIndex((item: any) => !item.published && item.type === "striking_distance");
         
-        if (nextItemIndex === -1) {
+        const indicesToProcess = [blogIndex, localIndex, strikingIndex].filter(i => i !== -1);
+        
+        if (indicesToProcess.length === 0) {
           console.log(`User ${setting.user_id} has no pending items in publish_plan.`);
           continue;
         }
 
-        const targetItem = publishPlan[nextItemIndex];
-        console.log(`Processing topic: ${targetItem.title} for ${setting.url}`);
+        for (const nextItemIndex of indicesToProcess) {
+          try {
+            const targetItem = publishPlan[nextItemIndex];
+            console.log(`Processing topic: ${targetItem.task || targetItem.title} for ${setting.url}`);
 
         // 2.5 Fetch previous blogs for Internal Linking
         const { data: prevBlogs } = await supabase
@@ -222,7 +228,7 @@ Respond ONLY with a JSON object in this format:
           try {
             console.log(`Pushing to GitHub repo: ${setting.github_repo}`);
             const generatedSlug = contentData.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-            const filePath = `content/blog/${generatedSlug}.md`;
+            const filePath = targetItem.type === "local_page" ? `content/locations/${generatedSlug}.md` : `content/blog/${generatedSlug}.md`;
             const fileContent = `---
 title: "${contentData.metaTitle || contentData.title}"
 description: "${contentData.seo_description || contentData.metaDescription || ''}"
@@ -262,6 +268,15 @@ ${contentData.html_content}
         publishPlan[nextItemIndex].published = true;
         publishPlan[nextItemIndex].published_at = new Date().toISOString();
 
+        results.push({ user_id: setting.user_id, status: "success", title: contentData.title });
+        console.log(`Successfully auto-published for ${setting.user_id}: ${contentData.title}`);
+
+          } catch (itemErr: any) {
+            console.error(`Error processing item for ${setting.user_id}:`, itemErr);
+            results.push({ user_id: setting.user_id, status: "error", error: itemErr.message });
+          }
+        } // end of indicesToProcess loop
+
         await supabase
           .from("seo_autopilot_settings")
           .update({ 
@@ -269,9 +284,6 @@ ${contentData.html_content}
             last_run_at: new Date().toISOString()
           })
           .eq("id", setting.id)
-
-        results.push({ user_id: setting.user_id, status: "success", title: contentData.title });
-        console.log(`Successfully auto-published for ${setting.user_id}: ${contentData.title}`);
 
       } catch (err: any) {
         console.error(`Error processing user ${setting.user_id}:`, err);
