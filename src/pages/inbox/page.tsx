@@ -136,7 +136,25 @@ export default function InboxPage() {
     if (!selectedLead || !messageInput.trim()) return;
     const text = messageInput.trim();
     setMessageInput(""); setIsSending(true);
-    try { await sendMessage({ leadId: selectedLead._id, role: "user", text }); }
+    try {
+      // 1. Save message to DB via Convex adapter
+      await sendMessage({ leadId: selectedLead._id, role: "user", text });
+
+      // 2. Actually send via WhatsApp using wa-server
+      const { data: sessionData } = await supabase.auth.getSession();
+      const userId = sessionData.session?.user?.id;
+      if (userId && selectedLead.contact && selectedLead.platform === 'whatsapp') {
+        const res = await fetch('https://srv1780011.hstgr.cloud/api/reply', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, toNumber: selectedLead.contact, message: text })
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          toast.warning(`Saved but WhatsApp send failed: ${err.error}`);
+        }
+      }
+    }
     catch { toast.error("Message send failed"); }
     finally { setIsSending(false); }
   };

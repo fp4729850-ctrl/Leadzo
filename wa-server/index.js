@@ -209,6 +209,28 @@ app.post('/api/send-media', async (req, res) => {
 });
 
 
+// Live Inbox reply — send to a single contact number
+app.post('/api/reply', async (req, res) => {
+  const { userId, toNumber, message } = req.body;
+  if (!userId || !toNumber || !message) return res.status(400).json({ error: 'Missing parameters' });
+
+  if (!sessions.has(userId) || sessions.get(userId).status !== 'connected') {
+    return res.status(401).json({ error: 'WhatsApp not connected. Please scan QR code first.' });
+  }
+
+  const client = sessions.get(userId).client;
+  try {
+    let cleanNum = toNumber.replace(/[^0-9]/g, '');
+    if (!cleanNum.endsWith('@c.us')) cleanNum += '@c.us';
+    await client.sendMessage(cleanNum, message);
+    console.log(`Reply sent to ${toNumber} for user ${userId}`);
+    res.json({ status: 'sent' });
+  } catch (err) {
+    console.error(`Failed to reply to ${toNumber}:`, err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 const PORT = 3001;
 app.listen(PORT, () => {
   console.log(`wa-server running on http://localhost:${PORT}`);
