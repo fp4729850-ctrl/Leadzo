@@ -303,8 +303,13 @@ export function useQuery(apiEndpoint: any, args: any = {}): any {
         return data[0];
       }
       
-      return data || [];
-    }
+      // Fallback for arrays: map id to _id generically
+      return (data || []).map((item: any) => ({
+        ...item,
+        _id: item.id || item._id
+      }));
+    },
+    enabled: true,
   }).data;
 }
 
