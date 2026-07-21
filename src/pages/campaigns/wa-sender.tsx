@@ -3,6 +3,7 @@ import { useQuery, useMutation, useAction } from "@/lib/convex-supabase-adapter"
 import { api } from "@/convex/_generated/api.js";
 import { motion, AnimatePresence } from "motion/react";
 import { useAuth } from "@/hooks/use-auth.ts";
+import { supabase } from "@/lib/supabase.ts";
 import {
   Send, Upload, MessageSquare, Loader2, Sparkles, Copy, Check,
   CheckCircle2, XCircle, AlertCircle, Settings, Play, Square,
@@ -55,10 +56,13 @@ function SetupPanel({ onTest }: { onTest: () => void }) {
     }
     setLoading(true);
     try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      
       await fetch(`https://srv1780011.hstgr.cloud/api/connect`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: user.id })
+        body: JSON.stringify({ userId: user.id, token })
       });
       toast.info("Generating QR Code...");
     } catch (e) {
