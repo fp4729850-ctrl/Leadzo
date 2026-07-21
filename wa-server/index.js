@@ -44,7 +44,7 @@ app.post('/api/connect', async (req, res) => {
     }
   });
 
-  sessions.set(userId, { client, qrBase64: null, status: 'starting' });
+  sessions.set(userId, { client, qrBase64: null, status: 'starting', token: req.body.token });
 
   client.on('qr', async (qr) => {
     console.log(`QR received for ${userId}`);
@@ -73,8 +73,15 @@ app.post('/api/connect', async (req, res) => {
       const fromNumber = msg.from.replace(/[^0-9]/g, '');
       const content = msg.body;
       
+      const sessionData = sessions.get(userId);
+      const userSupabase = createClient(
+        process.env.VITE_SUPABASE_URL,
+        process.env.VITE_SUPABASE_ANON_KEY,
+        { global: { headers: { Authorization: `Bearer ${sessionData?.token}` } } }
+      );
+      
       // 1. Find or create lead for this user and number
-      let { data: lead } = await supabase
+      let { data: lead } = await userSupabase
         .from('leads')
         .select('id')
         .eq('user_id', userId)
@@ -83,7 +90,7 @@ app.post('/api/connect', async (req, res) => {
         
       if (!lead) {
         // Create new lead since it doesn't exist
-        const { data: newLead } = await supabase
+        const { data: newLead, error: insertError } = await userSupabase
           .from('leads')
           .insert({
             user_id: userId,
@@ -94,18 +101,20 @@ app.post('/api/connect', async (req, res) => {
           })
           .select('id')
           .single();
+        if (insertError) console.error("Lead Insert Error:", insertError);
         lead = newLead;
       }
       
       if (lead) {
         // 2. Insert message into messages table
-        await supabase.from('messages').insert({
+        const { error: msgError } = await userSupabase.from('messages').insert({
           user_id: userId,
           lead_id: lead.id,
           content: content,
           sender: 'lead'
         });
-        console.log(`Saved incoming message to Live Inbox for lead ${lead.id}`);
+        if (msgError) console.error("Message Insert Error:", msgError);
+        else console.log(`Saved incoming message to Live Inbox for lead ${lead.id}`);
       }
     } catch (err) {
       console.error(`Error processing incoming message for ${userId}:`, err.message);
