@@ -603,7 +603,8 @@ ${contentData.content}
 
   const [localLoading, setLocalLoading] = useState(false);
   const runLocalScale = async () => {
-    if (!localService || !localCities) { toast.error("Enter service and cities"); return; }
+    const service = localService || niche;
+    if (!service || !localCities) { toast.error("Enter service and cities"); return; }
     setLocalLoading(true);
     
     const citiesList = localCities.split(",").map(c => c.trim()).filter(Boolean);
@@ -611,11 +612,11 @@ ${contentData.content}
       week: "Local SEO Scale",
       task: `Generate Local Page for ${city}`,
       type: "local_page",
-      keywords: [`Best ${localService} in ${city}`],
+      keywords: [`Best ${service} in ${city}`],
       priority: "High",
       published: false,
       city: city,
-      service: localService
+      service: service
     }));
 
     // Add to existing publish plan
@@ -630,8 +631,8 @@ ${contentData.content}
     // Also show in UI
     const pages = citiesList.map(city => ({
       city,
-      title: `Best ${localService} in ${city} | Top Rated & Affordable`,
-      contentPreview: `Looking for the best ${localService} in ${city}? Our expert team provides top-notch services tailored to your needs. With years of experience serving the ${city} area, we guarantee satisfaction...`
+      title: `Best ${service} in ${city} | Top Rated & Affordable`,
+      contentPreview: `Looking for the best ${service} in ${city}? Our expert team provides top-notch services tailored to your needs. With years of experience serving the ${city} area, we guarantee satisfaction...`
     }));
     setLocalPages(pages);
     
@@ -962,7 +963,7 @@ ${contentData.content}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs text-muted-foreground mb-1.5 block">Target Service</label>
-                    <Input value={localService} onChange={(e) => setLocalService(e.target.value)} placeholder="e.g. AI Consultant, Plumber" className="bg-background/50 border-border text-sm" />
+                    <Input value={localService || niche} onChange={(e) => setLocalService(e.target.value)} placeholder="e.g. AI Consultant, Plumber" className="bg-background/50 border-border text-sm" />
                   </div>
                   <div>
                     <label className="text-xs text-muted-foreground mb-1.5 block">Target Cities (comma separated)</label>
