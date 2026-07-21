@@ -574,30 +574,69 @@ ${contentData.content}
 
   const fetchStrikingDistance = async () => {
     setStrikingDistanceLoading(true);
-    // Mocking the GSC and OpenAI logic for MVP
     await new Promise(resolve => setTimeout(resolve, 1500));
-    setStrikingDistanceKws([
+    const kws = [
       { keyword: `best ${niche || "services"} for small business`, position: 11, clicks: 45, suggestedTitle: `Top 10 Best ${niche || "Services"} for Small Business (2026 Guide)`, suggestedMeta: `Looking for the best ${niche || "services"} for your small business? Read our comprehensive review and compare top options.` },
       { keyword: `how to price ${niche || "services"}`, position: 14, clicks: 22, suggestedTitle: `How to Price ${niche || "Services"}: 7 Proven Strategies [Template]`, suggestedMeta: `Struggling with pricing? Discover exactly how to price your ${niche || "services"} effectively to maximize profit margins.` },
       { keyword: `${niche || "business"} reviews`, position: 18, clicks: 12, suggestedTitle: `Honest ${niche || "Business"} Reviews: What You Need to Know`, suggestedMeta: `Check out real customer reviews and ratings before you buy. See why our ${niche || "business"} stands out from the competition.` }
-    ]);
+    ];
+    setStrikingDistanceKws(kws);
+    
+    // Add an optimization task to Autopilot publish plan
+    const newTask = {
+      week: "Striking Distance",
+      task: `Optimize title & meta for ${kws.length} keywords on Page 2`,
+      type: "striking_distance",
+      keywords: kws.map(k => k.keyword),
+      priority: "High",
+      published: false
+    };
+    const updatedPlan = [...publishPlan, newTask];
+    setPublishPlan(updatedPlan);
+    if (autopilotId) {
+      await supabase.from("seo_autopilot_settings").update({ publish_plan: updatedPlan }).eq("id", autopilotId);
+    }
+    
     setStrikingDistanceLoading(false);
+    toast.success("Added Striking Distance optimization to Autopilot plan!");
   };
 
   const [localLoading, setLocalLoading] = useState(false);
   const runLocalScale = async () => {
     if (!localService || !localCities) { toast.error("Enter service and cities"); return; }
     setLocalLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    
     const citiesList = localCities.split(",").map(c => c.trim()).filter(Boolean);
+    const newTasks = citiesList.map(city => ({
+      week: "Local SEO Scale",
+      task: `Generate Local Page for ${city}`,
+      type: "local_page",
+      keywords: [`Best ${localService} in ${city}`],
+      priority: "High",
+      published: false,
+      city: city,
+      service: localService
+    }));
+
+    // Add to existing publish plan
+    const updatedPlan = [...publishPlan, ...newTasks];
+    setPublishPlan(updatedPlan);
+    
+    // Save to DB immediately if autopilot is active
+    if (autopilotId) {
+      await supabase.from("seo_autopilot_settings").update({ publish_plan: updatedPlan }).eq("id", autopilotId);
+    }
+    
+    // Also show in UI
     const pages = citiesList.map(city => ({
       city,
       title: `Best ${localService} in ${city} | Top Rated & Affordable`,
       contentPreview: `Looking for the best ${localService} in ${city}? Our expert team provides top-notch services tailored to your needs. With years of experience serving the ${city} area, we guarantee satisfaction...`
     }));
     setLocalPages(pages);
+    
     setLocalLoading(false);
-    toast.success("Generated local scale pages!");
+    toast.success(`${citiesList.length} Local Pages added to Autopilot Plan!`);
   };
 
   return (

@@ -65,8 +65,38 @@ serve(async (req) => {
           `\n\nHere are some previously published articles on this website:\n${JSON.stringify(prevBlogs)}\nIf any of these are highly relevant to the current topic, you MUST try to naturally hyperlink at least 1-3 of them in your HTML content using the format: <a href="/blog/slug-here">Relevant Text</a>.` : "";
 
         // 3. Generate Content using AI Fallback Chain
-        const prompt = `You are an expert SEO Content Writer for the website ${setting.url} in the niche of ${setting.niche}.
-Please write a highly optimized, engaging blog post about: "${targetItem.title}".
+        let prompt = "";
+        
+        if (targetItem.type === "local_page") {
+          prompt = `You are an expert Local SEO Content Writer for the website ${setting.url} in the niche of ${setting.niche}.
+Please write a highly optimized, engaging local landing page about: "${targetItem.task}".
+Target City: ${targetItem.city || "Unknown"}
+Service: ${targetItem.service || setting.niche}
+Include localized headings, paragraphs, and use these keywords naturally: ${targetItem.keywords.join(', ')}.${internalLinksCtx}
+
+Respond ONLY with a JSON object in this format:
+{
+  "title": "A catchy, Local SEO optimized title for the post including the city",
+  "slug": "seo-friendly-url-slug-with-city",
+  "html_content": "The full local page content formatted in valid, clean HTML. Use <h2>, <h3>, <p>, <ul>, <li>, and <strong> tags. Do NOT use Markdown.",
+  "seo_description": "A 150-character local meta description."
+}`;
+        } else if (targetItem.type === "striking_distance") {
+          prompt = `You are an expert SEO Optimizer for the website ${setting.url}.
+Your task is to optimize the Title and Meta Description for the following keywords that are currently ranking on Page 2 (Striking Distance):
+${targetItem.keywords.join(', ')}
+
+Respond ONLY with a JSON object in this format:
+{
+  "title": "A high-CTR, highly optimized SEO title covering these keywords",
+  "slug": "striking-distance-optimization-report",
+  "html_content": "<p><strong>Striking Distance Optimization Report:</strong></p><ul><li>Optimized Title generated for better CTR.</li><li>Target Keywords: ${targetItem.keywords.join(', ')}</li></ul>",
+  "seo_description": "A 150-character high-CTR meta description."
+}`;
+        } else {
+          // Default blog post
+          prompt = `You are an expert SEO Content Writer for the website ${setting.url} in the niche of ${setting.niche}.
+Please write a highly optimized, engaging blog post about: "${targetItem.task}".
 Include headings, paragraphs, and use these keywords naturally: ${targetItem.keywords.join(', ')}.${internalLinksCtx}
 
 Respond ONLY with a JSON object in this format:
@@ -76,6 +106,7 @@ Respond ONLY with a JSON object in this format:
   "html_content": "The full blog post content formatted in valid, clean HTML. Use <h2>, <h3>, <p>, <ul>, <li>, and <strong> tags. Do NOT use Markdown.",
   "seo_description": "A 150-character meta description."
 }`;
+        }
 
         let generatedText = null;
         let lastError = null;
