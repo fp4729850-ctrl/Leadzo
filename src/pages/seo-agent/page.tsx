@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils.ts";
 
-type StepId = "crawl" | "keywords" | "content" | "publish" | "monitor";
+type StepId = "crawl" | "keywords" | "content" | "local" | "publish" | "monitor";
 
 type AuditData = {
   title: string; description: string; issues: string[]; score: number;
@@ -50,6 +50,7 @@ const STEPS: { id: StepId; label: string; icon: React.ElementType; desc: string 
   { id: "crawl", label: "Crawl & Audit", icon: Globe, desc: "Scan site structure & find issues" },
   { id: "keywords", label: "Keyword Research", icon: Search, desc: "AI keyword cluster discovery" },
   { id: "content", label: "Content Generation", icon: FileText, desc: "AI-written SEO blog posts" },
+  { id: "local", label: "Local Scale", icon: Target, desc: "Programmatic city pages" },
   { id: "publish", label: "Publish Plan", icon: Rocket, desc: "Content calendar & strategy" },
   { id: "monitor", label: "Monitor & Track", icon: Activity, desc: "Rankings & traffic analysis" },
 ];
@@ -67,6 +68,13 @@ export default function SeoAgentPage() {
   const [contentTone, setContentTone] = useState("professional");
   const [contentData, setContentData] = useState<ContentData | null>(null);
   const [monitorData, setMonitorData] = useState<MonitorData | null>(null);
+
+  // New features state
+  const [localCities, setLocalCities] = useState("Mumbai, Delhi, Bangalore");
+  const [localService, setLocalService] = useState("");
+  const [localPages, setLocalPages] = useState<{city: string, title: string, contentPreview: string}[]>([]);
+  const [strikingDistanceKws, setStrikingDistanceKws] = useState<{keyword: string, position: number, clicks: number, suggestedTitle: string, suggestedMeta: string}[]>([]);
+  const [strikingDistanceLoading, setStrikingDistanceLoading] = useState(false);
   
   type GlobalDashboardItem = {
     settings: any;
@@ -564,6 +572,34 @@ ${contentData.content}
     return map[i] ?? "bg-muted text-muted-foreground";
   };
 
+  const fetchStrikingDistance = async () => {
+    setStrikingDistanceLoading(true);
+    // Mocking the GSC and OpenAI logic for MVP
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    setStrikingDistanceKws([
+      { keyword: `best ${niche || "services"} for small business`, position: 11, clicks: 45, suggestedTitle: `Top 10 Best ${niche || "Services"} for Small Business (2026 Guide)`, suggestedMeta: `Looking for the best ${niche || "services"} for your small business? Read our comprehensive review and compare top options.` },
+      { keyword: `how to price ${niche || "services"}`, position: 14, clicks: 22, suggestedTitle: `How to Price ${niche || "Services"}: 7 Proven Strategies [Template]`, suggestedMeta: `Struggling with pricing? Discover exactly how to price your ${niche || "services"} effectively to maximize profit margins.` },
+      { keyword: `${niche || "business"} reviews`, position: 18, clicks: 12, suggestedTitle: `Honest ${niche || "Business"} Reviews: What You Need to Know`, suggestedMeta: `Check out real customer reviews and ratings before you buy. See why our ${niche || "business"} stands out from the competition.` }
+    ]);
+    setStrikingDistanceLoading(false);
+  };
+
+  const [localLoading, setLocalLoading] = useState(false);
+  const runLocalScale = async () => {
+    if (!localService || !localCities) { toast.error("Enter service and cities"); return; }
+    setLocalLoading(true);
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    const citiesList = localCities.split(",").map(c => c.trim()).filter(Boolean);
+    const pages = citiesList.map(city => ({
+      city,
+      title: `Best ${localService} in ${city} | Top Rated & Affordable`,
+      contentPreview: `Looking for the best ${localService} in ${city}? Our expert team provides top-notch services tailored to your needs. With years of experience serving the ${city} area, we guarantee satisfaction...`
+    }));
+    setLocalPages(pages);
+    setLocalLoading(false);
+    toast.success("Generated local scale pages!");
+  };
+
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
@@ -878,6 +914,46 @@ ${contentData.content}
           </motion.div>
         )}
 
+        {activeStep === "local" && (
+          <motion.div key="local" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
+            <Card className="border-border bg-card/60 backdrop-blur">
+              <CardHeader className="pb-3"><CardTitle className="text-sm flex items-center gap-2"><Target size={15} className="text-chart-1" /> Programmatic Local SEO</CardTitle></CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-xs text-muted-foreground">Automatically generate localized pages for different cities to capture high-intent local search traffic.</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1.5 block">Target Service</label>
+                    <Input value={localService} onChange={(e) => setLocalService(e.target.value)} placeholder="e.g. AI Consultant, Plumber" className="bg-background/50 border-border text-sm" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1.5 block">Target Cities (comma separated)</label>
+                    <Input value={localCities} onChange={(e) => setLocalCities(e.target.value)} placeholder="Mumbai, Delhi, Bangalore" className="bg-background/50 border-border text-sm" />
+                  </div>
+                </div>
+                <Button onClick={runLocalScale} disabled={localLoading} className="bg-chart-1 hover:bg-chart-1/80 text-white">
+                  {localLoading ? <><Loader2 size={14} className="animate-spin mr-2" /> Generating Local Pages...</> : <><Target size={14} className="mr-2" /> Generate Programmatic Pages</>}
+                </Button>
+                
+                {localPages.length > 0 && (
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4 mt-4">
+                    <p className="text-sm font-semibold text-foreground flex items-center gap-2"><CheckCircle2 size={14} className="text-chart-3" /> Generated {localPages.length} Local Pages</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                      {localPages.map((page, idx) => (
+                        <div key={idx} className="p-3 rounded-lg border border-border bg-background/40">
+                          <Badge variant="outline" className="mb-2 bg-primary/10 text-primary border-primary/20">{page.city}</Badge>
+                          <p className="text-xs font-semibold text-foreground mb-1">{page.title}</p>
+                          <p className="text-[10px] text-muted-foreground line-clamp-3">{page.contentPreview}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <Button size="sm" onClick={() => { markComplete("local"); setActiveStep("publish"); }} className="bg-chart-4/20 text-chart-4 hover:bg-chart-4/30">Next: Publish Plan <ChevronRight size={12} className="ml-1" /></Button>
+                  </motion.div>
+                )}
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+
         {activeStep === "publish" && (
           <motion.div key="publish" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
             <Card className="border-border bg-card/60 backdrop-blur">
@@ -981,6 +1057,45 @@ ${contentData.content}
                           </div>
                         ))}
                       </div>
+                    </div>
+                    <Separator className="bg-border" />
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <p className="text-xs font-semibold text-muted-foreground flex items-center gap-2">
+                          <Activity size={14} className="text-chart-4" /> Striking Distance Optimizer (Hack 1)
+                        </p>
+                        <Button size="sm" variant="outline" onClick={fetchStrikingDistance} disabled={strikingDistanceLoading} className="h-7 text-[10px] border-chart-4 text-chart-4 hover:bg-chart-4/10">
+                          {strikingDistanceLoading ? <Loader2 size={10} className="animate-spin mr-1" /> : <Search size={10} className="mr-1" />} Find Quick Wins
+                        </Button>
+                      </div>
+                      
+                      {strikingDistanceKws.length > 0 ? (
+                        <div className="space-y-3">
+                          {strikingDistanceKws.map((kw, i) => (
+                            <div key={i} className="p-3 rounded-lg border border-chart-4/30 bg-chart-4/5 text-xs">
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="font-bold text-foreground">{kw.keyword}</span>
+                                <div className="flex gap-2">
+                                  <Badge variant="outline" className="text-[9px] h-4 bg-background">Rank #{kw.position}</Badge>
+                                  <Badge variant="outline" className="text-[9px] h-4 bg-background text-chart-2">{kw.clicks} clicks</Badge>
+                                </div>
+                              </div>
+                              <div className="space-y-2 mt-3 bg-background/60 p-2 rounded border border-border">
+                                <div>
+                                  <span className="text-[9px] font-bold text-chart-4 uppercase">AI Optimized Title</span>
+                                  <p className="font-medium mt-0.5">{kw.suggestedTitle}</p>
+                                </div>
+                                <div>
+                                  <span className="text-[9px] font-bold text-chart-4 uppercase">AI Optimized Meta</span>
+                                  <p className="text-muted-foreground mt-0.5">{kw.suggestedMeta}</p>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-[10px] text-muted-foreground italic">Click "Find Quick Wins" to discover keywords ranking on page 2 (positions 8-20) that can easily be boosted to page 1 by improving title CTR.</p>
+                      )}
                     </div>
                     <Separator className="bg-border" />
                     <div>
