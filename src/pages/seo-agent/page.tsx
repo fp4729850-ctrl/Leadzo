@@ -28,6 +28,7 @@ type AuditData = {
   pageCount: number; loadSpeed: string;
   crawledPages: { url: string; title: string; issues: string[]; statusCode: number }[];
   isRealCrawl: boolean;
+  niche?: string;
 };
 
 type KeywordCluster = {
@@ -308,7 +309,11 @@ export default function SeoAgentPage() {
     setLoading(true); setActiveStep("crawl");
     try {
       const result = await crawlAndAudit({ url, maxPages: 10 });
-      setAuditData(result); markComplete("crawl");
+      setAuditData(result); 
+      if (result.niche) {
+        setNiche(result.niche);
+      }
+      markComplete("crawl");
       toast.success(result.isRealCrawl ? `Real crawl complete \u2014 ${result.pageCount} pages scanned!` : "Site audit complete!");
     } catch { toast.error("Audit failed. Check URL."); }
     finally { setLoading(false); }
@@ -541,7 +546,13 @@ ${contentData.content}
     setAutoRunning(true);
     try {
       setAutoStep("Crawling website\u2026"); setActiveStep("crawl"); setLoading(true);
-      try { const r1 = await crawlAndAudit({ url, maxPages: 10 }); setAuditData(r1); markComplete("crawl"); toast.success("\u2713 Crawl complete"); } catch { toast.error("Crawl failed \u2014 continuing"); }
+      try { 
+        const r1 = await crawlAndAudit({ url, maxPages: 10 }); 
+        setAuditData(r1); 
+        if (r1.niche && !niche) setNiche(r1.niche);
+        markComplete("crawl"); 
+        toast.success("\u2713 Crawl complete"); 
+      } catch { toast.error("Crawl failed \u2014 continuing"); }
       setLoading(false);
 
       setAutoStep("Researching keywords\u2026"); setActiveStep("keywords"); setLoading(true);

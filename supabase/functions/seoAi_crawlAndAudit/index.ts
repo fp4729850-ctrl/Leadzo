@@ -52,6 +52,7 @@ Respond ONLY with a JSON object containing EXACTLY these keys:
 - description: string (guess the meta description based on the text)
 - issues: array of strings (list of 3-5 SEO issues found, e.g. "Missing H1 tag", "Content is too short")
 - isRealCrawl: boolean (true)
+- niche: string (extract the primary business niche or target service, e.g. "Dentist", "Software Agency", "Plumber", etc.)
 Make the response realistic based on the actual text you analyzed. Output ONLY valid JSON.`
 
     const payload = {
