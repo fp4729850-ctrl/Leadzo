@@ -74,48 +74,21 @@ app.post('/api/connect', async (req, res) => {
       const fromNumber = msg.from.replace(/[^0-9]/g, '');
       const content = msg.body;
       
-      const sessionData = sessions.get(userId);
-      const userSupabase = createClient(
-        process.env.VITE_SUPABASE_URL,
-        process.env.VITE_SUPABASE_ANON_KEY,
-        { global: { headers: { Authorization: `Bearer ${sessionData?.token}` } } }
-      );
-      
-      // 1. Find or create lead for this user and number
-      let { data: lead } = await userSupabase
-        .from('leads')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('contact', fromNumber)
-        .single();
-        
-      if (!lead) {
-        // Create new lead since it doesn't exist
-        const { data: newLead, error: insertError } = await userSupabase
-          .from('leads')
-          .insert({
-            user_id: userId,
-            name: fromNumber, // default to number if unknown
-            contact: fromNumber,
-            platform: 'whatsapp',
-            status: 'New'
-          })
-          .select('id')
-          .single();
-        if (insertError) console.error("Lead Insert Error:", insertError);
-        lead = newLead;
-      }
-      
-      if (lead) {
-        // 2. Insert message into messages table
-        const { error: msgError } = await userSupabase.from('messages').insert({
-          user_id: userId,
-          lead_id: lead.id,
-          content: content,
-          sender: 'lead'
+      // Send incoming message to Leadzo Edge Function (bypasses RLS automatically)
+      try {
+        const response = await fetch(`${process.env.VITE_SUPABASE_URL}/functions/v1/whatsapp_local_webhook`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, fromNumber, content })
         });
-        if (msgError) console.error("Message Insert Error:", msgError);
-        else console.log(`Saved incoming message to Live Inbox for lead ${lead.id}`);
+        
+        if (!response.ok) {
+          console.error("Webhook failed:", await response.text());
+        } else {
+          console.log(`Saved incoming message to Live Inbox for user ${userId}`);
+        }
+      } catch (webhookErr) {
+        console.error("Webhook fetch error:", webhookErr);
       }
     } catch (err) {
       console.error(`Error processing incoming message for ${userId}:`, err.message);
