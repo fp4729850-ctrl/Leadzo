@@ -2,6 +2,13 @@ const express = require('express');
 const cors = require('cors');
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode');
+const { createClient } = require('@supabase/supabase-js');
+require('dotenv').config({ path: '../.env' });
+
+const supabase = createClient(
+  process.env.VITE_SUPABASE_URL,
+  process.env.VITE_SUPABASE_ANON_KEY
+);
 
 const app = express();
 app.use(cors());
@@ -57,6 +64,51 @@ app.post('/api/connect', async (req, res) => {
     if (sessions.has(userId)) {
       sessions.get(userId).status = 'connected';
       sessions.get(userId).qrBase64 = null;
+    }
+  });
+
+  client.on('message', async (msg) => {
+    try {
+      console.log(`New message received on ${userId}'s client:`, msg.body);
+      const fromNumber = msg.from.replace(/[^0-9]/g, '');
+      const content = msg.body;
+      
+      // 1. Find or create lead for this user and number
+      let { data: lead } = await supabase
+        .from('leads')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('contact', fromNumber)
+        .single();
+        
+      if (!lead) {
+        // Create new lead since it doesn't exist
+        const { data: newLead } = await supabase
+          .from('leads')
+          .insert({
+            user_id: userId,
+            name: fromNumber, // default to number if unknown
+            contact: fromNumber,
+            platform: 'whatsapp',
+            status: 'New'
+          })
+          .select('id')
+          .single();
+        lead = newLead;
+      }
+      
+      if (lead) {
+        // 2. Insert message into messages table
+        await supabase.from('messages').insert({
+          user_id: userId,
+          lead_id: lead.id,
+          content: content,
+          sender: 'lead'
+        });
+        console.log(`Saved incoming message to Live Inbox for lead ${lead.id}`);
+      }
+    } catch (err) {
+      console.error(`Error processing incoming message for ${userId}:`, err.message);
     }
   });
 
