@@ -17,7 +17,7 @@ const NAV_ITEMS = [
   { path: "/ai-reminders", label: "AI Reminders", icon: Settings2 }, // Using Settings2 as placeholder, will update later if needed
   { path: "/seo-agent", label: "SEO Agent", icon: Search },
   { path: "/campaign-launch", label: "Insta & Google Campaign", icon: Rocket },
-  { path: "/insta-campaign", label: "Insta Campaign", icon: Camera },
+  { path: "/insta-campaign", label: "Insta DM Campaign", icon: Camera },
   { path: "/pipeline", label: "Pipeline", icon: Layers },
   { path: "/inbox", label: "Live Inbox", icon: MessageSquareCode },
   { path: "/analytics", label: "Analytics", icon: BarChart4 },
