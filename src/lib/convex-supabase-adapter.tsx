@@ -222,7 +222,8 @@ export function useQuery(apiEndpoint: any, args: any = {}): any {
           ...m,
           _id: m.id,
           role: m.sender,
-          text: m.content
+          text: m.content,
+          timestamp: m.created_at || new Date().toISOString()
         }));
       }
 
