@@ -57,9 +57,8 @@ export default function PricingPage() {
     script.src = "https://cdn.paddle.com/paddle/v2/paddle.js";
     script.onload = () => {
       if (window.Paddle) {
-        window.Paddle.Environment.set("sandbox"); // Remove this line in production
         window.Paddle.Initialize({ 
-          token: "test_...YOUR_PADDLE_CLIENT_TOKEN..." // Replace with Paddle Client Token
+          token: "live_cdf89449c38330915fa2d5c8858" // Paddle Client Token
         });
       }
     };
