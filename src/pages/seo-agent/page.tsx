@@ -542,35 +542,40 @@ ${contentData.content}
   const runFullPipeline = async () => {
     console.log("Starting full pipeline...");
     if (!url) { toast.error("Pehle Website URL enter karo"); return; }
-    if (!niche) { toast.error("Business Niche bhi enter karo"); return; }
     setAutoRunning(true);
+    let currentNiche = niche;
     try {
       setAutoStep("Crawling website\u2026"); setActiveStep("crawl"); setLoading(true);
       try { 
         const r1 = await crawlAndAudit({ url, maxPages: 10 }); 
         setAuditData(r1); 
-        if (r1.niche && !niche) setNiche(r1.niche);
+        if (r1.niche) {
+          currentNiche = r1.niche;
+          if (!niche) setNiche(r1.niche);
+        }
         markComplete("crawl"); 
         toast.success("\u2713 Crawl complete"); 
       } catch { toast.error("Crawl failed \u2014 continuing"); }
       setLoading(false);
 
+      if (!currentNiche) currentNiche = "General Business"; // Fallback just in case
+
       setAutoStep("Researching keywords\u2026"); setActiveStep("keywords"); setLoading(true);
       let kws: string[] = [];
-      try { const r2 = await researchKeywords({ url, niche }); setKeywordClusters(r2.clusters); setKeywordsAreReal(r2.isReal); kws = r2.clusters.flatMap((c) => c.keywords.map((k) => k.term)); if (r2.clusters[0]?.keywords[0]) setSelectedKeyword(r2.clusters[0].keywords[0].term); markComplete("keywords"); toast.success("\u2713 Keywords ready"); } catch { toast.error("Keywords failed \u2014 continuing"); }
+      try { const r2 = await researchKeywords({ url, niche: currentNiche }); setKeywordClusters(r2.clusters); setKeywordsAreReal(r2.isReal); kws = r2.clusters.flatMap((c) => c.keywords.map((k) => k.term)); if (r2.clusters[0]?.keywords[0]) setSelectedKeyword(r2.clusters[0].keywords[0].term); markComplete("keywords"); toast.success("\u2713 Keywords ready"); } catch { toast.error("Keywords failed \u2014 continuing"); }
       setLoading(false);
 
-      const kw = kws[0] ?? niche;
+      const kw = kws[0] ?? currentNiche;
       setAutoStep(`Writing content for "${kw}"\u2026`); setActiveStep("content"); setLoading(true);
       try { const r3 = await generateContent({ keyword: kw, url, tone: contentTone }); setContentData(r3); setSelectedKeyword(kw); markComplete("content"); toast.success("\u2713 Content generated"); } catch { toast.error("Content failed \u2014 continuing"); }
       setLoading(false);
 
       setAutoStep("Building publish plan\u2026"); setActiveStep("publish"); setPublishLoading(true);
-      try { const r4 = await generatePublishPlan({ url, niche, keywords: kws.length > 0 ? kws : [niche] }); setPublishPlan(r4.weeks); markComplete("publish"); toast.success("\u2713 Publish plan ready"); } catch { toast.error("Publish plan failed \u2014 continuing"); }
+      try { const r4 = await generatePublishPlan({ url, niche: currentNiche, keywords: kws.length > 0 ? kws : [currentNiche] }); setPublishPlan(r4.weeks); markComplete("publish"); toast.success("\u2713 Publish plan ready"); } catch { toast.error("Publish plan failed \u2014 continuing"); }
       setPublishLoading(false);
 
       setAutoStep("Generating monitor report\u2026"); setActiveStep("monitor"); setLoading(true);
-      try { const r5 = await generateMonitorReport({ url, keywords: kws.length > 0 ? kws : [niche] }); setMonitorData(r5); markComplete("monitor"); toast.success("\u2713 Monitor report ready"); } catch { toast.error("Monitor failed"); }
+      try { const r5 = await generateMonitorReport({ url, keywords: kws.length > 0 ? kws : [currentNiche] }); setMonitorData(r5); markComplete("monitor"); toast.success("\u2713 Monitor report ready"); } catch { toast.error("Monitor failed"); }
       setLoading(false);
 
       setAutoStep(""); toast.success("\ud83c\udf89 Full SEO Pipeline complete!");
@@ -782,7 +787,7 @@ ${contentData.content}
             </div>
           </div>
           <div className="mt-4 flex items-center gap-3 flex-wrap">
-            <Button onClick={runFullPipeline} disabled={autoRunning || !url || !niche} className="gap-2 bg-gradient-to-r from-chart-1 to-primary hover:opacity-90 text-white font-semibold shadow-lg">
+            <Button onClick={runFullPipeline} disabled={autoRunning || !url} className="gap-2 bg-gradient-to-r from-chart-1 to-primary hover:opacity-90 text-white font-semibold shadow-lg">
               {autoRunning ? <><Loader2 size={14} className="animate-spin" /> {autoStep || "Running pipeline\u2026"}</> : <><Zap size={14} /> Run Full SEO Pipeline (Auto)</>}
             </Button>
             {autoRunning && (
