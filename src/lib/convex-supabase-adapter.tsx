@@ -300,13 +300,19 @@ export function useQuery(apiEndpoint: any, args: any = {}): any {
           }
           return null;
         }
-        return data[0];
+        const item = data[0];
+        return {
+          ...item,
+          _id: item.id || item._id,
+          _creationTime: item._creationTime || (item.created_at ? new Date(item.created_at).getTime() : Date.now())
+        };
       }
       
       // Fallback for arrays: map id to _id generically
       return (data || []).map((item: any) => ({
         ...item,
-        _id: item.id || item._id
+        _id: item.id || item._id,
+        _creationTime: item._creationTime || (item.created_at ? new Date(item.created_at).getTime() : Date.now())
       }));
     },
     enabled: true,
