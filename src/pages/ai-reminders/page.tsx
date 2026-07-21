@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button.tsx";
 import { supabase } from "@/lib/supabase.ts";
 import { toast } from "sonner";
-import { FileUp, Loader2, Save, Play, CheckCircle2 } from "lucide-react";
+import { FileUp, Loader2, Save, Play, CheckCircle2, Trash2, Plus } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog.tsx";
 
 export default function AiRemindersPage() {
   const [file, setFile] = useState<File | null>(null);
@@ -13,6 +14,11 @@ export default function AiRemindersPage() {
   const [language, setLanguage] = useState("Hindi/English");
   const [isSaving, setIsSaving] = useState(false);
   const [savedReminders, setSavedReminders] = useState<any[]>([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [manualName, setManualName] = useState("");
+  const [manualPhone, setManualPhone] = useState("");
+  const [manualDate, setManualDate] = useState("");
+  const [manualContext, setManualContext] = useState("");
 
   useEffect(() => {
     fetchSavedReminders();
@@ -165,6 +171,52 @@ export default function AiRemindersPage() {
       toast.success(currentActiveStatus ? "Reminder paused" : "Reminder activated");
     } catch (error: any) {
       toast.error(error.message);
+    }
+  };
+
+  const handleDeleteReminder = async (id: string) => {
+    try {
+      const { error } = await supabase.from("call_reminders").delete().eq("id", id);
+      if (error) throw error;
+      toast.success("Reminder deleted");
+      fetchSavedReminders();
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  const handleAddManual = async () => {
+    if (!manualName || !manualPhone || !manualDate || !manualContext) {
+      toast.error("Please fill all fields");
+      return;
+    }
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const insertData = {
+        user_id: user.id,
+        client_name: manualName,
+        phone_number: manualPhone,
+        due_date: manualDate,
+        amount_or_context: manualContext,
+        script_template: scriptTemplate,
+        language: language,
+        status: "pending",
+        is_active: true
+      };
+
+      const { error } = await supabase.from("call_reminders").insert(insertData);
+      if (error) throw error;
+      toast.success("Manual reminder added!");
+      setIsModalOpen(false);
+      setManualName("");
+      setManualPhone("");
+      setManualDate("");
+      setManualContext("");
+      fetchSavedReminders();
+    } catch (e: any) {
+      toast.error(e.message);
     }
   };
 
@@ -357,9 +409,40 @@ export default function AiRemindersPage() {
       </div>
 
       <div className="p-6 border border-border rounded-xl bg-card">
-        <h2 className="font-semibold text-lg mb-4 flex items-center gap-2">
-          <CheckCircle2 className="text-primary size-5" /> Active & Past Reminders
-        </h2>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="font-semibold text-lg flex items-center gap-2">
+            <CheckCircle2 className="text-primary size-5" /> Active & Past Reminders
+          </h2>
+          <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" variant="outline"><Plus size={16} className="mr-2" /> Add Manual Reminder</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add Manual Reminder</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div>
+                  <label className="text-xs font-medium mb-1 block">Client Name</label>
+                  <input type="text" className="w-full p-2 bg-background border border-border rounded-lg text-sm" value={manualName} onChange={e => setManualName(e.target.value)} placeholder="e.g. Rahul Sharma" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium mb-1 block">Phone Number</label>
+                  <input type="text" className="w-full p-2 bg-background border border-border rounded-lg text-sm" value={manualPhone} onChange={e => setManualPhone(e.target.value)} placeholder="e.g. +919876543210" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium mb-1 block">Due Date</label>
+                  <input type="date" className="w-full p-2 bg-background border border-border rounded-lg text-sm" value={manualDate} onChange={e => setManualDate(e.target.value)} />
+                </div>
+                <div>
+                  <label className="text-xs font-medium mb-1 block">Amount & Context</label>
+                  <input type="text" className="w-full p-2 bg-background border border-border rounded-lg text-sm" value={manualContext} onChange={e => setManualContext(e.target.value)} placeholder="e.g. ₹15000 Premium" />
+                </div>
+                <Button onClick={handleAddManual} className="w-full">Save & Schedule</Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm border border-border rounded-lg">
             <thead className="bg-muted text-muted-foreground text-left">
@@ -370,7 +453,7 @@ export default function AiRemindersPage() {
                 <th className="px-4 py-3 font-medium">Status</th>
                 <th className="px-4 py-3 font-medium">Script</th>
                 <th className="px-4 py-3 font-medium text-center">Active</th>
-                <th className="px-4 py-3 font-medium rounded-tr-lg">Created</th>
+                <th className="px-4 py-3 font-medium text-center">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border bg-background">
@@ -418,8 +501,10 @@ export default function AiRemindersPage() {
                         <span className={`absolute top-1 left-1 bg-white w-3 h-3 rounded-full transition-transform ${r.is_active !== false ? 'translate-x-4' : 'translate-x-0'}`} />
                       </button>
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground text-xs">
-                      {new Date(r.created_at).toLocaleDateString()}
+                    <td className="px-4 py-3 text-center">
+                      <button onClick={() => handleDeleteReminder(r.id)} className="text-red-500 hover:text-red-600 p-1">
+                        <Trash2 size={16} />
+                      </button>
                     </td>
                   </tr>
                 ))
