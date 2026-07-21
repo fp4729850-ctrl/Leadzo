@@ -15,7 +15,10 @@ import { Badge } from "@/components/ui/badge.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
 import { cn } from "@/lib/utils.ts";
-
+import { useAuth } from "@/hooks/use-auth.ts";
+import { supabase } from "@/lib/supabase.ts";
+import { useEffect, useState } from "react";
+import { Progress } from "@/components/ui/progress.tsx";
 const QUICK_ACTIONS = [
   { label: "Lead Pipeline", icon: Layers, path: "/", color: "from-violet-500 to-purple-600", desc: "Manage your leads" },
   { label: "Live Inbox", icon: MessageSquareCode, path: "/inbox", color: "from-cyan-500 to-blue-600", desc: "Real-time messages" },
@@ -78,6 +81,25 @@ function StatCard({
 function DashboardInner() {
   const leads = useQuery(api.leads.list, {});
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [credits, setCredits] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (user?.id) {
+      const fetchCredits = async () => {
+        const { data, error } = await supabase.from('users').select('credits').eq('id', user.id).single();
+        if (data) setCredits(data.credits);
+      };
+      fetchCredits();
+      
+      const channel = supabase.channel('user-credits')
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'users', filter: `id=eq.${user.id}` }, (payload) => {
+          setCredits(payload.new.credits);
+        }).subscribe();
+        
+      return () => { supabase.removeChannel(channel); };
+    }
+  }, [user?.id]);
 
   const total = leads?.length ?? 0;
   const converted = leads?.filter((l: Doc<"leads">) => l.status === "converted").length ?? 0;
@@ -188,6 +210,35 @@ function DashboardInner() {
           </div>
         </motion.div>
       </div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.15 }}
+        className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-6 backdrop-blur-sm relative overflow-hidden"
+      >
+        <div className="absolute -top-10 -right-10 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl"></div>
+        <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="flex-1 w-full">
+            <h2 className="font-bold text-lg text-foreground flex items-center gap-2">
+              <Zap className="text-amber-400" size={18} /> Available AI Tokens
+            </h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Your credits balance for AI Chatbot, Ads API, and CRM features.
+            </p>
+            <div className="mt-4 flex items-end gap-2">
+              <span className="text-4xl font-extrabold tracking-tight text-foreground">{credits !== null ? credits : "..."}</span>
+              <span className="text-muted-foreground pb-1">Tokens remaining</span>
+            </div>
+          </div>
+          <div className="w-full md:w-1/3 space-y-4">
+            <Progress value={Math.min(100, (credits ?? 0) / 10)} className="h-3 bg-white/5" />
+            <Button onClick={() => navigate('/pricing')} className="w-full bg-emerald-500 text-black hover:bg-emerald-400">
+              Upgrade / Top-up Tokens
+            </Button>
+          </div>
+        </div>
+      </motion.div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {isLoading ? (
