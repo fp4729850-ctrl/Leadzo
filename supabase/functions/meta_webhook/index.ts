@@ -6,11 +6,10 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 }
 
-// Ensure you set META_WEBHOOK_VERIFY_TOKEN in Supabase dashboard
 const VERIFY_TOKEN = Deno.env.get("META_WEBHOOK_VERIFY_TOKEN") || "leadzo_meta_secret_2026";
+const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
 
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders })
   }
@@ -18,7 +17,6 @@ serve(async (req) => {
   const url = new URL(req.url);
 
   // --- 1. Webhook Verification (GET) ---
-  // Meta sends a GET request to verify the webhook endpoint.
   if (req.method === "GET") {
     const mode = url.searchParams.get("hub.mode");
     const token = url.searchParams.get("hub.verify_token");
@@ -36,14 +34,13 @@ serve(async (req) => {
   if (req.method === "POST") {
     try {
       const body = await req.json();
-      console.log("Received Meta Webhook:", JSON.stringify(body, null, 2));
-
-      // Check if this is a WhatsApp API event
+      
       if (body.object === "whatsapp_business_account") {
         const entry = body.entry?.[0];
         const changes = entry?.changes?.[0];
         const value = changes?.value;
         const messages = value?.messages;
+        const phoneId = value?.metadata?.phone_number_id;
 
         if (messages && messages.length > 0) {
           const supabaseClient = createClient(
@@ -51,14 +48,20 @@ serve(async (req) => {
             Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
           );
 
+          // Find the user who owns this WhatsApp business account
+          const { data: user, error: userError } = await supabaseClient
+            .from('users')
+            .select('id, credits, whatsapp_api_token')
+            .eq('whatsapp_phone_id', phoneId)
+            .single();
+
           for (const msg of messages) {
-            const senderPhone = msg.from; // Phone number string
+            const senderPhone = msg.from;
             let content = "";
             if (msg.type === "text") content = msg.text.body;
             else content = `[Received a ${msg.type} message]`;
 
-            // 1. Find lead by phone number
-            // Note: Phone numbers can be formatted differently, doing a basic ilike or exactly matching for MVP.
+            // 1. Sync to CRM / Live Inbox
             const { data: leads } = await supabaseClient
               .from("leads")
               .select("id")
@@ -68,58 +71,75 @@ serve(async (req) => {
             let leadId = leads && leads.length > 0 ? leads[0].id : null;
 
             if (leadId) {
-              // 2. Insert into existing 'messages' table
               await supabaseClient.from("messages").insert([{
                 lead_id: leadId,
                 content: content,
                 sender: "user"
               }]);
-              
-              // 3. Update last_message on lead
               await supabaseClient.from("leads").update({ last_message: content }).eq("id", leadId);
-              
-              console.log(`Saved message from ${senderPhone} to lead ${leadId}`);
-            } else {
-              console.log(`Message from ${senderPhone} received, but no matching lead found in CRM.`);
             }
-          }
-        }
-      } else if (body.object === "instagram") {
-        const entry = body.entry?.[0];
-        const messaging = entry?.messaging?.[0];
-        
-        if (messaging && messaging.message) {
-          const senderId = messaging.sender.id;
-          const content = messaging.message.text || `[Received media message]`;
 
-          const supabaseClient = createClient(
-            Deno.env.get("SUPABASE_URL") ?? "",
-            Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-          );
+            // 2. Auto-Reply AI Logic (Only if user is found and has credits)
+            if (user && !userError && user.credits > 0 && content) {
+              // Deduct credit
+              await supabaseClient
+                .from('users')
+                .update({ credits: user.credits - 1 })
+                .eq('id', user.id);
 
-          // Find lead by instagram sender ID (we assume the ID is stored in the contact jsonb or a dedicated field)
-          // For MVP we just try to find a lead with platform='instagram' and some matching data
-          const { data: leads } = await supabaseClient
-            .from("leads")
-            .select("id")
-            .filter("platform", "eq", "instagram")
-            .limit(1); // Simplistic match for now
+              let aiReply = "Thank you for reaching out!";
+              
+              if (OPENAI_API_KEY) {
+                const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${OPENAI_API_KEY}`,
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    model: 'gpt-4o-mini',
+                    messages: [
+                      { role: 'system', content: 'You are a helpful customer support AI for a business. Keep responses concise, friendly, and professional.' },
+                      { role: 'user', content: content }
+                    ],
+                    max_tokens: 150
+                  })
+                });
+                
+                if (aiResponse.ok) {
+                  const aiData = await aiResponse.json();
+                  aiReply = aiData.choices[0].message.content;
+                }
+              }
 
-          let leadId = leads && leads.length > 0 ? leads[0].id : null;
+              // Send reply via Meta API
+              const waResponse = await fetch(`https://graph.facebook.com/v18.0/${phoneId}/messages`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${user.whatsapp_api_token}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  messaging_product: 'whatsapp',
+                  to: senderPhone,
+                  type: 'text',
+                  text: { body: aiReply }
+                })
+              });
 
-          if (leadId) {
-            await supabaseClient.from("messages").insert([{
-              lead_id: leadId,
-              content: content,
-              sender: "user"
-            }]);
-            await supabaseClient.from("leads").update({ last_message: content }).eq("id", leadId);
-            console.log(`Saved Instagram message from ${senderId} to lead ${leadId}`);
+              if (waResponse.ok && leadId) {
+                // Save AI reply to inbox too
+                await supabaseClient.from("messages").insert([{
+                  lead_id: leadId,
+                  content: aiReply,
+                  sender: "agent"
+                }]);
+              }
+            }
           }
         }
       }
 
-      // Return 200 OK to Meta so they don't retry
       return new Response("EVENT_RECEIVED", { status: 200 });
     } catch (error) {
       console.error("Error processing webhook:", error);
