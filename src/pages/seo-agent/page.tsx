@@ -70,7 +70,7 @@ export default function SeoAgentPage() {
   const [monitorData, setMonitorData] = useState<MonitorData | null>(null);
 
   // New features state
-  const [localCities, setLocalCities] = useState("Mumbai, Delhi, Bangalore");
+  const [localCities, setLocalCities] = useState("Mumbai, Delhi, Bangalore, Hyderabad, Ahmedabad, Chennai, Kolkata, Surat, Pune, Jaipur, Lucknow, Kanpur, Nagpur, Indore, Thane, Bhopal, Visakhapatnam, Pimpri-Chinchwad, Patna, Vadodara, Ghaziabad, Ludhiana, Agra, Nashik, Faridabad, Meerut, Rajkot, Kalyan-Dombivli, Vasai-Virar, Varanasi, Srinagar, Aurangabad, Dhanbad, Amritsar, Navi Mumbai, Allahabad, Howrah, Ranchi, Gwalior, Jabalpur, Coimbatore, Vijayawada, Jodhpur, Madurai, Raipur, Kota, Guwahati, Chandigarh, Solapur, Hubli-Dharwad");
   const [localService, setLocalService] = useState("");
   const [localPages, setLocalPages] = useState<{city: string, title: string, contentPreview: string}[]>([]);
   const [strikingDistanceKws, setStrikingDistanceKws] = useState<{keyword: string, position: number, clicks: number, suggestedTitle: string, suggestedMeta: string}[]>([]);
