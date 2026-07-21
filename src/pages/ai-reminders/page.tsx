@@ -392,8 +392,17 @@ export default function AiRemindersPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="max-w-[200px] truncate text-xs text-muted-foreground" title={r.script_template}>
-                        {r.script_template}
+                      <div className="max-w-[250px] truncate text-xs text-muted-foreground" 
+                        title={r.script_template
+                          ?.replace(/{name}/gi, r.client_name)
+                          ?.replace(/{amount}/gi, r.amount_or_context || "")
+                          ?.replace(/{due_date}/gi, r.due_date)
+                        }>
+                        {r.script_template
+                          ?.replace(/{name}/gi, r.client_name)
+                          ?.replace(/{amount}/gi, r.amount_or_context || "")
+                          ?.replace(/{due_date}/gi, r.due_date)
+                        }
                       </div>
                     </td>
                     <td className="px-4 py-3 text-center">
