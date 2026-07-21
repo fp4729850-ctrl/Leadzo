@@ -184,11 +184,13 @@ function calculateLeadsMetrics(leads: any[]) {
 // Adapter to mimic Convex useQuery
 export function useQuery(apiEndpoint: any, args: any = {}): any {
   const queryStr = String(apiEndpoint).replace('api.', '');
+  const { user } = useAuthContext();
   
   return useReactQuery({
-    queryKey: [queryStr, args],
+    queryKey: [queryStr, args, user?.id],
     queryFn: async () => {
       if (args === 'skip') return null;
+      if (!user) return null; // Don't query if not logged in
       
       const parts = queryStr.split(':');
       const namespace = parts[0];
@@ -198,7 +200,13 @@ export function useQuery(apiEndpoint: any, args: any = {}): any {
       
       let query = supabase.from(tableName).select('*');
       
-      // Apply filters if query arguments are provided
+      // Always filter by user_id for user-owned tables (RLS also enforces this, but explicit is safer)
+      const userOwnedTables = ['leads', 'messages', 'campaigns', 'launched_campaigns', 'creatives', 'market_analyses', 'crm_contacts', 'sequences', 'sequence_enrollments', 'learning_agent_data', 'reminders'];
+      if (userOwnedTables.includes(tableName)) {
+        query = query.eq('user_id', user.id);
+      }
+      
+      // Apply additional filters if query arguments are provided
       if (args && typeof args === 'object' && Object.keys(args).length > 0) {
         Object.entries(args).forEach(([key, val]) => {
           if (val !== undefined && val !== null) {
@@ -327,6 +335,7 @@ export function useMutation(apiEndpoint: any) {
   const method = parts[1] || '';
   const mappingKey = method ? `${namespace}.${method}` : namespace;
   const tableName = TABLE_MAPPINGS[mappingKey] || TABLE_MAPPINGS[namespace] || namespace;
+  const { user } = useAuthContext();
   
   return async (args: any = {}) => {
     if (!tableName) return null;
@@ -363,6 +372,12 @@ export function useMutation(apiEndpoint: any) {
         cleanArgs[key] = null;
       }
     });
+
+    // Auto-inject user_id for user-owned tables on insert/update
+    const userOwnedTables = ['leads', 'messages', 'campaigns', 'launched_campaigns', 'creatives', 'market_analyses', 'crm_contacts', 'sequences', 'sequence_enrollments', 'learning_agent_data', 'reminders'];
+    if (userOwnedTables.includes(tableName) && user && !isDelete) {
+      cleanArgs.user_id = user.id;
+    }
 
     if (tableName === 'messages') {
       if (cleanArgs.text) { cleanArgs.content = cleanArgs.text; delete cleanArgs.text; }
