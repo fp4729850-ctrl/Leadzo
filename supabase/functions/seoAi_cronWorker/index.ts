@@ -44,8 +44,21 @@ serve(async (req) => {
         // Find the first unpublished item of each type
         const blogIndex = publishPlan.findIndex((item: any) => !item.published && (!item.type || item.type === "blog"));
         const localIndex = publishPlan.findIndex((item: any) => !item.published && item.type === "local_page");
-        const strikingIndex = publishPlan.findIndex((item: any) => !item.published && item.type === "striking_distance");
+        let strikingIndex = publishPlan.findIndex((item: any) => !item.published && item.type === "striking_distance");
         
+        // Auto-inject striking distance task if none exists in queue
+        if (strikingIndex === -1) {
+          publishPlan.push({
+            week: "Daily Auto",
+            task: `Optimize random Page 2 keyword`,
+            type: "striking_distance",
+            keywords: [`${setting.niche || 'services'} strategy ${Math.floor(Math.random()*100)}`],
+            priority: "High",
+            published: false
+          });
+          strikingIndex = publishPlan.length - 1;
+        }
+
         const indicesToProcess = [blogIndex, localIndex, strikingIndex].filter(i => i !== -1);
         
         if (indicesToProcess.length === 0) {
