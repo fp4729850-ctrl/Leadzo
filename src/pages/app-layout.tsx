@@ -17,6 +17,7 @@ const NAV_ITEMS = [
   { path: "/email-campaign", label: "Bulk Email", icon: Mail },
   { path: "/ai-reminders", label: "AI Reminders", icon: Settings2 }, // Using Settings2 as placeholder, will update later if needed
   { path: "/seo-agent", label: "SEO Agent", icon: Search },
+  { path: "/reddit-agent", label: "Reddit Agent", icon: MessageCircle },
   { path: "/campaign-launch", label: "Insta & Google Campaign", icon: Rocket },
   { path: "/insta-campaign", label: "Insta DM Campaign", icon: Camera },
   { path: "/pipeline", label: "Pipeline", icon: Layers },
@@ -29,7 +30,6 @@ const NAV_ITEMS = [
   { path: "/learning-agent", label: "Learning Agent", icon: Brain },
   { path: "/crm", label: "CRM Agent", icon: Users },
   { path: "/scrapers", label: "Scrapers", icon: Settings2 },
-  { path: "/reddit-agent", label: "Reddit Agent", icon: MessageCircle },
   { path: "/gsc-dashboard", label: "GSC Rankings", icon: TrendingUp },
   { path: "/pricing", label: "Billing & Plans", icon: CreditCard },
   { path: "/settings", label: "Settings", icon: Settings },
