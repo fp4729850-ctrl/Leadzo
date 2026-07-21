@@ -203,7 +203,9 @@ export function useQuery(apiEndpoint: any, args: any = {}): any {
         Object.entries(args).forEach(([key, val]) => {
           if (val !== undefined && val !== null) {
             // map Convex _id to Postgres id
-            const filterKey = key === '_id' ? 'id' : key;
+            let filterKey = key === '_id' ? 'id' : key;
+            if (key === 'leadId') filterKey = 'lead_id';
+            if (key === 'campaignId') filterKey = 'campaign_id';
             query = query.eq(filterKey, val);
           }
         });
@@ -215,6 +217,15 @@ export function useQuery(apiEndpoint: any, args: any = {}): any {
         return null;
       }
       
+      if (mappingKey === 'messages.list') {
+        return (data || []).map(m => ({
+          ...m,
+          _id: m.id,
+          role: m.sender,
+          text: m.content
+        }));
+      }
+
       if (mappingKey === 'leads.getMetrics') {
         return calculateLeadsMetrics(data || []);
       }
@@ -340,6 +351,12 @@ export function useMutation(apiEndpoint: any) {
         cleanArgs[key] = null;
       }
     });
+
+    if (tableName === 'messages') {
+      if (cleanArgs.text) { cleanArgs.content = cleanArgs.text; delete cleanArgs.text; }
+      if (cleanArgs.role) { cleanArgs.sender = cleanArgs.role; delete cleanArgs.role; }
+      if (cleanArgs.leadId) { cleanArgs.lead_id = cleanArgs.leadId; delete cleanArgs.leadId; }
+    }
 
     if (isDelete) {
       if (!id) throw new Error(`DELETE operation on ${tableName} requires an ID.`);
