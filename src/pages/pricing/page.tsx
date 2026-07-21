@@ -9,7 +9,7 @@ const PLANS = [
   {
     id: "basic",
     name: "Starter",
-    price: 29,
+    price: 23,
     paddlePriceId: "pri_01ky23fy2gnmjfwypga2make39", // Starter Plan
     features: [
       "500 AI Messages / month",
@@ -21,7 +21,7 @@ const PLANS = [
   {
     id: "pro",
     name: "Professional",
-    price: 99,
+    price: 55,
     popular: true,
     paddlePriceId: "pri_01ky23sneq97rgq7wa3324bpyv", // Pro Plan
     features: [
@@ -35,7 +35,7 @@ const PLANS = [
   {
     id: "agency",
     name: "Agency",
-    price: 299,
+    price: 135,
     paddlePriceId: "pri_01ky23y9a508n40enht0pfxwga", // Agency Plan
     features: [
       "Unlimited AI Messages",

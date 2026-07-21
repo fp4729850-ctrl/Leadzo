@@ -25,9 +25,9 @@ serve(async (req) => {
 
     // Map plans for Crypto
     const plans: Record<string, number> = {
-      basic: 29,
-      pro: 99,
-      agency: 299
+      basic: 23,
+      pro: 55,
+      agency: 135
     }
     const amount = plans[planId]
     if (!amount) throw new Error('Invalid plan')
