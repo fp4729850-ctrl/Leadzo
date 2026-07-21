@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button.tsx";
 import { useAuth } from "@/hooks/use-auth.ts";
 import { toast } from "sonner";
@@ -10,6 +10,7 @@ const PLANS = [
     id: "basic",
     name: "Starter",
     price: 29,
+    paddlePriceId: "pri_01j37q...", // Update this with actual Paddle Price ID
     features: [
       "500 AI Messages / month",
       "Live Inbox",
@@ -22,6 +23,7 @@ const PLANS = [
     name: "Professional",
     price: 99,
     popular: true,
+    paddlePriceId: "pri_01j37r...", // Update this with actual Paddle Price ID
     features: [
       "5,000 AI Messages / month",
       "Advanced Auto-reply",
@@ -34,6 +36,7 @@ const PLANS = [
     id: "agency",
     name: "Agency",
     price: 299,
+    paddlePriceId: "pri_01j37s...", // Update this with actual Paddle Price ID
     features: [
       "Unlimited AI Messages",
       "Multiple Workspaces",
@@ -48,19 +51,40 @@ export default function PricingPage() {
   const { user } = useAuth();
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
 
-  const handleStripeCheckout = async (planId: string) => {
+  useEffect(() => {
+    // Load Paddle.js
+    const script = document.createElement("script");
+    script.src = "https://cdn.paddle.com/paddle/v2/paddle.js";
+    script.onload = () => {
+      if (window.Paddle) {
+        window.Paddle.Environment.set("sandbox"); // Remove this line in production
+        window.Paddle.Initialize({ 
+          token: "test_...YOUR_PADDLE_CLIENT_TOKEN..." // Replace with Paddle Client Token
+        });
+      }
+    };
+    document.body.appendChild(script);
+  }, []);
+
+  const handlePaddleCheckout = async (plan: any) => {
     if (!user) return toast.error("Please login to subscribe");
-    setLoadingPlan(planId);
+    if (!window.Paddle) return toast.error("Payment system is initializing, please wait");
+    
+    setLoadingPlan(plan.id);
     try {
       const res = await supabase.functions.invoke('create-checkout', {
-        body: { planId, gateway: 'stripe' }
+        body: { planId: plan.id, priceId: plan.paddlePriceId, gateway: 'paddle' }
       });
       if (res.error) throw res.error;
-      if (res.data?.url) {
-        window.location.href = res.data.url;
+      
+      if (res.data?.transactionId) {
+        // Open Paddle Checkout Overlay
+        window.Paddle.Checkout.open({
+          transactionId: res.data.transactionId
+        });
       }
     } catch (e: any) {
-      toast.error(e.message || "Failed to initiate Stripe checkout");
+      toast.error(e.message || "Failed to initiate Paddle checkout");
     } finally {
       setLoadingPlan(null);
     }
@@ -89,7 +113,7 @@ export default function PricingPage() {
       <div className="text-center mb-16">
         <h1 className="text-4xl font-bold tracking-tight mb-4">Simple, transparent pricing</h1>
         <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-          Choose the right plan for your business. Pay securely with Credit Card or Crypto (USDT/BTC).
+          Choose the right plan for your business. Pay securely with Credit Card (via Paddle) or Crypto (USDT/BTC).
         </p>
       </div>
 
@@ -120,7 +144,7 @@ export default function PricingPage() {
 
             <div className="space-y-3">
               <Button 
-                onClick={() => handleStripeCheckout(plan.id)} 
+                onClick={() => handlePaddleCheckout(plan)} 
                 disabled={loadingPlan === plan.id}
                 className={`w-full ${plan.popular ? '' : 'variant-outline'}`}
               >

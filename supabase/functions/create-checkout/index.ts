@@ -21,9 +21,9 @@ serve(async (req) => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error('Unauthorized')
 
-    const { planId, gateway } = await req.json()
+    const { planId, gateway, priceId } = await req.json()
 
-    // Map plans
+    // Map plans for Crypto
     const plans: Record<string, number> = {
       basic: 29,
       pro: 99,
@@ -32,37 +32,38 @@ serve(async (req) => {
     const amount = plans[planId]
     if (!amount) throw new Error('Invalid plan')
 
-    if (gateway === 'stripe') {
-      // Create Stripe Checkout Session
-      // Using direct fetch to Stripe API since we're in Edge Function
-      const stripeData = new URLSearchParams()
-      stripeData.append('payment_method_types[0]', 'card')
-      stripeData.append('mode', 'subscription')
-      stripeData.append('success_url', `${req.headers.get('origin')}/dashboard?payment=success`)
-      stripeData.append('cancel_url', `${req.headers.get('origin')}/pricing?payment=cancelled`)
-      stripeData.append('customer_email', user.email || '')
-      stripeData.append('client_reference_id', user.id)
-      
-      // We would ideally map to Stripe Price IDs here. For demo, we create price inline.
-      stripeData.append('line_items[0][price_data][currency]', 'usd')
-      stripeData.append('line_items[0][price_data][product_data][name]', `Leadzo ${planId} Plan`)
-      stripeData.append('line_items[0][price_data][unit_amount]', String(amount * 100))
-      stripeData.append('line_items[0][price_data][recurring][interval]', 'month')
-      stripeData.append('line_items[0][quantity]', '1')
+    if (gateway === 'paddle') {
+      // Create Paddle Transaction (Checkout)
+      const paddlePayload = {
+        items: [
+          {
+            price_id: priceId, // Pass the Paddle Price ID from frontend
+            quantity: 1
+          }
+        ],
+        custom_data: {
+          user_id: user.id,
+          plan_name: planId
+        }
+      }
 
-      const stripeResponse = await fetch('https://api.stripe.com/v1/checkout/sessions', {
+      const isSandbox = Deno.env.get('PADDLE_ENVIRONMENT') === 'sandbox'
+      const apiUrl = isSandbox ? 'https://sandbox-api.paddle.com' : 'https://api.paddle.com'
+
+      const paddleResponse = await fetch(`${apiUrl}/transactions`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${Deno.env.get('STRIPE_SECRET_KEY')}`,
-          'Content-Type': 'application/x-www-form-urlencoded'
+          'Authorization': `Bearer ${Deno.env.get('PADDLE_API_KEY')}`,
+          'Content-Type': 'application/json'
         },
-        body: stripeData
+        body: JSON.stringify(paddlePayload)
       })
       
-      const session = await stripeResponse.json()
-      if (!session.url) throw new Error(session.error?.message || 'Stripe error')
+      const transaction = await paddleResponse.json()
+      if (transaction.error) throw new Error(transaction.error.detail || 'Paddle error')
       
-      return new Response(JSON.stringify({ url: session.url }), {
+      // We return the transaction ID so the frontend can open the Paddle Checkout overlay
+      return new Response(JSON.stringify({ transactionId: transaction.data.id }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
       
