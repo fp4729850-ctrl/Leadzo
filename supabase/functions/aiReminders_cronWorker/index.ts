@@ -50,9 +50,9 @@ serve(async (req) => {
 
         const scriptTemplate = reminder.script_template || "Hello {name}, this is a reminder for {amount} due on {due_date}."
         const customPrompt = scriptTemplate
-          .replace(/{name}/gi, reminder.client_name)
-          .replace(/{amount}/gi, reminder.amount_or_context || "your payment")
-          .replace(/{due_date}/gi, reminder.due_date)
+          .replace(/{\s*name\s*}/gi, reminder.client_name)
+          .replace(/{\s*amount\s*}/gi, reminder.amount_or_context || "your payment")
+          .replace(/{\s*due_date\s*}/gi, reminder.due_date)
 
         const systemPrompt = `You are a professional AI assistant making a reminder call. 
 Your primary goal is to deliver this message clearly: "${customPrompt}"
