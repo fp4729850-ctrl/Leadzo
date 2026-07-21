@@ -225,7 +225,7 @@ function DashboardInner() {
                 <motion.div key={lead._id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.45 + i * 0.05 }}
                   className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/[0.04] transition-colors cursor-pointer group" onClick={() => navigate("/")}>
                   <div className="size-9 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center shrink-0 text-sm font-bold text-foreground">
-                    {(lead.name ?? "?")[0].toUpperCase()}
+                    {(lead.name ? lead.name.charAt(0) : "?").toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-foreground leading-tight truncate">{lead.name}</p>
