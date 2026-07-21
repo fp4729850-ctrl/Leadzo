@@ -30,6 +30,7 @@ import ScrapersPage from "./pages/scrapers/page.tsx";
 import BlogListingPage from "./pages/blog/page.tsx";
 import BlogArticlePage from "./pages/blog/article.tsx";
 import RedditAgentPage from "./pages/reddit-agent/page.tsx";
+import PricingPage from "./pages/pricing/page.tsx";
 
 import { useServiceWorker } from "@/hooks/use-service-worker.ts";
 
@@ -49,6 +50,7 @@ export default function App() {
           <Route path="/auth/google-ads-callback" element={<GoogleAdsCallback />} />
           <Route path="/blog" element={<BlogListingPage />} />
           <Route path="/blog/:slug" element={<BlogArticlePage />} />
+          <Route path="/pricing" element={<PricingPage />} />
           <Route element={<AppLayout />}>
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/pipeline" element={<PipelinePage />} />
