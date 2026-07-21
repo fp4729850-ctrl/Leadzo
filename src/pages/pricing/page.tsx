@@ -5,6 +5,12 @@ import { toast } from "sonner";
 import { Loader2, CheckCircle2, Bitcoin, CreditCard } from "lucide-react";
 import { supabase } from "@/lib/supabase.ts";
 
+declare global {
+  interface Window {
+    Paddle: any;
+  }
+}
+
 const PLANS = [
   {
     id: "basic",
