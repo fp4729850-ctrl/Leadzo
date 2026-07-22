@@ -113,6 +113,14 @@ export default function AppLayout() {
               </NavLink>
             );
           })}
+          
+          <a
+            href="mailto:leadzoai@gmail.com"
+            className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent mt-4"
+          >
+            <MessageCircle size={15} className="shrink-0" />
+            <span>Support</span>
+          </a>
         </nav>
 
         <Separator className="bg-sidebar-border" />
