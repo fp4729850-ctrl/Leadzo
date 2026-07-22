@@ -23,7 +23,7 @@ const PLATFORMS = [
   { value: "facebook", label: "Facebook Ads", color: "#1877F2", secrets: ["FACEBOOK_ADS_ACCESS_TOKEN", "FACEBOOK_AD_ACCOUNT_ID"], docsUrl: "https://developers.facebook.com/docs/marketing-apis/" },
   { value: "google", label: "Google Ads", color: "#EA4335", secrets: ["GOOGLE_ADS_DEVELOPER_TOKEN", "GOOGLE_ADS_CUSTOMER_ID", "GOOGLE_ADS_ACCESS_TOKEN"], docsUrl: "https://developers.google.com/google-ads/api/docs/start" },
   { value: "tiktok", label: "TikTok Ads", color: "#69C9D0", secrets: ["TIKTOK_ADS_ACCESS_TOKEN", "TIKTOK_ADVERTISER_ID"], docsUrl: "https://ads.tiktok.com/marketing_api/docs" },
-  { value: "linkedin", label: "LinkedIn Ads", color: "#0A66C2", secrets: ["LINKEDIN_ADS_ACCESS_TOKEN", "LINKEDIN_AD_ACCOUNT_ID"], docsUrl: "https://learn.microsoft.com/en-us/linkedin/marketing/" },
+  { value: "linkedin", label: "LinkedIn Ads (Agency Mode)", color: "#0A66C2", secrets: [], docsUrl: "https://learn.microsoft.com/en-us/linkedin/marketing/" },
   { value: "instagram", label: "Instagram Ads", color: "#E1306C", secrets: ["FACEBOOK_ADS_ACCESS_TOKEN", "FACEBOOK_AD_ACCOUNT_ID"], docsUrl: "https://developers.facebook.com/docs/instagram-api/", note: "Uses Facebook Marketing API \u2014 same secrets as Facebook Ads" },
 ];
 
