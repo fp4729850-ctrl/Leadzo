@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.44.0"
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -121,6 +122,38 @@ Respond ONLY with a JSON object containing EXACTLY these keys:
 - destinationUrl: string (the provided url)
 `;
     }
+
+    // --- PROMPT INTELLIGENCE: Inject Learning Agent Data ---
+    let historicalLearningsText = "";
+    try {
+      const supabaseUrl = Deno.env.get("SUPABASE_URL");
+      const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+      if (supabaseUrl && supabaseKey) {
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        
+        // Fetch top 5 learnings based on highest metricValue (ROAS or CTR)
+        const { data: topLearnings } = await supabase
+          .from("learning_agent_data")
+          .select("*")
+          .order("metricValue", { ascending: false })
+          .limit(5);
+          
+        if (topLearnings && topLearnings.length > 0) {
+          historicalLearningsText = "\n\n[Historical Best Performing Data from Leadzo Learning Agent]\nAct as an expert marketer. Here are top-performing historical ad strategies from our knowledge base that have proven to work well:\n";
+          topLearnings.forEach((l: any) => {
+             historicalLearningsText += `- ${l.type === 'headline' ? 'Headline' : l.type === 'creative' ? 'Creative Copy' : l.type}: "${l.value}" (Metric: ${l.metric.toUpperCase()} = ${l.metricValue})\n`;
+          });
+          historicalLearningsText += "\nStudy their pattern and write the new ad for this user in a similar highly-converting style. DO NOT copy them exactly, but learn from their tone, length, and persuasiveness.\n";
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch learnings:", err);
+    }
+
+    if (historicalLearningsText) {
+      systemPrompt += historicalLearningsText;
+    }
+
 
     const userPrompt = `URL: ${url}\n\nWebsite Text:\n${text}`
 

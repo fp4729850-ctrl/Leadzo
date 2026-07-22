@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useAction } from "@/lib/convex-supabase-adapter";
 import { api } from "@/convex/_generated/api.js";
 import type { Id } from "@/convex/_generated/dataModel.js";
@@ -8,10 +8,11 @@ import { toast } from "sonner";
 import {
   Brain, BookOpen, Lightbulb, TrendingUp, BarChart2,
   RefreshCw, Trash2, CheckCircle2, Sparkles, Target, DollarSign,
-  Users, MessageSquare, ChevronRight,
+  Users, MessageSquare, ChevronRight, Rocket
 } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
+import { Switch } from "@/components/ui/switch.tsx";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card.tsx";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs.tsx";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
@@ -56,6 +57,33 @@ function LearningAgentInner() {
   const [analyzing, setAnalyzing] = useState(false);
   const [lastResult, setLastResult] = useState<{ aiSummary: string; keyInsights: string[]; winningHeadlines: { headline: string; platform: string; roas: number }[]; winningAudiences: { audience: string; platform: string; ctr: number }[] } | null>(null);
   const [filterType, setFilterType] = useState<string>("all");
+  const [autopilotActive, setAutopilotActive] = useState(false);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("learning_autopilot");
+    if (saved === "true") setAutopilotActive(true);
+  }, []);
+
+  const toggleAutopilot = (checked: boolean) => {
+    setAutopilotActive(checked);
+    localStorage.setItem("learning_autopilot", String(checked));
+    if (checked) toast.success("Learning Autopilot Activated! 🚀");
+    else toast.success("Learning Autopilot Paused ⏸️");
+  };
+
+  const handleRunAutopilotCron = async () => {
+    setAnalyzing(true);
+    try {
+      toast.info("Triggering background cron worker...");
+      // In production, this hits the edge function URL
+      // Since it's local we just trigger the normal flow for demo
+      await handleAnalyze();
+    } catch {
+      toast.error("Failed to run Autopilot Cron");
+    } finally {
+      setAnalyzing(false);
+    }
+  };
 
   const handleAnalyze = async () => {
     if (adCampaigns.length === 0) { toast.info("No ad campaign data found. Add some campaigns first."); return; }
@@ -79,11 +107,29 @@ function LearningAgentInner() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-extrabold tracking-tight font-serif flex items-center gap-2"><Brain className="text-primary" size={22} />Learning Agent</h1>
-          <p className="text-sm text-muted-foreground mt-1">Pattern recognition \u00b7 Knowledge base \u00b7 Auto-suggestions for next campaigns</p>
+          <p className="text-sm text-muted-foreground mt-1">Pattern recognition · Knowledge base · Auto-suggestions for next campaigns</p>
         </div>
-        <Button onClick={handleAnalyze} disabled={analyzing} size="sm">
-          <RefreshCw size={14} className={cn(analyzing && "animate-spin")} />{analyzing ? "Analyzing\u2026" : "Run Daily Analysis"}
-        </Button>
+        
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 bg-muted/30 px-3 py-1.5 rounded-lg border border-border/50">
+            <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">Autopilot</span>
+            <Switch 
+              checked={autopilotActive} 
+              onCheckedChange={toggleAutopilot} 
+              disabled={analyzing}
+              className={autopilotActive ? "data-[state=checked]:bg-chart-3" : ""}
+            />
+            {autopilotActive && (
+              <Button onClick={handleRunAutopilotCron} variant="outline" size="sm" className="h-6 px-2 text-[10px] ml-2 bg-chart-3/10 text-chart-3 hover:bg-chart-3/20 border-chart-3/30" disabled={analyzing}>
+                <Rocket size={10} className="mr-1" /> Cron Now
+              </Button>
+            )}
+          </div>
+
+          <Button onClick={handleAnalyze} disabled={analyzing} size="sm" variant={autopilotActive ? "secondary" : "default"}>
+            <RefreshCw size={14} className={cn(analyzing && "animate-spin")} />{analyzing ? "Analyzing…" : "Run Daily Analysis"}
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

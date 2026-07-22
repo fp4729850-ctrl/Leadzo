@@ -1,5 +1,6 @@
 // Supabase Edge Function: seoAi_generateContent
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.44.0"
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -19,7 +20,7 @@ serve(async (req) => {
     const geminiKey = Deno.env.get("GEMINI_API_KEY")
     if (!geminiKey) throw new Error("GEMINI_API_KEY is not set")
 
-    const systemPrompt = `You are an expert SEO Content Writer.
+    let systemPrompt = `You are an expert SEO Content Writer.
 Write a highly optimized, engaging blog post targeting the keyword: "${keyword}".
 The tone should be: ${tone || 'Professional'}.
 Context about the website: ${JSON.stringify(contextData || {})}.
@@ -31,6 +32,37 @@ Respond ONLY with a JSON object containing EXACTLY this structure:
   "metaDescription": "string (150-160 characters)",
   "content": "string (The full blog post content formatted in beautiful Markdown. Use H1, H2, H3, bullet points, and bold text. Make it long and comprehensive, at least 500 words.)"
 }`
+
+    // --- PROMPT INTELLIGENCE: Inject Learning Agent Data ---
+    let historicalLearningsText = "";
+    try {
+      const supabaseUrl = Deno.env.get("SUPABASE_URL");
+      const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+      if (supabaseUrl && supabaseKey) {
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        
+        // Fetch top 5 learnings based on highest metricValue (ROAS or CTR)
+        const { data: topLearnings } = await supabase
+          .from("learning_agent_data")
+          .select("*")
+          .order("metricValue", { ascending: false })
+          .limit(5);
+          
+        if (topLearnings && topLearnings.length > 0) {
+          historicalLearningsText = "\n\n[Historical Best Performing SEO Data from Leadzo Learning Agent]\nAct as an expert SEO marketer. Here are top-performing historical strategies and headlines from our knowledge base that have proven to generate high CTR and Engagement:\n";
+          topLearnings.forEach((l: any) => {
+             historicalLearningsText += `- ${l.type === 'headline' ? 'Headline/Title Idea' : l.type === 'creative' ? 'Content Hook' : l.type}: "${l.value}" (Metric: ${l.metric.toUpperCase()} = ${l.metricValue})\n`;
+          });
+          historicalLearningsText += "\nStudy their pattern (e.g., catchy titles, engaging hooks, clarity) and write the new blog post for this user in a similar high-ranking style. DO NOT copy them exactly, but learn from their persuasiveness.\n";
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch learnings:", err);
+    }
+
+    if (historicalLearningsText) {
+      systemPrompt += historicalLearningsText;
+    }
 
     const payload = {
       contents: [{ parts: [{ text: systemPrompt }] }],
