@@ -52,6 +52,7 @@ export default function CRMPage() {
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   // AI Calling state
   const [callingLeadId, setCallingLeadId] = useState<string | null>(null);
+  const [callingEngine, setCallingEngine] = useState<"vapi" | "voicebox">("vapi");
 
   // Inbox & Tabs State
   const [activeTab, setActiveTab] = useState<"pipeline" | "inbox">("pipeline");
@@ -177,7 +178,7 @@ export default function CRMPage() {
           "Authorization": `Bearer ${session.access_token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ leadId: lead.id }),
+        body: JSON.stringify({ leadId: lead.id, engine: callingEngine }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Call failed");
@@ -203,7 +204,26 @@ export default function CRMPage() {
           </div>
         </div>
         
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          {/* Engine Toggle */}
+          <div className="flex items-center gap-1 bg-secondary/30 p-1 rounded-lg border border-border/50">
+            <button 
+              onClick={() => setCallingEngine("vapi")}
+              className={cn("px-3 py-1.5 text-xs rounded-md transition-all flex items-center gap-1.5", callingEngine === "vapi" ? "bg-background shadow-sm font-medium border border-border/50" : "text-muted-foreground hover:text-foreground")}
+            >
+              <Zap size={12} className={callingEngine === "vapi" ? "text-yellow-500" : ""} />
+              Vapi (Cloud)
+            </button>
+            <button 
+              onClick={() => setCallingEngine("voicebox")}
+              className={cn("px-3 py-1.5 text-xs rounded-md transition-all flex items-center gap-1.5", callingEngine === "voicebox" ? "bg-indigo-50 text-indigo-600 shadow-sm font-medium border border-indigo-200" : "text-muted-foreground hover:text-foreground")}
+            >
+              <Mic size={12} className={callingEngine === "voicebox" ? "text-indigo-600" : ""} />
+              Voicebox (Local)
+            </button>
+          </div>
+
+          <div className="flex gap-2">
           <Button 
             variant="outline" 
             onClick={handleGenerateFollowups} 

@@ -22,7 +22,7 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.replace("Bearer ", ""))
     if (authError || !user) throw new Error("Invalid token")
 
-    const { leadId, script } = await req.json()
+    const { leadId, script, engine = "vapi" } = await req.json()
     if (!leadId) throw new Error("Missing leadId")
 
     // 1. Get the lead's phone number
@@ -35,70 +35,106 @@ serve(async (req) => {
     if (leadErr || !lead) throw new Error("Lead not found")
     if (!lead.phone) throw new Error("Lead has no phone number")
 
-    // 2. Use Vapi to make the call (since VAPI is already configured in Leadzo)
-    const vapiApiKey = Deno.env.get("VAPI_API_KEY")
-    const vapiPhoneNumberId = Deno.env.get("VAPI_PHONE_NUMBER_ID")
-
-    if (!vapiApiKey || !vapiPhoneNumberId) throw new Error("VAPI config missing")
-
+    let callId = "unknown";
     const callScript = script || `Hi ${lead.name || "there"}, this is a follow-up call from our team. We wanted to check in and see if you have any questions. Please call us back at your convenience. Thank you!`
 
-    // Create outbound call via Vapi
-    const vapiRes = await fetch("https://api.vapi.ai/call", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${vapiApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        phoneNumberId: vapiPhoneNumberId,
-        customer: {
-          number: lead.phone,
-          name: lead.name || "Lead",
-        },
-        assistant: {
-          transcriber: {
-            provider: "deepgram",
-            model: "nova-2",
-            language: "en-US",
-          },
-          model: {
-            provider: "openai",
-            model: "gpt-4o-mini",
-            messages: [
-              {
-                role: "system",
-                content: callScript,
-              }
-            ],
-          },
-          voice: {
-            provider: "11labs",
-            voiceId: "paula",
-          },
-          firstMessage: `Hello, may I speak with ${lead.name || "you"}? This is an automated follow-up from Leadzo AI.`,
-          endCallFunctionEnabled: true,
-        },
-      }),
-    })
+    if (engine === "vapi") {
+      // 2. Use Vapi to make the call
+      const vapiApiKey = Deno.env.get("VAPI_API_KEY")
+      const vapiPhoneNumberId = Deno.env.get("VAPI_PHONE_NUMBER_ID")
 
-    if (!vapiRes.ok) {
-      const errText = await vapiRes.text()
-      throw new Error(`Vapi call failed: ${errText}`)
+      if (!vapiApiKey || !vapiPhoneNumberId) throw new Error("VAPI config missing")
+
+      // Create outbound call via Vapi
+      const vapiRes = await fetch("https://api.vapi.ai/call", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${vapiApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          phoneNumberId: vapiPhoneNumberId,
+          customer: {
+            number: lead.phone,
+            name: lead.name || "Lead",
+          },
+          assistant: {
+            transcriber: {
+              provider: "deepgram",
+              model: "nova-2",
+              language: "en-US",
+            },
+            model: {
+              provider: "openai",
+              model: "gpt-4o-mini",
+              messages: [
+                {
+                  role: "system",
+                  content: callScript,
+                }
+              ],
+            },
+            voice: {
+              provider: "11labs",
+              voiceId: "paula",
+            },
+            firstMessage: `Hello, may I speak with ${lead.name || "you"}? This is an automated follow-up from Leadzo AI.`,
+            endCallFunctionEnabled: true,
+          },
+        }),
+      })
+
+      if (!vapiRes.ok) {
+        const errText = await vapiRes.text()
+        throw new Error(`Vapi call failed: ${errText}`)
+      }
+
+      const vapiData = await vapiRes.json()
+      callId = vapiData.id
+    } else {
+      // Custom Voicebox Logic via Twilio
+      const twilioAccountSid = Deno.env.get("TWILIO_ACCOUNT_SID")
+      const twilioAuthToken = Deno.env.get("TWILIO_AUTH_TOKEN")
+      const twilioPhoneNumber = Deno.env.get("TWILIO_PHONE_NUMBER")
+      
+      if (!twilioAccountSid || !twilioAuthToken || !twilioPhoneNumber) throw new Error("Twilio config missing for Voicebox engine")
+
+      // We need an ngrok URL pointing to the local ws-server
+      // Currently defaulting to a placeholder until user runs ngrok
+      const twimlWebhookUrl = Deno.env.get("WS_SERVER_URL") || "https://your-ngrok-url.ngrok.app/twilio/webhook"
+
+      const twilioRes = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${twilioAccountSid}/Calls.json`, {
+        method: "POST",
+        headers: {
+          "Authorization": "Basic " + btoa(`${twilioAccountSid}:${twilioAuthToken}`),
+          "Content-Type": "application/x-www-form-urlencoded"
+        },
+        body: new URLSearchParams({
+          To: lead.phone,
+          From: twilioPhoneNumber,
+          Url: twimlWebhookUrl,
+        })
+      })
+
+      if (!twilioRes.ok) {
+        const errText = await twilioRes.text()
+        throw new Error(`Twilio call failed: ${errText}`)
+      }
+
+      const twilioData = await twilioRes.json()
+      callId = twilioData.sid
     }
 
-    const vapiData = await vapiRes.json()
-
-    // 3. Log the call in the database (optional)
+    // 3. Log the call in the database
     await supabase.from("crm_messages").insert({
       lead_id: leadId,
       platform: "ai_call",
       direction: "outbound",
-      content: `📞 AI Call placed to ${lead.phone}. Script: "${callScript.substring(0, 100)}..."`,
+      content: `📞 AI Call placed to ${lead.phone} via ${engine.toUpperCase()}. Script: "${callScript.substring(0, 100)}..."`,
     })
 
     return new Response(
-      JSON.stringify({ success: true, callId: vapiData.id, message: "Call placed successfully! 🎉" }),
+      JSON.stringify({ success: true, callId, message: "Call placed successfully! 🎉" }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     )
 
