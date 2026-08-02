@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sparkles, Loader2, Copy, Check, Trash2, Clock, Image, Video, Type, MousePointer2, Megaphone, PenLine, Palette, Library, Wand2, ChevronDown, ChevronUp, Zap, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils.ts";
 import { toast } from "sonner";
+import { supabase } from "@/lib/supabase.ts";
 import type { Id } from "@/convex/_generated/dataModel.d.ts";
 
 const PLATFORMS = [
@@ -47,6 +48,36 @@ function CreativeCard({ icon: Icon, title, color, children, delay }: { icon: Rea
 
 function CreativeResult({ result, productName, platform }: { result: { headlines: string[]; adCopies: string[]; imagePrompts: string[]; videoScript: string; ctaOptions: string[] }; productName: string; platform: string }) {
   const [videoExpanded, setVideoExpanded] = useState(false);
+  const [ttsLoading, setTtsLoading] = useState(false);
+  const [ttsAudioUrl, setTtsAudioUrl] = useState<string | null>(null);
+
+  const handleGenerateTTS = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!result.videoScript) return;
+    setTtsLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Please log in first");
+      
+      const res = await fetch("https://stbqeiapgdaklktrlrjm.supabase.co/functions/v1/voicebox_generateTTS", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ text: result.videoScript })
+      });
+      
+      if (!res.ok) throw new Error("Voicebox TTS failed. Is Docker running?");
+      
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      setTtsAudioUrl(url);
+      toast.success("Voiceover generated successfully!");
+    } catch (e: any) {
+      toast.error(e.message || "Failed to generate TTS");
+    } finally {
+      setTtsLoading(false);
+    }
+  };
+
   const platformMeta = PLATFORMS.find((p) => p.value === platform);
   return (
     <div className="flex flex-col gap-4 mt-2">
@@ -74,7 +105,21 @@ function CreativeResult({ result, productName, platform }: { result: { headlines
               <span className="text-xs text-muted-foreground">{videoExpanded ? "Click to collapse" : "Click to expand full script"}</span>
               {videoExpanded ? <ChevronUp size={14} className="text-muted-foreground" /> : <ChevronDown size={14} className="text-muted-foreground" />}
             </button>
-            <AnimatePresence>{videoExpanded && (<motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden"><div className="rounded-xl border border-pink-500/20 bg-pink-500/5 p-4 relative"><div className="absolute top-2 right-2"><CopyBtn text={result.videoScript} /></div><pre className="text-xs text-foreground leading-relaxed whitespace-pre-wrap font-sans">{result.videoScript}</pre></div></motion.div>)}</AnimatePresence>
+            <AnimatePresence>{videoExpanded && (<motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden"><div className="rounded-xl border border-pink-500/20 bg-pink-500/5 p-4 relative"><div className="absolute top-2 right-2"><CopyBtn text={result.videoScript} /></div><pre className="text-xs text-foreground leading-relaxed whitespace-pre-wrap font-sans mb-4">{result.videoScript}</pre>
+              
+              <div className="flex flex-col gap-3 mt-4 pt-4 border-t border-pink-500/20">
+                <div className="flex items-center gap-3">
+                  <Button size="sm" onClick={handleGenerateTTS} disabled={ttsLoading} className="h-8 text-xs gap-1.5 bg-pink-500 hover:bg-pink-600 text-white">
+                    {ttsLoading ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                    {ttsLoading ? "Generating Audio..." : "Generate Voiceover (Voicebox)"}
+                  </Button>
+                  <Badge variant="outline" className="text-[9px] text-pink-500 border-pink-500/30">Self-Hosted ML</Badge>
+                </div>
+                {ttsAudioUrl && (
+                  <audio controls src={ttsAudioUrl} className="h-8 w-full max-w-sm rounded-lg" />
+                )}
+              </div>
+            </div></motion.div>)}</AnimatePresence>
           </CreativeCard>
         </div>
       </div>
