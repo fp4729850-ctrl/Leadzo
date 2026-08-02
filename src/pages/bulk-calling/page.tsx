@@ -100,6 +100,66 @@ function SetupPanel({ onTest, url, setUrl, scanWebsite, scanning, language, setL
   );
 }
 
+function VoiceClonePanel() {
+  const [file, setFile] = useState<File | null>(null);
+  const [name, setName] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [voiceId, setVoiceId] = useState<string | null>(null);
+
+  const handleUpload = async () => {
+    if (!file) { toast.error("Please select an audio file first"); return; }
+    setLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Please log in first");
+      
+      const formData = new FormData();
+      formData.append("audio", file);
+      formData.append("name", name || "My Custom Voice");
+
+      const res = await fetch("https://stbqeiapgdaklktrlrjm.supabase.co/functions/v1/voicebox_cloneVoice", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${session.access_token}` },
+        body: formData
+      });
+      
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      
+      setVoiceId(data.voice_id);
+      toast.success(data.message);
+    } catch (e: any) {
+      toast.error(e.message || "Failed to clone voice");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-4">
+      <div className="flex items-center gap-2">
+        <Sparkles size={16} className="text-primary" />
+        <p className="text-sm font-semibold text-foreground">Voicebox: Clone Your Voice</p>
+        <Badge className="text-[9px] bg-primary/20 text-primary border-primary/30 ml-auto">Self-Hosted</Badge>
+      </div>
+      <div className="space-y-3">
+        <div className="flex gap-2">
+          <Input type="text" placeholder="Voice Name (e.g. Rahul's Voice)" className="h-8 text-xs bg-background/50" value={name} onChange={e => setName(e.target.value)} />
+        </div>
+        <div className="flex gap-2 items-center">
+          <Input type="file" accept="audio/*" className="h-8 text-xs bg-background/50 flex-1 pt-1.5" onChange={e => setFile(e.target.files?.[0] || null)} />
+          <Button size="sm" className="h-8 text-xs gap-1.5" onClick={handleUpload} disabled={loading || !file}>
+            {loading ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />} Clone Voice
+          </Button>
+        </div>
+        {voiceId && (
+          <p className="text-xs text-green-500 font-medium">Cloned successfully! Voice ID: {voiceId}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function TestPanel({ onClose }: { onClose: () => void }) {
   const testCall = useAction(api.bulkCalling.testCall);
   const [testNum, setTestNum] = useState("");
@@ -435,6 +495,7 @@ export default function BulkCallingPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="space-y-4">
           <SetupPanel onTest={() => setShowTest(true)} url={url} setUrl={setUrl} scanWebsite={handleScanWebsite} scanning={scanning} language={scanLanguage} setLanguage={setScanLanguage} myNumber={myNumber} />
+          <VoiceClonePanel />
           <AnimatePresence>
             {showTest && (
               <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>
