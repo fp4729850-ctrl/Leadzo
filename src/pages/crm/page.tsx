@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Users, Plus, Mail, Phone, Calendar, ArrowRight, ArrowLeft, Star, TrendingUp, Search, MessageSquare, Send } from "lucide-react";
+import { Users, Plus, Mail, Phone, Calendar, ArrowRight, ArrowLeft, Star, TrendingUp, Search, MessageSquare, Send, Mic, PhoneCall, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,6 +47,11 @@ export default function CRMPage() {
   const [newEmail, setNewEmail] = useState("");
   const [newPhone, setNewPhone] = useState("");
   const [newSource, setNewSource] = useState("Manual");
+  // Voice dictation state
+  const [isRecording, setIsRecording] = useState(false);
+  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+  // AI Calling state
+  const [callingLeadId, setCallingLeadId] = useState<string | null>(null);
 
   // Inbox & Tabs State
   const [activeTab, setActiveTab] = useState<"pipeline" | "inbox">("pipeline");
@@ -154,6 +159,33 @@ export default function CRMPage() {
       toast.error(err.message);
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const handleCallLead = async (lead: Lead) => {
+    if (!lead.phone) {
+      toast.error("This lead has no phone number!");
+      return;
+    }
+    setCallingLeadId(lead.id);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not logged in");
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/voicebox_callLead`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ leadId: lead.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Call failed");
+      toast.success(`Call placed to ${lead.name}! 🎉`);
+    } catch (e: any) {
+      toast.error(e.message || "Failed to place call");
+    } finally {
+      setCallingLeadId(null);
     }
   };
 
@@ -311,6 +343,22 @@ export default function CRMPage() {
                             View AI Draft ✨
                           </Button>
                         )}
+                        {lead.phone && (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            className="h-6 text-[10px] bg-green-50 text-green-700 hover:bg-green-100 gap-1"
+                            onClick={() => handleCallLead(lead)}
+                            disabled={callingLeadId === lead.id}
+                          >
+                            {callingLeadId === lead.id ? (
+                              <Loader2 size={10} className="animate-spin" />
+                            ) : (
+                              <PhoneCall size={10} />
+                            )}
+                            {callingLeadId === lead.id ? "Calling..." : "AI Call"}
+                          </Button>
+                        )}
 
                         <Button 
                           variant="ghost" 
@@ -420,6 +468,55 @@ export default function CRMPage() {
                         }
                       }}
                     />
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className={"h-9 w-9 " + (isRecording ? "bg-red-200" : "")}
+                      onClick={async () => {
+                        if (!isRecording) {
+                          // start recording
+                          try {
+                            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                            const recorder = new MediaRecorder(stream);
+                            const chunks: BlobPart[] = [];
+                            recorder.ondataavailable = e => chunks.push(e.data);
+                            recorder.onstop = async () => {
+                              const audioBlob = new Blob(chunks, { type: "audio/webm" });
+                              const form = new FormData();
+                              form.append("audio", audioBlob, "dictation.webm");
+                              // get auth token
+                              const { data: { session } } = await supabase.auth.getSession();
+                              const token = session?.access_token;
+                              const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/voicebox_transcribe`, {
+                                method: "POST",
+                                headers: token ? { Authorization: `Bearer ${token}` } : {},
+                                body: form,
+                              });
+                              if (res.ok) {
+                                const { transcription } = await res.json();
+                                setReplyText(prev => (prev ? prev + " " + transcription : transcription));
+                              } else {
+                                const err = await res.json();
+                                toast.error(err.error || "Transcription failed");
+                              }
+                              setIsRecording(false);
+                            };
+                            recorder.start();
+                            setMediaRecorder(recorder);
+                            setIsRecording(true);
+                          } catch (e) {
+                            console.error(e);
+                            toast.error("Microphone access denied or unavailable.");
+                          }
+                        } else {
+                          // stop recording
+                          mediaRecorder?.stop();
+                          setIsRecording(false);
+                        }
+                      }}
+                    >
+                      <Mic size={18} className={isRecording ? "text-red-600" : "text-muted-foreground"} />
+                    </Button>
                     <Button onClick={() => {
                         if(replyText) {
                            toast.error("Meta Webhook required to send outbound real messages.");
