@@ -102,14 +102,14 @@ Respond ONLY with a JSON object in this format:
 }`;
         } else if (targetItem.type === "striking_distance") {
           prompt = `You are an expert SEO Optimizer for the website ${setting.url}.
-Your task is to optimize the Title and Meta Description for the following keywords that are currently ranking on Page 2 (Striking Distance):
+Your task is to write an optimized blog post for the following keywords that are currently ranking on Page 2 (Striking Distance):
 ${targetItem.keywords.join(', ')}
 
 Respond ONLY with a JSON object in this format:
 {
   "title": "A high-CTR, highly optimized SEO title covering these keywords",
-  "slug": "striking-distance-optimization-report",
-  "html_content": "<p><strong>Striking Distance Optimization Report:</strong></p><ul><li>Optimized Title generated for better CTR.</li><li>Target Keywords: ${targetItem.keywords.join(', ')}</li></ul>",
+  "slug": "seo-friendly-url-slug-based-on-title",
+  "html_content": "A full 500+ word blog post in valid HTML covering these keywords with <h2>, <h3>, <p>, <ul>, <li>, <strong> tags. Do NOT use Markdown.",
   "seo_description": "A 150-character high-CTR meta description."
 }`;
         } else {
@@ -220,12 +220,23 @@ Respond ONLY with a JSON object in this format:
         const text = generatedText.trim().replace(/```json/g, "").replace(/```/g, "");
         const contentData = JSON.parse(text);
 
+        // Generate slug from title (always derived from actual title, not AI-generated slug)
+        const cleanSlug = contentData.title
+          .toLowerCase()
+          .replace(/[|]/g, '') // remove pipe characters
+          .replace(/[^a-z0-9\s-]/g, '') // remove special chars
+          .trim()
+          .replace(/\s+/g, '-') // spaces to hyphens
+          .replace(/-+/g, '-') // collapse multiple hyphens
+          .substring(0, 60); // max 60 chars
+        const finalSlug = `${cleanSlug}-${Math.random().toString(36).substring(2, 7)}`;
+
         // 4. Save to blogs table
         const { error: insertErr } = await supabase
           .from("blogs")
           .insert({
             title: contentData.title,
-            slug: `${contentData.slug}-${Math.random().toString(36).substring(2, 7)}`,
+            slug: finalSlug,
             html_content: contentData.html_content,
             seo_description: contentData.seo_description,
             author: "Leadzo AI Autopilot",
