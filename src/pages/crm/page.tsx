@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 
 type Lead = {
   id: string;
@@ -283,6 +284,7 @@ export default function CRMPage() {
             </div>
           </DialogContent>
         </Dialog>
+        </div>
         </div>
       </motion.div>
 
