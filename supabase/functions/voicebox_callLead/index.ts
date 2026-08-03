@@ -35,9 +35,11 @@ serve(async (req) => {
       .single()
     if (leadErr || !lead) throw new Error("Lead not found")
     if (!lead.phone) throw new Error("Lead has no phone number")
+    const phone = lead.phone;
+    const name = lead.name || "Lead";
 
     let callId = "unknown";
-    const callScript = script || `Hi ${lead.name || "there"}, this is a follow-up call from our team. We wanted to check in and see if you have any questions. Please call us back at your convenience. Thank you!`
+    const callScript = script || `Hi ${name || "there"}, this is a follow-up call from our team. We wanted to check in and see if you have any questions. Please call us back at your convenience. Thank you!`
 
     if (engine === "vapi") {
       // 2. Use Vapi to make the call
@@ -79,7 +81,7 @@ serve(async (req) => {
               provider: "11labs",
               voiceId: "paula",
             },
-            firstMessage: `Hello, may I speak with ${lead.name || "you"}? This is an automated follow-up from Leadzo AI.`,
+            firstMessage: `Hello, may I speak with ${name || "you"}? This is an automated follow-up from Leadzo AI.`,
             endCallFunctionEnabled: true,
           },
         }),
@@ -113,7 +115,7 @@ serve(async (req) => {
           "Content-Type": "application/x-www-form-urlencoded"
         },
         body: new URLSearchParams({
-          To: lead.phone,
+          To: phone,
           From: twilioPhoneNumber,
           Url: twimlWebhookUrl,
         })
@@ -129,12 +131,14 @@ serve(async (req) => {
     }
 
     // 3. Log the call in the database
-    await supabase.from("crm_messages").insert({
-      lead_id: leadId,
-      platform: "ai_call",
-      direction: "outbound",
-      content: `📞 AI Call placed to ${lead.phone} via ${engine === "voicebox_clone" ? "Voicebox Clone 🎤" : engine.toUpperCase()}. Script: "${callScript.substring(0, 100)}..."`,
-    })
+    if (leadId !== "test") {
+      await supabase.from("crm_messages").insert({
+        lead_id: leadId,
+        platform: "ai_call",
+        direction: "outbound",
+        content: `📞 AI Call placed to ${phone} via ${engine === "voicebox_clone" ? "Voicebox Clone 🎤" : engine.toUpperCase()}. Script: "${callScript.substring(0, 100)}..."`,
+      })
+    }
 
     return new Response(
       JSON.stringify({ success: true, callId, message: "Call placed successfully! 🎉" }),
