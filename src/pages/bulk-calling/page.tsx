@@ -408,7 +408,7 @@ export default function BulkCallingPage() {
     setScanning(true);
     
     let persona = "";
-    if (["rachel", "sarah", "aria"].includes(voice)) {
+    if (["shimmer", "nova", "alloy", "rachel", "sarah", "aria"].includes(callingVoiceId)) {
       const name = (scanLanguage === "Hindi" || scanLanguage === "Hinglish") ? "Pooja" : "Sarah";
       persona = `You are a FEMALE sales agent named ${name}. Adopt a confident, professional female persona. Ensure Hindi grammar uses 'रही हूँ', 'करती हूँ', etc.`;
     } else {
@@ -436,7 +436,7 @@ export default function BulkCallingPage() {
     if (!script.trim()) { toast.error("Pehle System Prompt likho"); return; }
     setPreviewing(true);
     try {
-      const res = await previewVoice({ text: script, voice });
+      const res = await previewVoice({ text: script, voice: callingVoiceId });
       if (!res.success || !res.url) { toast.error(res.error ?? "Preview failed"); return; }
       if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ""; }
       const audio = new Audio(res.url);
