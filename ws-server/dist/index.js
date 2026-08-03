@@ -68,8 +68,11 @@ const OPENAI_VOICES = {
     rachel: "nova", // backwards compat
     sarah: "shimmer", // backwards compat
 };
-app.post('/twiml', (req, res) => {
-    const voice = req.query.voice || 'rachel';
+const twimlHandler = (req, res) => {
+    // Twilio may send params in query (GET) or body (POST)
+    const voice = req.query.voice || req.body?.voice || 'rachel';
+    const use_cloned_voice = req.query.use_cloned_voice || req.body?.use_cloned_voice || '';
+    const profile_id = req.query.profile_id || req.body?.profile_id || '';
     const prompt = req.query.prompt || '';
     // Escape XML for TwiML parameter
     const escapedPrompt = prompt.replace(/[<>&'"]/g, function (c) {
@@ -85,7 +88,7 @@ app.post('/twiml', (req, res) => {
     const twiml = `
     <Response>
       <Connect>
-        <Stream url="wss://${req.headers.host}/stream?voice=${voice}">
+        <Stream url="wss://${req.headers.host}/stream?voice=${voice}&amp;use_cloned_voice=${use_cloned_voice}&amp;profile_id=${profile_id}">
           <Parameter name="prompt" value="${escapedPrompt}" />
         </Stream>
       </Connect>
@@ -93,7 +96,10 @@ app.post('/twiml', (req, res) => {
   `;
     res.type('text/xml');
     res.send(twiml);
-});
+};
+// Twilio fetches TwiML via GET by default, also support POST
+app.get('/twiml', twimlHandler);
+app.post('/twiml', twimlHandler);
 // Pending prompts queue - FIFO. register-prompt pushes, next WebSocket connection shifts.
 const pendingPrompts = [];
 app.post('/register-prompt', (req, res) => {
@@ -152,13 +158,20 @@ wss.on('connection', (ws, req) => {
             for (let i = 0; i < 30; i++) {
                 await new Promise(r => setTimeout(r, 1000));
                 const statusRes = await fetch(`${VOICEBOX_URL}/generate/${genId}/status`);
-                const statusData = await statusRes.json();
+                const statusText = await statusRes.text();
+                let statusData;
+                if (statusText.startsWith('data: ')) {
+                    statusData = JSON.parse(statusText.substring(6).trim());
+                }
+                else {
+                    statusData = JSON.parse(statusText);
+                }
                 if (statusData.status === 'done' && statusData.audio_url) {
                     audioUrl = `${VOICEBOX_URL}${statusData.audio_url}`;
                     break;
                 }
-                if (statusData.status === 'error')
-                    throw new Error('Voicebox generation error');
+                if (statusData.status === 'error' || statusData.status === 'failed')
+                    throw new Error('Voicebox generation error: ' + (statusData.error || ''));
             }
             if (!audioUrl)
                 throw new Error('Voicebox TTS timed out');
