@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useAction } from "@/lib/convex-supabase-adapter";
 import { api } from "@/convex/_generated/api.js";
 import { motion, AnimatePresence } from "motion/react";
-import { Phone, Upload, Loader2, Sparkles, Copy, Check, CheckCircle2, XCircle, AlertCircle, Settings, Play, Square, RefreshCw, Zap, PhoneCall, PhoneOff, Volume2 } from "lucide-react";
+import { Phone, Upload, Loader2, Sparkles, Copy, Check, CheckCircle2, XCircle, AlertCircle, Settings, Play, Square, RefreshCw, Zap, PhoneCall, PhoneOff, Volume2, Mic } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
 import { Textarea } from "@/components/ui/textarea.tsx";
 import { Input } from "@/components/ui/input.tsx";
@@ -321,8 +321,8 @@ export default function BulkCallingPage() {
   const [waMediaUrl, setWaMediaUrl] = useState("");
   const [waMediaType, setWaMediaType] = useState("");
   const [mediaUploading, setMediaUploading] = useState(false);
-  const [voice, setVoice] = useState("sagar");
-  const [engine, setEngine] = useState<"premium" | "gemini">("premium");
+  const [engine, setEngine] = useState<"vapi" | "voicebox" | "voicebox_clone">("voicebox");
+  const [callingVoiceId, setCallingVoiceId] = useState<string>("shimmer");
   const [ttsEngine, setTtsEngine] = useState<"elevenlabs" | "deepgram">("elevenlabs");
   const [showGenerator, setShowGenerator] = useState(false);
   const [showTest, setShowTest] = useState(false);
@@ -460,9 +460,8 @@ export default function BulkCallingPage() {
         const res = await makeBulkCalls({
           numbers: [numbers[i]],
           message: script,
-          voice,
+          voiceId: callingVoiceId,
           engine,
-          ttsEngine,
           whatsappLink,
           waMediaUrl,
           delayMs: 0
@@ -517,41 +516,67 @@ export default function BulkCallingPage() {
                   <Upload size={13} /> Upload .txt / .csv
                   <Input type="file" accept=".txt,.csv" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (!f) return; const r = new FileReader(); r.onload = (ev) => { setNumbersRaw(ev.target?.result as string); toast.success(`${f.name} loaded!`); }; r.readAsText(f); }} />
                 </label>
-                 <div className="rounded-xl border border-border bg-card p-4 space-y-4">
-                 <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Label className="text-sm font-semibold">AI Engine (Brain & Voice)</Label>
-                  </div>
-                  <div className="flex gap-2">
-                    <button onClick={() => setEngine("premium")} className={cn("flex-1 p-2 text-xs rounded-lg border transition-all text-left", engine === "premium" ? "border-purple-500 bg-purple-500/10 shadow-sm" : "border-border bg-muted/30")}>
-                      <span className="font-semibold block text-purple-400">Premium (OpenAI + 11Labs)</span>
-                      <span className="text-[10px] text-muted-foreground mt-0.5 block">Ultra-realistic, best quality. ~$0.15/min</span>
-                    </button>
-                    <button onClick={() => setEngine("gemini")} className={cn("flex-1 p-2 text-xs rounded-lg border transition-all text-left", engine === "gemini" ? "border-blue-500 bg-blue-500/10 shadow-sm" : "border-border bg-muted/30")}>
-                      <span className="font-semibold block text-blue-400">Economy (Google Gemini)</span>
-                      <span className="text-[10px] text-muted-foreground mt-0.5 block">Cost-effective, highly capable. ~$0.05/min</span>
-                    </button>
-                  </div>
-                 </div>
+                <div className="rounded-xl border border-border bg-card p-4 space-y-4">
+                  <div className="space-y-3">
+                    <Label className="text-sm font-semibold">AI Calling Engine</Label>
 
-                {engine === "premium" && (
-                  <div className="space-y-4 pt-2 border-t border-border/50">
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <Label className="text-sm font-semibold">Voice Model</Label>
-                        <Badge className="text-[9px] bg-primary/10 text-primary border-primary/20">Selected Provider</Badge>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                      {([{ id: "sagar", label: "Sagar", desc: "Indian Male (Vapi)" }, { id: "aria", label: "Aria", desc: "Indian Female (11Labs)" }, { id: "rachel", label: "Rachel", desc: "Young Female" }, { id: "drew", label: "Drew", desc: "Energetic Male" }] as const).map((v) => (
-                        <button key={v.id} onClick={() => setVoice(v.id)} className={cn("flex flex-col items-start p-3 rounded-lg border text-left transition-all", voice === v.id ? "border-primary bg-primary/5 shadow-sm" : "border-border bg-muted/30 hover:bg-muted/50")}>
-                          <span className="text-xs font-semibold">{v.label}</span>
-                          <span className="text-[10px] text-muted-foreground">{v.desc}</span>
+                    {/* Engine toggle buttons - same as CRM page */}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex items-center gap-1 bg-secondary/30 p-1 rounded-lg border border-border/50">
+                        <button
+                          onClick={() => setEngine("vapi")}
+                          title="Vapi Cloud: Groq LLM + Vapi/ElevenLabs voice"
+                          className={cn("px-2.5 py-1.5 text-xs rounded-md transition-all flex items-center gap-1.5", engine === "vapi" ? "bg-background shadow-sm font-medium border border-border/50" : "text-muted-foreground hover:text-foreground")}
+                        >
+                          <Zap size={11} className={engine === "vapi" ? "text-yellow-500" : ""} />
+                          Vapi
                         </button>
-                      ))}
+                        <button
+                          onClick={() => setEngine("voicebox")}
+                          title="Voicebox Standard: GPT-4o + OpenAI Voice"
+                          className={cn("px-2.5 py-1.5 text-xs rounded-md transition-all flex items-center gap-1.5", engine === "voicebox" ? "bg-indigo-50 text-indigo-600 shadow-sm font-medium border border-indigo-200" : "text-muted-foreground hover:text-foreground")}
+                        >
+                          <Mic size={11} className={engine === "voicebox" ? "text-indigo-600" : ""} />
+                          VB Standard
+                        </button>
+                        <button
+                          onClick={() => setEngine("voicebox_clone")}
+                          title="Voicebox Clone: GPT-4o + Cloned Voice"
+                          className={cn("px-2.5 py-1.5 text-xs rounded-md transition-all flex items-center gap-1.5", engine === "voicebox_clone" ? "bg-purple-50 text-purple-600 shadow-sm font-medium border border-purple-200" : "text-muted-foreground hover:text-foreground")}
+                        >
+                          <Volume2 size={11} className={engine === "voicebox_clone" ? "text-purple-600" : ""} />
+                          VB Clone 🎤
+                        </button>
                       </div>
+
+                      {/* OpenAI voice dropdown - only when VB Standard selected */}
+                      {engine === "voicebox" && (
+                        <select
+                          value={callingVoiceId}
+                          onChange={(e) => setCallingVoiceId(e.target.value)}
+                          className="text-xs bg-secondary/30 border border-border/50 rounded-lg px-2 py-1.5 outline-none focus:border-indigo-400 text-muted-foreground"
+                          title="Select OpenAI Voice"
+                        >
+                          <option value="shimmer">Shimmer (Female)</option>
+                          <option value="nova">Nova (Female)</option>
+                          <option value="alloy">Alloy (Neutral)</option>
+                          <option value="echo">Echo (Male)</option>
+                          <option value="onyx">Onyx (Male)</option>
+                        </select>
+                      )}
                     </div>
+
+                    {/* Engine description */}
+                    {engine === "vapi" && (
+                      <p className="text-[10px] text-muted-foreground">⚡ Vapi Cloud — Groq Llama 3 + ElevenLabs voice. Best for Hinglish/Hindi.</p>
+                    )}
+                    {engine === "voicebox" && (
+                      <p className="text-[10px] text-indigo-400">🎙️ VB Standard — GPT-4o brain + OpenAI TTS. Natural human-like quality.</p>
+                    )}
+                    {engine === "voicebox_clone" && (
+                      <p className="text-[10px] text-purple-400">🎤 VB Clone — GPT-4o brain + Cloned voice engine (local Docker).</p>
+                    )}
                   </div>
-                )}
                 </div>
                 <Button variant="secondary" size="sm" className="w-full gap-2 text-xs cursor-pointer" onClick={handlePreview} disabled={previewing || !script.trim()}>
                   {previewing ? <><Loader2 size={11} className="animate-spin" /> Playing preview…</> : <><Volume2 size={11} /> Preview Voice</>}

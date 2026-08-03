@@ -28,10 +28,13 @@ const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
 
 // OpenAI Voices mapping
 const OPENAI_VOICES: Record<string, string> = {
-  rachel: "nova",   
-  sarah:  "shimmer", 
-  drew:   "echo",    
-  paul:   "onyx",    
+  nova: "nova",
+  shimmer: "shimmer",
+  alloy: "alloy",
+  echo: "echo",
+  onyx: "onyx",
+  rachel: "nova", // backwards compat
+  sarah: "shimmer", // backwards compat
 };
 
 app.post('/twiml', (req, res) => {
@@ -93,6 +96,7 @@ wss.on('connection', (ws, req) => {
   let streamSid = '';
   let deepgramLive: any = null;
   let isAITalking = false;
+  let greetingDone = false; // Block user input until greeting completes
   let currentPlaybackChain: Promise<void> | null = null;
   let conversationHistory: any[] = [];
   let activeTurnId = 0;
@@ -232,7 +236,11 @@ wss.on('connection', (ws, req) => {
       if (cleanTranscript.length > 0 && response.is_final) {
         console.log(`👤 User said: "${transcript}"`);
 
-        // Interruption Logic
+        // Interruption Logic - only after greeting is done
+        if (!greetingDone) {
+          console.log("⏭️ Skipping user input (greeting not yet complete)");
+          return;
+        }
         if (isAITalking && transcript.length > 5) {
           console.log("🛑 INTERRUPTION DETECTED! Stopping AI.");
           activeTurnId++; 
@@ -325,7 +333,7 @@ wss.on('connection', (ws, req) => {
 
       conversationHistory = [{ role: "system", content: systemContent }];
       
-      // Trigger Initial Greeting after 1.5 seconds
+      // Trigger Initial Greeting after 2 seconds
       setTimeout(async () => {
         if (!isAITalking) {
           isAITalking = true;
@@ -338,17 +346,20 @@ wss.on('connection', (ws, req) => {
             if (isAITalking && myTurnId === activeTurnId) {
               conversationHistory.push({ role: "assistant", content: greeting });
               console.log("✅ Greeting delivered successfully");
-              isAITalking = false;
             }
           } catch (err) {
             console.error("❌ Greeting failed:", err);
+          } finally {
             isAITalking = false;
+            greetingDone = true; // Now allow user input
+            console.log("🟢 Ready for user input");
           }
         }
-      }, 1500);
+      }, 2000);
       
     } else if (msg.event === 'media') {
-      if (deepgramLive && deepgramLive.readyState === WebSocket.OPEN) {
+      // Only forward audio to Deepgram after greeting completes
+      if (greetingDone && deepgramLive && deepgramLive.readyState === WebSocket.OPEN) {
         deepgramLive.send(Buffer.from(msg.media.payload, 'base64'));
       }
     } else if (msg.event === 'stop') {

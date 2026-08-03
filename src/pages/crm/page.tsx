@@ -53,7 +53,8 @@ export default function CRMPage() {
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   // AI Calling state
   const [callingLeadId, setCallingLeadId] = useState<string | null>(null);
-  const [callingEngine, setCallingEngine] = useState<"vapi" | "voicebox" | "voicebox_clone">("vapi");
+  const [callingEngine, setCallingEngine] = useState<"vapi" | "voicebox" | "voicebox_clone">("voicebox");
+  const [callingVoiceId, setCallingVoiceId] = useState<string>("shimmer");
 
   // Inbox & Tabs State
   const [activeTab, setActiveTab] = useState<"pipeline" | "inbox">("pipeline");
@@ -179,7 +180,7 @@ export default function CRMPage() {
           "Authorization": `Bearer ${session.access_token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ leadId: lead.id, engine: callingEngine }),
+        body: JSON.stringify({ leadId: lead.id, engine: callingEngine, voiceId: callingVoiceId }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Call failed");
@@ -233,6 +234,21 @@ export default function CRMPage() {
               VB Clone 🎤
             </button>
           </div>
+
+          {callingEngine === "voicebox" && (
+            <select
+              value={callingVoiceId}
+              onChange={(e) => setCallingVoiceId(e.target.value)}
+              className="text-xs bg-secondary/30 border border-border/50 rounded-lg px-2 py-1.5 outline-none focus:border-indigo-400 text-muted-foreground"
+              title="Select OpenAI Voice"
+            >
+              <option value="shimmer">Shimmer (Female)</option>
+              <option value="nova">Nova (Female)</option>
+              <option value="alloy">Alloy (Neutral)</option>
+              <option value="echo">Echo (Male)</option>
+              <option value="onyx">Onyx (Male)</option>
+            </select>
+          )}
 
           <div className="flex gap-2">
           <Button 

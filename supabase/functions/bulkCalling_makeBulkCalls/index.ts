@@ -14,7 +14,7 @@ serve(async (req) => {
   }
 
   try {
-    const { numbers, message, voice, whatsappLink, waMediaUrl } = await req.json()
+    const { numbers, message, voice, whatsappLink, waMediaUrl, engine = "vapi", voiceId = "nova" } = await req.json()
 
     // Get user id from token
     const authHeader = req.headers.get('Authorization')
@@ -28,9 +28,17 @@ serve(async (req) => {
 
     const vapiApiKey = Deno.env.get("VAPI_API_KEY")
     const vapiPhoneNumberId = Deno.env.get("VAPI_PHONE_NUMBER_ID")
+    const twilioAccountSid = Deno.env.get("TWILIO_ACCOUNT_SID")
+    const twilioAuthToken = Deno.env.get("TWILIO_AUTH_TOKEN")
+    const twilioPhoneNumber = Deno.env.get("TWILIO_PHONE_NUMBER")
+    const wsServerBase = Deno.env.get("WS_SERVER_URL") || "https://your-ngrok-url.ngrok.app/twiml"
 
-    if (!vapiApiKey || !vapiPhoneNumberId) {
+    if (engine === "vapi" && (!vapiApiKey || !vapiPhoneNumberId)) {
       throw new Error("Missing VAPI_API_KEY or VAPI_PHONE_NUMBER_ID in Supabase secrets.")
+    }
+    
+    if (engine !== "vapi" && (!twilioAccountSid || !twilioAuthToken || !twilioPhoneNumber)) {
+      throw new Error("Twilio config missing for Voicebox engine")
     }
 
     const systemPrompt = message || `आप Pooja हैं, Leadzo AI की एक professional sales executive। आप outbound calls करती हैं।
@@ -100,77 +108,110 @@ serve(async (req) => {
           formattedNumber = '+' + formattedNumber;
         }
 
-        const vapiRes = await fetch("https://api.vapi.ai/call/phone", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${vapiApiKey}`,
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            phoneNumberId: vapiPhoneNumberId,
-            customer: { number: formattedNumber },
-            metadata: { userId, whatsappLink: whatsappLink || "", waMediaUrl: waMediaUrl || "" },
-            assistant: {
-              firstMessage: extractedFirstMessage,
-              model: {
-                provider: "groq",
-                model: "llama3-70b-8192",
-                messages: [
-                  {
-                    role: "system",
-                    content: systemPrompt
-                  }
-                ],
-                temperature: 0.4,
-                maxTokens: 250,
-                // Tool to send WhatsApp link when customer agrees
-                ...(whatsappLink ? {
-                  tools: [
+        if (engine === "vapi") {
+          const vapiRes = await fetch("https://api.vapi.ai/call/phone", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${vapiApiKey}`,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              phoneNumberId: vapiPhoneNumberId,
+              customer: { number: formattedNumber },
+              metadata: { userId, whatsappLink: whatsappLink || "", waMediaUrl: waMediaUrl || "" },
+              assistant: {
+                firstMessage: extractedFirstMessage,
+                model: {
+                  provider: "groq",
+                  model: "llama3-70b-8192",
+                  messages: [
                     {
-                      type: "function",
-                      function: {
-                        name: "sendWhatsAppLink",
-                        description: "जब कस्टमर agree करे तो इस tool को call करो ताकि उन्हें WhatsApp पर link मिल सके। यह tool call करो और साथ में बोलो: 'मैंने आपको WhatsApp पर link भेज दी है।'",
-                        parameters: {
-                          type: "object",
-                          properties: {}
-                        }
-                      },
-                      server: {
-                        url: "https://stbqeiapgdaklktrlrjm.supabase.co/functions/v1/vapi_tool_handler"
-                      }
+                      role: "system",
+                      content: systemPrompt
                     }
-                  ]
-                } : {})
-              },
-              voice: {
-                provider: "vapi",
-                voiceId: "Sagar"
-              },
-              transcriber: {
-                provider: "11labs",
-                language: "hi"
-              },
-              language: "hi",
-              recordingEnabled: false,
-              backgroundSound: "off",
-              backgroundDenoisingEnabled: true,
-              backchannelingEnabled: true,
-              endCallFunctionEnabled: true,
-              endCallPhrases: ["धन्यवाद! नमस्ते", "धन्यवाद नमस्ते", "आपका समय देने के लिए बहुत-बहुत धन्यवाद"],
-              endCallMessage: "आपका समय देने के लिए बहुत-बहुत धन्यवाद! नमस्ते!"
-            }
+                  ],
+                  temperature: 0.4,
+                  maxTokens: 250,
+                  ...(whatsappLink ? {
+                    tools: [
+                      {
+                        type: "function",
+                        function: {
+                          name: "sendWhatsAppLink",
+                          description: "जब कस्टमर agree करे तो इस tool को call करो ताकि उन्हें WhatsApp पर link मिल सके। यह tool call करो और साथ में बोलो: 'मैंने आपको WhatsApp पर link भेज दी है।'",
+                          parameters: {
+                            type: "object",
+                            properties: {}
+                          }
+                        },
+                        server: {
+                          url: "https://stbqeiapgdaklktrlrjm.supabase.co/functions/v1/vapi_tool_handler"
+                        }
+                      }
+                    ]
+                  } : {})
+                },
+                voice: {
+                  provider: "vapi",
+                  voiceId: "Sagar"
+                },
+                transcriber: {
+                  provider: "11labs",
+                  language: "hi"
+                },
+                language: "hi",
+                recordingEnabled: false,
+                backgroundSound: "off",
+                backgroundDenoisingEnabled: true,
+                backchannelingEnabled: true,
+                endCallFunctionEnabled: true,
+                endCallPhrases: ["धन्यवाद! नमस्ते", "धन्यवाद नमस्ते", "आपका समय देने के लिए बहुत-बहुत धन्यवाद"],
+                endCallMessage: "आपका समय देने के लिए बहुत-बहुत धन्यवाद! नमस्ते!"
+              }
+            })
           })
-        })
 
-        const vapiData = await vapiRes.json()
+          const vapiData = await vapiRes.json()
 
-        if (!vapiRes.ok) {
-          console.error(`Failed to call ${number}:`, vapiData)
-          results.push({ success: false, number, error: vapiData.message || "Vapi call failed" })
+          if (!vapiRes.ok) {
+            console.error(`Failed to call ${number}:`, vapiData)
+            results.push({ success: false, number, error: vapiData.message || "Vapi call failed" })
+          } else {
+            console.log(`✅ Vapi call initiated to ${number}, ID: ${vapiData.id}`)
+            results.push({ success: true, number, callSid: vapiData.id })
+          }
         } else {
-          console.log(`✅ Vapi call initiated to ${number}, ID: ${vapiData.id}`)
-          results.push({ success: true, number, callSid: vapiData.id })
+          // Twilio / Voicebox call
+          const webhookUrl = new URL(wsServerBase)
+          if (engine === "voicebox_clone") {
+            webhookUrl.searchParams.set("use_cloned_voice", "true")
+          }
+          if (voiceId) {
+            webhookUrl.searchParams.set("voice", voiceId)
+          }
+          const twimlWebhookUrl = webhookUrl.toString()
+
+          const twilioRes = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${twilioAccountSid}/Calls.json`, {
+            method: "POST",
+            headers: {
+              "Authorization": "Basic " + btoa(`${twilioAccountSid}:${twilioAuthToken}`),
+              "Content-Type": "application/x-www-form-urlencoded"
+            },
+            body: new URLSearchParams({
+              To: formattedNumber,
+              From: twilioPhoneNumber,
+              Url: twimlWebhookUrl,
+            })
+          })
+          
+          if (!twilioRes.ok) {
+            const errText = await twilioRes.text()
+            results.push({ success: false, number, error: "Twilio error: " + errText })
+          } else {
+            const twilioData = await twilioRes.json()
+            console.log(`✅ Twilio Voicebox call initiated to ${number}, ID: ${twilioData.sid}`)
+            results.push({ success: true, number, callSid: twilioData.sid })
+          }
         }
       } catch (e: any) {
         results.push({ success: false, number, error: e.message })

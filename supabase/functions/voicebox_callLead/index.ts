@@ -22,7 +22,7 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.replace("Bearer ", ""))
     if (authError || !user) throw new Error("Invalid token")
 
-    const { leadId, script, engine = "vapi" } = await req.json()
+    const { leadId, script, engine = "vapi", voiceId = "nova" } = await req.json()
     // engine: "vapi" | "voicebox" | "voicebox_clone"
     if (!leadId) throw new Error("Missing leadId")
 
@@ -103,10 +103,15 @@ serve(async (req) => {
       if (!twilioAccountSid || !twilioAuthToken || !twilioPhoneNumber) throw new Error("Twilio config missing for Voicebox engine")
 
       const wsServerBase = Deno.env.get("WS_SERVER_URL") || "https://your-ngrok-url.ngrok.app/twiml"
-      // For clone mode, append use_cloned_voice=true so ws-server uses local Voicebox Docker TTS
-      const twimlWebhookUrl = engine === "voicebox_clone"
-        ? `${wsServerBase}?use_cloned_voice=true`
-        : wsServerBase
+      // Build the webhook URL with query params
+      const webhookUrl = new URL(wsServerBase)
+      if (engine === "voicebox_clone") {
+        webhookUrl.searchParams.set("use_cloned_voice", "true")
+      }
+      if (voiceId) {
+        webhookUrl.searchParams.set("voice", voiceId)
+      }
+      const twimlWebhookUrl = webhookUrl.toString()
 
       const twilioRes = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${twilioAccountSid}/Calls.json`, {
         method: "POST",
