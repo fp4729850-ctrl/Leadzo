@@ -110,66 +110,54 @@ wss.on('connection', (ws, req) => {
 
   console.log(`📞 New call | Voice: ${selectedVoice} | Mode: ${useClonedVoice ? '🎤 Voicebox Clone' : '🔊 OpenAI TTS'}`);
 
-  // ===== Voicebox Clone TTS Helper (Local Docker) =====
+  // ===== ElevenLabs Cloned Voice TTS Helper =====
   async function speakViaVoiceboxTTS(textToSpeak: string, currentTurnId: number): Promise<void> {
     if (!isAITalking || currentTurnId !== activeTurnId) return;
     try {
-      console.log(`🎤 Voicebox Clone TTS: "${textToSpeak.substring(0, 50)}..."`);
-      // Use local Voicebox /speak endpoint
-      const vbRes = await fetch(`${VOICEBOX_URL}/speak`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: textToSpeak, profile: voiceboxProfileId || undefined })
-      });
-      if (!vbRes.ok) throw new Error(`Voicebox TTS failed: ${vbRes.statusText}`);
-      const vbData = await vbRes.json();
-      // Poll for generation result
-      const genId = vbData.id;
-      if (!genId) throw new Error('Voicebox did not return generation ID');
+      console.log(`🎤 ElevenLabs Cloned Voice TTS: "${textToSpeak.substring(0, 50)}..."`);
+      
+      const voiceId = voiceboxProfileId || 'kQvSCFzCwO6z2RCFMNRE';
+      const apiKey = process.env.ELEVENLABS_API_KEY;
+      if (!apiKey) throw new Error("ELEVENLABS_API_KEY missing");
 
-      // Poll status max 30 seconds
-      let audioUrl = '';
-      for (let i = 0; i < 30; i++) {
-        await new Promise(r => setTimeout(r, 1000));
-        const statusRes = await fetch(`${VOICEBOX_URL}/generate/${genId}/status`);
-        const statusText = await statusRes.text();
-        let statusData;
-        if (statusText.startsWith('data: ')) {
-          statusData = JSON.parse(statusText.substring(6).trim());
-        } else {
-          statusData = JSON.parse(statusText);
-        }
-        if (statusData.status === 'done' && statusData.audio_url) {
-          audioUrl = `${VOICEBOX_URL}${statusData.audio_url}`;
-          break;
-        }
-        if (statusData.status === 'error' || statusData.status === 'failed') throw new Error('Voicebox generation error: ' + (statusData.error || ''));
+      // Fetch ulaw_8000 (mu-law) audio directly from ElevenLabs
+      const elRes = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream?output_format=ulaw_8000`, {
+        method: 'POST',
+        headers: {
+          'xi-api-key': apiKey,
+          'Content-Type': 'application/json',
+          'accept': 'audio/wav-mulaw'
+        },
+        body: JSON.stringify({
+          text: textToSpeak,
+          model_id: 'eleven_multilingual_v2',
+          voice_settings: {
+            stability: 0.5,
+            similarity_boost: 0.75
+          }
+        })
+      });
+
+      if (!elRes.ok) {
+        const errText = await elRes.text();
+        throw new Error(`ElevenLabs TTS failed: ${errText}`);
       }
 
-      if (!audioUrl) throw new Error('Voicebox TTS timed out');
-
-      // Fetch audio bytes
-      const audioRes = await fetch(audioUrl);
-      const arrayBuffer = await audioRes.arrayBuffer();
+      const arrayBuffer = await elRes.arrayBuffer();
       if (!isAITalking || currentTurnId !== activeTurnId) return;
 
-      const { WaveFile } = await import('wavefile');
-      const wav = new WaveFile(Buffer.from(arrayBuffer));
-      wav.toSampleRate(8000);
-      wav.toMuLaw();
-      const mulawBuffer = Buffer.from((wav.data as any).samples);
-
-      const CHUNK_SIZE = 4000;
+      const mulawBuffer = Buffer.from(arrayBuffer);
+      const CHUNK_SIZE = 160; // 20ms chunks of 8kHz mu-law audio
       for (let i = 0; i < mulawBuffer.length; i += CHUNK_SIZE) {
         if (!isAITalking || currentTurnId !== activeTurnId) break;
         const end = Math.min(i + CHUNK_SIZE, mulawBuffer.length);
         ws.send(JSON.stringify({ event: 'media', streamSid, media: { payload: mulawBuffer.subarray(i, end).toString('base64') } }));
-        await new Promise(r => setTimeout(r, 100));
+        await new Promise(r => setTimeout(r, 20));
       }
     } catch (err: any) {
-      console.error('Voicebox TTS Error', err);
-      lastErrors.push('Voicebox TTS Error: ' + String(err));
-      // Fallback to OpenAI TTS if Voicebox fails
+      console.error('ElevenLabs TTS Error, falling back to OpenAI', err);
+      lastErrors.push('ElevenLabs TTS Error: ' + String(err));
+      // Fallback to OpenAI TTS if ElevenLabs fails
       await speakViaOpenAITTS(textToSpeak, currentTurnId);
     }
   }
