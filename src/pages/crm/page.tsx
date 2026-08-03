@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Users, Plus, Mail, Phone, Calendar, ArrowRight, ArrowLeft, Star, TrendingUp, Search, MessageSquare, Send, Mic, PhoneCall, Loader2 } from "lucide-react";
+import { Users, Plus, Mail, Phone, Calendar, ArrowRight, ArrowLeft, Star, TrendingUp, Search, MessageSquare, Send, Mic, PhoneCall, Loader2, Zap, Volume2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,7 +52,7 @@ export default function CRMPage() {
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   // AI Calling state
   const [callingLeadId, setCallingLeadId] = useState<string | null>(null);
-  const [callingEngine, setCallingEngine] = useState<"vapi" | "voicebox">("vapi");
+  const [callingEngine, setCallingEngine] = useState<"vapi" | "voicebox" | "voicebox_clone">("vapi");
 
   // Inbox & Tabs State
   const [activeTab, setActiveTab] = useState<"pipeline" | "inbox">("pipeline");
@@ -205,21 +205,31 @@ export default function CRMPage() {
         </div>
         
         <div className="flex items-center gap-2">
-          {/* Engine Toggle */}
+          {/* Engine Toggle - 3 Options */}
           <div className="flex items-center gap-1 bg-secondary/30 p-1 rounded-lg border border-border/50">
             <button 
               onClick={() => setCallingEngine("vapi")}
-              className={cn("px-3 py-1.5 text-xs rounded-md transition-all flex items-center gap-1.5", callingEngine === "vapi" ? "bg-background shadow-sm font-medium border border-border/50" : "text-muted-foreground hover:text-foreground")}
+              title="Vapi Cloud: Groq LLM + Vapi/ElevenLabs voice"
+              className={cn("px-2.5 py-1.5 text-xs rounded-md transition-all flex items-center gap-1.5", callingEngine === "vapi" ? "bg-background shadow-sm font-medium border border-border/50" : "text-muted-foreground hover:text-foreground")}
             >
-              <Zap size={12} className={callingEngine === "vapi" ? "text-yellow-500" : ""} />
-              Vapi (Cloud)
+              <Zap size={11} className={callingEngine === "vapi" ? "text-yellow-500" : ""} />
+              Vapi
             </button>
             <button 
               onClick={() => setCallingEngine("voicebox")}
-              className={cn("px-3 py-1.5 text-xs rounded-md transition-all flex items-center gap-1.5", callingEngine === "voicebox" ? "bg-indigo-50 text-indigo-600 shadow-sm font-medium border border-indigo-200" : "text-muted-foreground hover:text-foreground")}
+              title="Voicebox Standard: GPT-4o + OpenAI Voice (Nova/Shimmer/Echo)"
+              className={cn("px-2.5 py-1.5 text-xs rounded-md transition-all flex items-center gap-1.5", callingEngine === "voicebox" ? "bg-indigo-50 text-indigo-600 shadow-sm font-medium border border-indigo-200" : "text-muted-foreground hover:text-foreground")}
             >
-              <Mic size={12} className={callingEngine === "voicebox" ? "text-indigo-600" : ""} />
-              Voicebox (Local)
+              <Mic size={11} className={callingEngine === "voicebox" ? "text-indigo-600" : ""} />
+              VB Standard
+            </button>
+            <button 
+              onClick={() => setCallingEngine("voicebox_clone")}
+              title="Voicebox Clone: GPT-4o + Aapki Cloned Awaaz (Local)"
+              className={cn("px-2.5 py-1.5 text-xs rounded-md transition-all flex items-center gap-1.5", callingEngine === "voicebox_clone" ? "bg-purple-50 text-purple-600 shadow-sm font-medium border border-purple-200" : "text-muted-foreground hover:text-foreground")}
+            >
+              <Volume2 size={11} className={callingEngine === "voicebox_clone" ? "text-purple-600" : ""} />
+              VB Clone 🎤
             </button>
           </div>
 

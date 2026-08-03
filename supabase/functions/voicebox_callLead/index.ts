@@ -23,6 +23,7 @@ serve(async (req) => {
     if (authError || !user) throw new Error("Invalid token")
 
     const { leadId, script, engine = "vapi" } = await req.json()
+    // engine: "vapi" | "voicebox" | "voicebox_clone"
     if (!leadId) throw new Error("Missing leadId")
 
     // 1. Get the lead's phone number
@@ -92,16 +93,18 @@ serve(async (req) => {
       const vapiData = await vapiRes.json()
       callId = vapiData.id
     } else {
-      // Custom Voicebox Logic via Twilio
+      // Custom Voicebox Logic via Twilio (voicebox OR voicebox_clone)
       const twilioAccountSid = Deno.env.get("TWILIO_ACCOUNT_SID")
       const twilioAuthToken = Deno.env.get("TWILIO_AUTH_TOKEN")
       const twilioPhoneNumber = Deno.env.get("TWILIO_PHONE_NUMBER")
       
       if (!twilioAccountSid || !twilioAuthToken || !twilioPhoneNumber) throw new Error("Twilio config missing for Voicebox engine")
 
-      // We need an ngrok URL pointing to the local ws-server
-      // Currently defaulting to a placeholder until user runs ngrok
-      const twimlWebhookUrl = Deno.env.get("WS_SERVER_URL") || "https://your-ngrok-url.ngrok.app/twilio/webhook"
+      const wsServerBase = Deno.env.get("WS_SERVER_URL") || "https://your-ngrok-url.ngrok.app/twiml"
+      // For clone mode, append use_cloned_voice=true so ws-server uses local Voicebox Docker TTS
+      const twimlWebhookUrl = engine === "voicebox_clone"
+        ? `${wsServerBase}?use_cloned_voice=true`
+        : wsServerBase
 
       const twilioRes = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${twilioAccountSid}/Calls.json`, {
         method: "POST",
@@ -130,7 +133,7 @@ serve(async (req) => {
       lead_id: leadId,
       platform: "ai_call",
       direction: "outbound",
-      content: `📞 AI Call placed to ${lead.phone} via ${engine.toUpperCase()}. Script: "${callScript.substring(0, 100)}..."`,
+      content: `📞 AI Call placed to ${lead.phone} via ${engine === "voicebox_clone" ? "Voicebox Clone 🎤" : engine.toUpperCase()}. Script: "${callScript.substring(0, 100)}..."`,
     })
 
     return new Response(

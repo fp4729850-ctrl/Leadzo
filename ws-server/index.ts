@@ -17,6 +17,7 @@ const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
 const { DEEPGRAM_API_KEY, OPENAI_API_KEY } = process.env;
+const VOICEBOX_URL = process.env.VOICEBOX_URL || 'http://localhost:17600';
 
 if (!DEEPGRAM_API_KEY || !OPENAI_API_KEY) {
   console.error("Missing critical API Keys in .env");
@@ -86,6 +87,8 @@ wss.on('connection', (ws, req) => {
   const urlParams = new URLSearchParams(req.url.split('?')[1] || '');
   let selectedVoice = urlParams.get('voice') || 'rachel';
   let openAIVoice = OPENAI_VOICES[selectedVoice] || OPENAI_VOICES.rachel;
+  const useClonedVoice = urlParams.get('use_cloned_voice') === 'true';
+  const voiceboxProfileId = urlParams.get('profile_id') || '';  // Voicebox profile ID for clone
 
   let streamSid = '';
   let deepgramLive: any = null;
@@ -94,7 +97,68 @@ wss.on('connection', (ws, req) => {
   let conversationHistory: any[] = [];
   let activeTurnId = 0;
 
-  console.log(`📞 New call connected | Voice: ${selectedVoice} (OpenAI: ${openAIVoice})`);
+  console.log(`📞 New call | Voice: ${selectedVoice} | Mode: ${useClonedVoice ? '🎤 Voicebox Clone' : '🔊 OpenAI TTS'}`);
+
+  // ===== Voicebox Clone TTS Helper (Local Docker) =====
+  async function speakViaVoiceboxTTS(textToSpeak: string, currentTurnId: number): Promise<void> {
+    if (!isAITalking || currentTurnId !== activeTurnId) return;
+    try {
+      console.log(`🎤 Voicebox Clone TTS: "${textToSpeak.substring(0, 50)}..."`);
+      // Use local Voicebox /speak endpoint
+      const vbRes = await fetch(`${VOICEBOX_URL}/speak`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: textToSpeak, profile: voiceboxProfileId || undefined })
+      });
+      if (!vbRes.ok) throw new Error(`Voicebox TTS failed: ${vbRes.statusText}`);
+      const vbData = await vbRes.json();
+      // Poll for generation result
+      const genId = vbData.id;
+      if (!genId) throw new Error('Voicebox did not return generation ID');
+
+      // Poll status max 30 seconds
+      let audioUrl = '';
+      for (let i = 0; i < 30; i++) {
+        await new Promise(r => setTimeout(r, 1000));
+        const statusRes = await fetch(`${VOICEBOX_URL}/generate/${genId}/status`);
+        const statusData = await statusRes.json();
+        if (statusData.status === 'done' && statusData.audio_url) {
+          audioUrl = `${VOICEBOX_URL}${statusData.audio_url}`;
+          break;
+        }
+        if (statusData.status === 'error') throw new Error('Voicebox generation error');
+      }
+
+      if (!audioUrl) throw new Error('Voicebox TTS timed out');
+
+      // Fetch audio bytes
+      const audioRes = await fetch(audioUrl);
+      const arrayBuffer = await audioRes.arrayBuffer();
+      if (!isAITalking || currentTurnId !== activeTurnId) return;
+
+      const { WaveFile } = await import('wavefile');
+      const wav = new WaveFile(Buffer.from(arrayBuffer));
+      wav.toSampleRate(8000);
+      wav.toMuLaw();
+      const mulawBuffer = Buffer.from((wav.data as any).samples);
+
+      const CHUNK_SIZE = 4000;
+      for (let i = 0; i < mulawBuffer.length; i += CHUNK_SIZE) {
+        if (!isAITalking || currentTurnId !== activeTurnId) break;
+        const end = Math.min(i + CHUNK_SIZE, mulawBuffer.length);
+        ws.send(JSON.stringify({ event: 'media', streamSid, media: { payload: mulawBuffer.subarray(i, end).toString('base64') } }));
+        await new Promise(r => setTimeout(r, 100));
+      }
+    } catch (err: any) {
+      console.error('Voicebox TTS Error', err);
+      lastErrors.push('Voicebox TTS Error: ' + String(err));
+      // Fallback to OpenAI TTS if Voicebox fails
+      await speakViaOpenAITTS(textToSpeak, currentTurnId);
+    }
+  }
+
+  // Pick TTS function based on mode
+  const speakText = useClonedVoice ? speakViaVoiceboxTTS : speakViaOpenAITTS;
 
   // ===== OpenAI TTS Helper: Speak a text phrase and stream PCM to Twilio =====
   async function speakViaOpenAITTS(textToSpeak: string, currentTurnId: number): Promise<void> {
@@ -208,7 +272,7 @@ wss.on('connection', (ws, req) => {
                 const phrase = sentenceBuffer.trim();
                 sentenceBuffer = ""; 
                 if (phrase.length > 0) {
-                  currentPlaybackChain = currentPlaybackChain.then(() => speakViaOpenAITTS(phrase, myTurnId));
+          currentPlaybackChain = currentPlaybackChain.then(() => speakText(phrase, myTurnId));
                 }
               }
             }
@@ -216,7 +280,7 @@ wss.on('connection', (ws, req) => {
           
           if (sentenceBuffer.trim().length > 0) {
             const phrase = sentenceBuffer.trim();
-            currentPlaybackChain = currentPlaybackChain.then(() => speakViaOpenAITTS(phrase, myTurnId));
+            currentPlaybackChain = currentPlaybackChain.then(() => speakText(phrase, myTurnId));
           }
 
           await currentPlaybackChain;
@@ -270,7 +334,7 @@ wss.on('connection', (ws, req) => {
           const greeting = "Namaste! Main Leadzo se baat kar rahi hoon. Main aapki kaise madad kar sakti hoon?";
           console.log("🗣️ Sending initial greeting:", greeting);
           try {
-            await speakViaOpenAITTS(greeting, myTurnId);
+            await speakText(greeting, myTurnId);
             if (isAITalking && myTurnId === activeTurnId) {
               conversationHistory.push({ role: "assistant", content: greeting });
               console.log("✅ Greeting delivered successfully");
