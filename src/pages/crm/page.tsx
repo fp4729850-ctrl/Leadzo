@@ -54,7 +54,7 @@ export default function CRMPage() {
   // AI Calling state
   const [callingLeadId, setCallingLeadId] = useState<string | null>(null);
   const [callingEngine, setCallingEngine] = useState<"vapi" | "voicebox" | "voicebox_clone">("voicebox");
-  const [callingVoiceId, setCallingVoiceId] = useState<string>("shimmer");
+  const [callingVoiceId, setCallingVoiceId] = useState<string>("sagar");
 
   // Inbox & Tabs State
   const [activeTab, setActiveTab] = useState<"pipeline" | "inbox">("pipeline");
@@ -234,6 +234,18 @@ export default function CRMPage() {
               VB Clone 🎤
             </button>
           </div>
+
+          {callingEngine === "vapi" && (
+            <select
+              value={callingVoiceId}
+              onChange={(e) => setCallingVoiceId(e.target.value)}
+              className="text-xs bg-secondary/30 border border-border/50 rounded-lg px-2 py-1.5 outline-none focus:border-yellow-400 text-muted-foreground"
+              title="Select Vapi Voice"
+            >
+              <option value="sagar">Sagar (Indian Male)</option>
+              <option value="aria">Aria (Indian Female - 11Labs)</option>
+            </select>
+          )}
 
           {callingEngine === "voicebox" && (
             <select

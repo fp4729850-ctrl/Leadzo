@@ -322,7 +322,7 @@ export default function BulkCallingPage() {
   const [waMediaType, setWaMediaType] = useState("");
   const [mediaUploading, setMediaUploading] = useState(false);
   const [engine, setEngine] = useState<"vapi" | "voicebox" | "voicebox_clone">("voicebox");
-  const [callingVoiceId, setCallingVoiceId] = useState<string>("shimmer");
+  const [callingVoiceId, setCallingVoiceId] = useState<string>("sagar");
   const [ttsEngine, setTtsEngine] = useState<"elevenlabs" | "deepgram">("elevenlabs");
   const [showGenerator, setShowGenerator] = useState(false);
   const [showTest, setShowTest] = useState(false);
@@ -548,6 +548,18 @@ export default function BulkCallingPage() {
                           VB Clone 🎤
                         </button>
                       </div>
+                      {/* Vapi voice dropdown - only when Vapi selected */}
+                      {engine === "vapi" && (
+                        <select
+                          value={callingVoiceId}
+                          onChange={(e) => setCallingVoiceId(e.target.value)}
+                          className="text-xs bg-secondary/30 border border-border/50 rounded-lg px-2 py-1.5 outline-none focus:border-yellow-400 text-muted-foreground"
+                          title="Select Vapi Voice"
+                        >
+                          <option value="sagar">Sagar (Indian Male)</option>
+                          <option value="aria">Aria (Indian Female - 11Labs)</option>
+                        </select>
+                      )}
 
                       {/* OpenAI voice dropdown - only when VB Standard selected */}
                       {engine === "voicebox" && (

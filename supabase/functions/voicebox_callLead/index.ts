@@ -48,6 +48,23 @@ serve(async (req) => {
 
       if (!vapiApiKey || !vapiPhoneNumberId) throw new Error("VAPI config missing")
 
+      let vapiVoice;
+      if (voiceId === "aria") {
+        vapiVoice = {
+          provider: "11labs",
+          voiceId: "9BWtsMINqrJLrRacOk9x", // Aria
+          model: "eleven_multilingual_v2",
+          stability: 0.7,
+          similarityBoost: 0.75
+        };
+      } else {
+        // Default to Sagar
+        vapiVoice = {
+          provider: "vapi",
+          voiceId: "Sagar"
+        };
+      }
+
       // Create outbound call via Vapi
       const vapiRes = await fetch("https://api.vapi.ai/call", {
         method: "POST",
@@ -77,10 +94,7 @@ serve(async (req) => {
                 }
               ],
             },
-            voice: {
-              provider: "11labs",
-              voiceId: "paula",
-            },
+            voice: vapiVoice,
             firstMessage: `Hello, may I speak with ${name || "you"}? This is an automated follow-up from Leadzo AI.`,
             endCallFunctionEnabled: true,
           },

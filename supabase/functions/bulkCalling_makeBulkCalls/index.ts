@@ -75,7 +75,7 @@ serve(async (req) => {
 
     // Map UI voice parameter to actual voice model settings
     let vapiVoice;
-    if (voice === "aria") {
+    if (voiceId === "aria") {
       vapiVoice = {
         provider: "11labs",
         voiceId: "9BWtsMINqrJLrRacOk9x", // Aria
@@ -151,10 +151,7 @@ serve(async (req) => {
                     ]
                   } : {})
                 },
-                voice: {
-                  provider: "vapi",
-                  voiceId: "Sagar"
-                },
+                voice: vapiVoice,
                 transcriber: {
                   provider: "11labs",
                   language: "hi"
