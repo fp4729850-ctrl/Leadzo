@@ -322,7 +322,7 @@ export default function BulkCallingPage() {
   const [waMediaType, setWaMediaType] = useState("");
   const [mediaUploading, setMediaUploading] = useState(false);
   const [engine, setEngine] = useState<"vapi" | "voicebox" | "voicebox_clone">("voicebox");
-  const [callingVoiceId, setCallingVoiceId] = useState<string>("sagar");
+  const [callingVoiceId, setCallingVoiceId] = useState<string>("cartesia_indian");
   const [ttsEngine, setTtsEngine] = useState<"elevenlabs" | "deepgram">("elevenlabs");
   const [showGenerator, setShowGenerator] = useState(false);
   const [showTest, setShowTest] = useState(false);
@@ -556,8 +556,28 @@ export default function BulkCallingPage() {
                           className="text-xs bg-secondary/30 border border-border/50 rounded-lg px-2 py-1.5 outline-none focus:border-yellow-400 text-muted-foreground"
                           title="Select Vapi Voice"
                         >
-                          <option value="sagar">Sagar (Indian Male)</option>
-                          <option value="aria">Aria (Indian Female - 11Labs)</option>
+                          <optgroup label="🆓 Vapi Built-in (Free)">
+                            <option value="sagar">Sagar — Indian Male 🇮🇳 (Free)</option>
+                          </optgroup>
+                          <optgroup label="⚡ Cartesia (Fastest · Low Cost)">
+                            <option value="cartesia_female">Cartesia — Female English</option>
+                            <option value="cartesia_male">Cartesia — Male English</option>
+                            <option value="cartesia_indian">Cartesia — Indian English 🇮🇳</option>
+                          </optgroup>
+                          <optgroup label="💰 Neets (Cheapest)">
+                            <option value="neets_female">Neets — US Female</option>
+                            <option value="neets_male">Neets — US Male</option>
+                          </optgroup>
+                          <optgroup label="🎙️ OpenAI TTS (Natural)">
+                            <option value="nova">Nova — Female (Best)</option>
+                            <option value="shimmer">Shimmer — Female (Soft)</option>
+                            <option value="alloy">Alloy — Neutral</option>
+                          </optgroup>
+                          <optgroup label="🔥 ElevenLabs (Premium)">
+                            <option value="aria">Aria — Indian Female 🇮🇳</option>
+                            <option value="priya">Priya — Indian Female 🇮🇳</option>
+                            <option value="rachel">Rachel — Warm Female</option>
+                          </optgroup>
                         </select>
                       )}
 
@@ -580,7 +600,7 @@ export default function BulkCallingPage() {
 
                     {/* Engine description */}
                     {engine === "vapi" && (
-                      <p className="text-[10px] text-muted-foreground">⚡ Vapi Cloud — Groq Llama 3 + ElevenLabs voice. Best for Hinglish/Hindi.</p>
+                    <p className="text-[10px] text-muted-foreground">⚡ Vapi Cloud — Groq LLM + Custom Voice. Cartesia (fastest), Neets (cheapest), ElevenLabs (premium). Hindi/Hinglish perfect.</p>
                     )}
                     {engine === "voicebox" && (
                       <p className="text-[10px] text-indigo-400">🎙️ VB Standard — GPT-4o brain + OpenAI TTS. Natural human-like quality.</p>

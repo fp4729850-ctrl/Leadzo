@@ -49,20 +49,39 @@ serve(async (req) => {
       if (!vapiApiKey || !vapiPhoneNumberId) throw new Error("VAPI config missing")
 
       let vapiVoice;
+      // ── Voice Provider Map ──────────────────────────────────────────
+      // ElevenLabs voices (premium quality, multilingual)
       if (voiceId === "aria") {
-        vapiVoice = {
-          provider: "11labs",
-          voiceId: "9BWtsMINqrJLrRacOk9x", // Aria
-          model: "eleven_multilingual_v2",
-          stability: 0.7,
-          similarityBoost: 0.75
-        };
+        vapiVoice = { provider: "11labs", voiceId: "9BWtsMINqrJLrRacOk9x", model: "eleven_multilingual_v2", stability: 0.5, similarityBoost: 0.75 };
+      } else if (voiceId === "priya") {
+        // ElevenLabs - Indian Female (Priya) - natural Hindi/Hinglish accent
+        vapiVoice = { provider: "11labs", voiceId: "ThT5KcBeYPX3keUQqHPh", model: "eleven_multilingual_v2", stability: 0.5, similarityBoost: 0.75 };
+      } else if (voiceId === "rachel") {
+        // ElevenLabs - Rachel (warm natural female)
+        vapiVoice = { provider: "11labs", voiceId: "21m00Tcm4TlvDq8ikWAM", model: "eleven_multilingual_v2", stability: 0.5, similarityBoost: 0.75 };
+      // Cartesia voices (ultra-low latency, excellent quality)
+      } else if (voiceId === "cartesia_female") {
+        vapiVoice = { provider: "cartesia", voiceId: "79a125e8-cd45-4c13-8a67-188112f4dd22", model: "sonic-english" };
+      } else if (voiceId === "cartesia_male") {
+        vapiVoice = { provider: "cartesia", voiceId: "a0e99841-438c-4a64-b679-ae501e7d6091", model: "sonic-english" };
+      } else if (voiceId === "cartesia_indian") {
+        // Cartesia - Indian English accent
+        vapiVoice = { provider: "cartesia", voiceId: "638efaaa-4d0c-442e-b701-3fae16aad012", model: "sonic-multilingual" };
+      // Neets voices (cheapest, good Indian accent)
+      } else if (voiceId === "neets_female") {
+        vapiVoice = { provider: "neets", voiceId: "us-female-2" };
+      } else if (voiceId === "neets_male") {
+        vapiVoice = { provider: "neets", voiceId: "us-male-1" };
+      // OpenAI voices (reliable, natural)
+      } else if (voiceId === "nova") {
+        vapiVoice = { provider: "openai", voiceId: "nova" };
+      } else if (voiceId === "shimmer") {
+        vapiVoice = { provider: "openai", voiceId: "shimmer" };
+      } else if (voiceId === "alloy") {
+        vapiVoice = { provider: "openai", voiceId: "alloy" };
       } else {
-        // Default to Sagar
-        vapiVoice = {
-          provider: "vapi",
-          voiceId: "Sagar"
-        };
+        // Default to Sagar (built-in Vapi Indian voice — Free!)
+        vapiVoice = { provider: "vapi", voiceId: "Sagar" };
       }
 
       // Create outbound call via Vapi
@@ -121,9 +140,9 @@ serve(async (req) => {
       const webhookUrl = new URL(wsServerBase)
       if (engine === "voicebox_clone") {
         webhookUrl.searchParams.set("use_cloned_voice", "true")
-      }
-      if (voiceId) {
-        webhookUrl.searchParams.set("voice", voiceId)
+        if (voiceId) webhookUrl.searchParams.set("profile_id", voiceId)
+      } else {
+        if (voiceId) webhookUrl.searchParams.set("voice", voiceId)
       }
       const twimlWebhookUrl = webhookUrl.toString()
 
