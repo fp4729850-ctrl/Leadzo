@@ -58,7 +58,10 @@ const twimlHandler = (req: any, res: any) => {
   const twiml = `
     <Response>
       <Connect>
-        <Stream url="wss://${req.headers.host}/stream?voice=${voice}&amp;use_cloned_voice=${use_cloned_voice}&amp;profile_id=${profile_id}">
+        <Stream url="wss://${req.headers.host}/stream">
+          <Parameter name="voice" value="${voice}" />
+          <Parameter name="use_cloned_voice" value="${use_cloned_voice}" />
+          <Parameter name="profile_id" value="${profile_id}" />
           <Parameter name="prompt" value="${escapedPrompt}" />
         </Stream>
       </Connect>
@@ -95,10 +98,11 @@ wss.on('connection', (ws, req) => {
   }
   
   const urlParams = new URLSearchParams(req.url.split('?')[1] || '');
+  console.log(`🔌 Connection URL: ${req.url}`);
   let selectedVoice = urlParams.get('voice') || 'rachel';
   let openAIVoice = OPENAI_VOICES[selectedVoice] || OPENAI_VOICES.rachel;
-  const useClonedVoice = urlParams.get('use_cloned_voice') === 'true';
-  const voiceboxProfileId = urlParams.get('profile_id') || '';  // Voicebox profile ID for clone
+  let useClonedVoice = urlParams.get('use_cloned_voice') === 'true';
+  let voiceboxProfileId = urlParams.get('profile_id') || '';  // Voicebox profile ID for clone
 
   let streamSid = '';
   let deepgramLive: any = null;
@@ -108,7 +112,7 @@ wss.on('connection', (ws, req) => {
   let conversationHistory: any[] = [];
   let activeTurnId = 0;
 
-  console.log(`📞 New call | Voice: ${selectedVoice} | Mode: ${useClonedVoice ? '🎤 Voicebox Clone' : '🔊 OpenAI TTS'}`);
+  console.log(`📞 New call | Voice: ${selectedVoice} | Mode: ${useClonedVoice ? '🎤 ElevenLabs Clone' : '🔊 OpenAI TTS'}`);
 
   // ===== ElevenLabs Cloned Voice TTS Helper =====
   async function speakViaVoiceboxTTS(textToSpeak: string, currentTurnId: number): Promise<void> {
@@ -162,8 +166,14 @@ wss.on('connection', (ws, req) => {
     }
   }
 
-  // Pick TTS function based on mode
-  const speakText = useClonedVoice ? speakViaVoiceboxTTS : speakViaOpenAITTS;
+  // Wrapper function to resolve speakText dynamically
+  const speakText = async (textToSpeak: string, currentTurnId: number) => {
+    if (useClonedVoice) {
+      await speakViaVoiceboxTTS(textToSpeak, currentTurnId);
+    } else {
+      await speakViaOpenAITTS(textToSpeak, currentTurnId);
+    }
+  };
 
   // ===== OpenAI TTS Helper: Speak a text phrase and stream PCM to Twilio =====
   async function speakViaOpenAITTS(textToSpeak: string, currentTurnId: number): Promise<void> {
@@ -315,7 +325,20 @@ wss.on('connection', (ws, req) => {
     if (msg.event === 'start') {
       streamSid = msg.start.streamSid;
       lastStreamSid = streamSid;
-      console.log(`🎙️ Stream started: ${streamSid}`);
+      
+      // Extract custom parameters if provided by Twilio
+      const customParams = msg.start.customParameters || {};
+      if (customParams.use_cloned_voice === 'true' || customParams.use_cloned_voice === true) {
+        useClonedVoice = true;
+      }
+      if (customParams.profile_id) {
+        voiceboxProfileId = customParams.profile_id;
+      }
+      if (customParams.voice) {
+        selectedVoice = customParams.voice;
+        openAIVoice = OPENAI_VOICES[selectedVoice] || OPENAI_VOICES.rachel;
+      }
+      console.log(`🎙️ Stream started: ${streamSid} | Mode: ${useClonedVoice ? '🎤 ElevenLabs Clone (' + voiceboxProfileId + ')' : '🔊 OpenAI TTS (' + openAIVoice + ')'}`);
       
       // Pop the next pending prompt from the queue (registered via /register-prompt)
       const receivedPrompt = pendingPrompts.shift() || '';
