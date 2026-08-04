@@ -12,6 +12,8 @@ import { Badge } from "@/components/ui/badge.tsx";
 import { supabase } from "@/lib/supabase.ts";
 import { useAuth } from "@/hooks/use-auth.ts";
 import { toast } from "sonner";
+import { useAction } from "@/lib/convex-supabase-adapter.tsx";
+import { api } from "@/convex/_generated/api.js";
 
 const TABS = [
   { id: "ai-visibility", label: "AI Visibility", icon: Globe },
@@ -267,6 +269,22 @@ export default function AiRankingOsPage() {
     }
   };
 
+  const getGscOAuthUrl = useAction(api.gscActions.getGscOAuthUrl);
+
+  const connectGsc = async () => {
+    try {
+      const redirectUri = `${window.location.origin}/auth/gsc-callback`;
+      const result = await getGscOAuthUrl({ redirectUri });
+      if (result && result.url) {
+        window.location.href = result.url;
+      } else {
+        toast.error("Failed to generate GSC OAuth URL");
+      }
+    } catch (e: any) {
+      toast.error(e.message || "Failed to connect GSC");
+    }
+  };
+
   const updateApiKeys = async (keys: any) => {
     if (!activeSite) return;
     try {
@@ -301,19 +319,34 @@ export default function AiRankingOsPage() {
         </div>
         <div className="flex items-center gap-2 w-full sm:w-auto">
           {activeSite && (
-            <Button
-              onClick={toggleAutopilot}
-              variant="outline"
-              size="sm"
-              className={`h-8 text-xs border border-border/50 gap-1.5 shrink-0 ${
-                activeSite.auto_scan
-                  ? "bg-green-500/10 text-green-400 border-green-500/20 hover:bg-green-500/20"
-                  : "bg-secondary/30 text-muted-foreground hover:bg-secondary/50"
-              }`}
-            >
-              <Zap size={12} className={activeSite.auto_scan ? "animate-pulse" : ""} />
-              Autopilot: {activeSite.auto_scan ? "ON" : "OFF"}
-            </Button>
+            <>
+              <Button
+                onClick={connectGsc}
+                variant="outline"
+                size="sm"
+                className={`h-8 text-xs border border-border/50 gap-1.5 shrink-0 ${
+                  activeSite.gsc_connected
+                    ? "bg-blue-500/10 text-blue-400 border-blue-500/20 hover:bg-blue-500/20"
+                    : "bg-secondary/30 text-foreground hover:bg-secondary/50"
+                }`}
+              >
+                <Search size={12} className={activeSite.gsc_connected ? "text-blue-400" : ""} />
+                {activeSite.gsc_connected ? "GSC Connected" : "Connect GSC"}
+              </Button>
+              <Button
+                onClick={toggleAutopilot}
+                variant="outline"
+                size="sm"
+                className={`h-8 text-xs border border-border/50 gap-1.5 shrink-0 ${
+                  activeSite.auto_scan
+                    ? "bg-green-500/10 text-green-400 border-green-500/20 hover:bg-green-500/20"
+                    : "bg-secondary/30 text-muted-foreground hover:bg-secondary/50"
+                }`}
+              >
+                <Zap size={12} className={activeSite.auto_scan ? "animate-pulse" : ""} />
+                Autopilot: {activeSite.auto_scan ? "ON" : "OFF"}
+              </Button>
+            </>
           )}
           {sites.length > 0 && (
             <select 
@@ -474,7 +507,7 @@ export default function AiRankingOsPage() {
               {activeTab === "recommendations" && <RecommendationCenter data={recs} onStatusChange={updateRecStatus} />}
               {activeTab === "reports" && <ReportsCenter domain={activeSite.domain} scores={{ aiVisibility: latestScan.score_ai_visibility, seoHealth: latestScan.score_seo_health }} />}
               {activeTab === "automation" && <AutomationCenter site={activeSite} onToggle={toggleAutopilot} />}
-              {activeTab === "settings-center" && <SettingsCenter site={activeSite} onToggle={toggleAutopilot} onDelete={deleteSite} onUpdateKeys={updateApiKeys} />}
+              {activeTab === "settings-center" && <SettingsCenter site={activeSite} onToggle={toggleAutopilot} onDelete={deleteSite} onUpdateKeys={updateApiKeys} onConnectGsc={connectGsc} />}
             </div>
           </>
         )}
@@ -887,7 +920,7 @@ function AutomationCenter({ site, onToggle }: { site: Site | null; onToggle: () 
 }
 
 // --- Settings Center ---
-function SettingsCenter({ site, onToggle, onDelete, onUpdateKeys }: { site: Site; onToggle: () => void; onDelete: (id: string) => void; onUpdateKeys: (keys: any) => Promise<void> }) {
+function SettingsCenter({ site, onToggle, onDelete, onUpdateKeys, onConnectGsc }: { site: Site; onToggle: () => void; onDelete: (id: string) => void; onUpdateKeys: (keys: any) => Promise<void>; onConnectGsc: () => void }) {
   const [pagespeedKey, setPagespeedKey] = useState(site.api_keys?.pagespeed_key || "");
   const [mozId, setMozId] = useState(site.api_keys?.moz_id || "");
   const [mozSecret, setMozSecret] = useState(site.api_keys?.moz_secret || "");
@@ -916,6 +949,22 @@ function SettingsCenter({ site, onToggle, onDelete, onUpdateKeys }: { site: Site
     <div className="space-y-4">
       <SectionHeader icon={Settings} title="Settings" desc="Manage connected site properties, API integrations, and subscriptions." />
       
+      <div className="p-4 rounded-xl border border-border/30 bg-secondary/10 space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <h4 className="text-xs font-bold text-foreground">Google Search Console Integration</h4>
+            <p className="text-[10px] text-muted-foreground mt-0.5">Link GSC to fetch live organic search clicks, impressions, and query rankings.</p>
+          </div>
+          <Badge variant="outline" className={`text-[9px] ${site.gsc_connected ? "bg-blue-500/10 text-blue-400 border-blue-500/20" : "bg-secondary text-muted-foreground"}`}>
+            {site.gsc_connected ? "Connected" : "Disconnected"}
+          </Badge>
+        </div>
+        <Button onClick={onConnectGsc} size="sm" variant="outline" className="h-8 text-xs gap-1.5 border-blue-500/30 text-blue-400 bg-blue-500/10 hover:bg-blue-500/20">
+          <Search size={13} />
+          {site.gsc_connected ? "Reconnect Google Search Console" : "Connect Google Search Console"}
+        </Button>
+      </div>
+
       <div className="p-4 rounded-xl border border-border/30 bg-secondary/10 space-y-3">
         <h4 className="text-xs font-bold text-foreground">Autopilot Configurations</h4>
         <p className="text-[10px] text-muted-foreground">Toggle automated scans and updates for this domain.</p>
