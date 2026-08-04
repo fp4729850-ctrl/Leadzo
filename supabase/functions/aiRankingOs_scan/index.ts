@@ -278,6 +278,7 @@ Make all data specific and relevant to the website text provided below. Output O
         }
         if (ahrefsData) {
           parsed.scores.authorityScore = Math.round((parsed.scores.authorityScore + ahrefsData.dr) / 2);
+        }
         // Apply score boost for approved recommendations active in DB
         if (approvedRecs && approvedRecs.length > 0) {
           const boost = Math.min(approvedRecs.length * 15, 45);
