@@ -1,10 +1,14 @@
 // Supabase Edge Function: aiRankingOs_scan
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 }
+
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -12,7 +16,7 @@ serve(async (req) => {
   }
 
   try {
-    const { url } = await req.json()
+    const { url, user_id, site_id } = await req.json()
     if (!url) throw new Error("URL is required")
     let targetUrl = url.trim();
     if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
@@ -143,6 +147,7 @@ Make all data specific and relevant to the website text provided below. Output O
         
         let jsonStr = aiText.replace(/```json/gi, "").replace(/```/g, "").trim();
         const parsed = JSON.parse(jsonStr);
+        await saveScanToDB(parsed, user_id, site_id);
         return new Response(JSON.stringify({ success: true, data: parsed }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       } catch (e) {
         continue;
@@ -199,9 +204,57 @@ Make all data specific and relevant to the website text provided below. Output O
       ]
     };
 
+    await saveScanToDB(fallbackData, user_id, site_id);
     return new Response(JSON.stringify({ success: true, data: fallbackData }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
   } catch (err: any) {
     return new Response(JSON.stringify({ success: false, error: err.message }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } })
   }
 })
+
+// Helper: Save scan result to Supabase DB if user_id and site_id provided
+async function saveScanToDB(data: any, user_id?: string, site_id?: string) {
+  if (!user_id || !site_id) return;
+  try {
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const scores = data.scores;
+    const { data: savedScan } = await supabase
+      .from("ranking_scans")
+      .insert({
+        site_id,
+        user_id,
+        score_ai_visibility: scores.aiVisibility,
+        score_llm_readiness: scores.llmReadiness,
+        score_seo_health: scores.seoHealth,
+        score_authority: scores.authorityScore,
+        full_data: data,
+        high_impact_tasks: data.highImpactTasks,
+        triggered_by: "manual"
+      })
+      .select()
+      .single();
+
+    if (savedScan && data.recommendations?.length > 0) {
+      const recs = data.recommendations.map((r: any) => ({
+        scan_id: savedScan.id,
+        site_id,
+        user_id,
+        priority: r.priority,
+        category: r.category,
+        title: r.title,
+        reason: r.reason,
+        ai_impact: r.aiImpact,
+        seo_impact: r.seoImpact,
+        effort: r.effort,
+        estimated_time: r.estimatedTime,
+        status: "pending"
+      }));
+      await supabase.from("ranking_recommendations").insert(recs);
+    }
+
+    // Update last_scanned_at
+    await supabase.from("ranking_sites").update({ last_scanned_at: new Date().toISOString() }).eq("id", site_id);
+  } catch (e) {
+    console.error("DB save failed (non-critical):", e);
+  }
+}
