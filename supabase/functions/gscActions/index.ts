@@ -73,17 +73,24 @@ serve(async (req) => {
       const { refresh_token } = tokenData
       if (!refresh_token) throw new Error("Google did not return a refresh token. Revoke access from your Google Account settings and try again.")
 
-      // Save/Update in gsc_tokens table
+      // Save/Update in gsc_tokens table (safe delete old + insert)
+      await supabase.from("gsc_tokens").delete().eq("user_id", user.id)
       const { error: dbErr } = await supabase
         .from("gsc_tokens")
-        .upsert({
+        .insert({
           user_id: user.id,
           refresh_token: refresh_token,
           connected: true,
           created_at: new Date().toISOString()
-        }, { onConflict: "user_id" })
+        })
 
       if (dbErr) throw dbErr
+
+      // Automatically mark user's sites as gsc_connected = true in AI Ranking OS
+      await supabase
+        .from("ranking_sites")
+        .update({ gsc_connected: true })
+        .eq("user_id", user.id)
 
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" }
