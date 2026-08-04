@@ -438,6 +438,11 @@ export function useAction(apiEndpoint: any) {
       functionRoute = 'whatsappTemplate_create';
     }
 
+    if (queryStr.startsWith('gscActions.')) {
+      functionRoute = 'gscActions';
+      args.action = queryStr.split('.')[1];
+    }
+
     const { data, error } = await supabase.functions.invoke(functionRoute, {
       body: args
     });
