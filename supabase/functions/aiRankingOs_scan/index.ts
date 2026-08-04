@@ -110,6 +110,92 @@ ${approvedSummary}`;
     let pageSpeedResult: any = null;
     let mozData: any = null;
     let ahrefsData: any = null;
+    let gscRealData: any = null;
+
+    // 0. REAL Google Search Console Data (via stored OAuth token)
+    if (user_id) {
+      try {
+        const supabaseGsc = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+        const { data: gscToken } = await supabaseGsc.from("gsc_tokens").select("*").eq("user_id", user_id).single();
+        if (gscToken?.refresh_token) {
+          const GCID = Deno.env.get("GOOGLE_CLIENT_ID") || "";
+          const GCSEC = Deno.env.get("GOOGLE_CLIENT_SECRET") || "";
+          const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({
+              client_id: GCID,
+              client_secret: GCSEC,
+              refresh_token: gscToken.refresh_token,
+              grant_type: "refresh_token"
+            })
+          });
+          const tokenJson = await tokenRes.json();
+          if (tokenJson.access_token) {
+            const accessToken = tokenJson.access_token;
+            // List sites to find the matching verified property
+            const sitesRes = await fetch("https://www.googleapis.com/webmasters/v3/sites", {
+              headers: { Authorization: `Bearer ${accessToken}` }
+            });
+            const sitesJson = await sitesRes.json();
+            const entries = sitesJson.siteEntry || [];
+            // Find matching property for the target domain
+            const domainClean = targetUrl.replace(/https?:\/\//, "").replace(/\/$/, "").toLowerCase();
+            let matchedSiteUrl = "";
+            for (const entry of entries) {
+              const entryClean = entry.siteUrl.replace(/https?:\/\//, "").replace(/\/$/, "").toLowerCase();
+              if (domainClean.includes(entryClean) || entryClean.includes(domainClean)) {
+                matchedSiteUrl = entry.siteUrl;
+                break;
+              }
+            }
+            // If no fuzzy match, try the first site or sc-domain variant
+            if (!matchedSiteUrl && entries.length > 0) {
+              matchedSiteUrl = entries[0].siteUrl;
+            }
+
+            if (matchedSiteUrl) {
+              const today = new Date().toISOString().split("T")[0];
+              const last28 = new Date(Date.now() - 28 * 86400000).toISOString().split("T")[0];
+              // Query real keyword rankings
+              const rankRes = await fetch(
+                `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(matchedSiteUrl)}/searchAnalytics/query`,
+                {
+                  method: "POST",
+                  headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+                  body: JSON.stringify({ startDate: last28, endDate: today, dimensions: ["query"], rowLimit: 25 })
+                }
+              );
+              const rankJson = await rankRes.json();
+              const rows = rankJson.rows || [];
+              const totalClicks = rows.reduce((s: number, r: any) => s + (r.clicks || 0), 0);
+              const totalImpressions = rows.reduce((s: number, r: any) => s + (r.impressions || 0), 0);
+              const avgPosition = rows.length > 0
+                ? Math.round(rows.reduce((s: number, r: any) => s + (r.position || 100), 0) / rows.length * 10) / 10
+                : 0;
+              const totalKeywords = rows.length;
+              gscRealData = {
+                siteUrl: matchedSiteUrl,
+                totalClicks,
+                totalImpressions,
+                avgPosition,
+                totalKeywords,
+                topKeywords: rows.slice(0, 10).map((r: any) => ({
+                  keyword: r.keys[0],
+                  clicks: r.clicks,
+                  impressions: r.impressions,
+                  ctr: Math.round((r.ctr || 0) * 10000) / 100,
+                  position: Math.round(r.position * 10) / 10
+                }))
+              };
+              console.log("GSC Real Data fetched:", JSON.stringify(gscRealData));
+            }
+          }
+        }
+      } catch (e) {
+        console.error("GSC real data fetch failure (non-critical):", e);
+      }
+    }
 
     // 1. Google PageSpeed API
     try {
@@ -267,12 +353,14 @@ Make all data specific and relevant to the website text provided below. Output O
         // Inject real metrics if fetched successfully
         if (pageSpeedResult) {
           parsed.scores.seoHealth = pageSpeedResult.score;
-          parsed.technicalOptimization.coreWebVitals = {
-            lcp: pageSpeedResult.lcp,
-            cls: pageSpeedResult.cls,
-            inp: pageSpeedResult.inp,
-            status: pageSpeedResult.status
-          };
+          if (parsed.technicalOptimization) {
+            parsed.technicalOptimization.coreWebVitals = {
+              lcp: pageSpeedResult.lcp,
+              cls: pageSpeedResult.cls,
+              inp: pageSpeedResult.inp,
+              status: pageSpeedResult.status
+            };
+          }
         }
         if (mozData) {
           parsed.scores.authorityScore = mozData.da;
@@ -280,26 +368,83 @@ Make all data specific and relevant to the website text provided below. Output O
         if (ahrefsData) {
           parsed.scores.authorityScore = Math.round((parsed.scores.authorityScore + ahrefsData.dr) / 2);
         }
-        // --- REALISTIC CALIBRATION FOR AUTHENTIC AUDIT ---
-        // 1. Authority Score: If no third-party Moz/Ahrefs key provided, Authority Score reflects realistic new domain baseline (15 - 25)
-        if (!mozData && !ahrefsData) {
-          parsed.scores.authorityScore = Math.min(25, Math.max(15, parsed.scores.authorityScore || 18));
-        }
 
-        // 2. Compute Raw Audit Scores dynamically based on actual DOM elements & approved fixes
+        // --- REAL DATA SCORING (using actual Google Search Console + PageSpeed) ---
         const hasHeadings = headings && headings.length > 0;
         const hasDecentText = text && text.length > 800;
+        const hasTitle = !!pageTitle && pageTitle.length > 5;
+        const hasMetaDesc = !!metaDesc && metaDesc.length > 20;
         const approvedCount = approvedRecs ? approvedRecs.length : 0;
+        const fixGain = Math.min(approvedCount * 3, 15); // max +15 from approved fixes
 
-        let baseSeo = hasHeadings ? 50 : 38;
-        let baseLlm = hasDecentText ? 45 : 28;
-        let baseAiVis = (hasHeadings && hasDecentText) ? 48 : 32;
+        // SEO Health: based on PageSpeed (real) + on-page signals
+        if (pageSpeedResult) {
+          let seoBase = pageSpeedResult.score;
+          if (!hasTitle) seoBase -= 10;
+          if (!hasMetaDesc) seoBase -= 8;
+          if (!hasHeadings) seoBase -= 10;
+          parsed.scores.seoHealth = Math.max(10, Math.min(100, seoBase + fixGain));
+        } else {
+          let seoBase = 30; // no PageSpeed data = low baseline
+          if (hasTitle) seoBase += 10;
+          if (hasMetaDesc) seoBase += 10;
+          if (hasHeadings) seoBase += 10;
+          parsed.scores.seoHealth = Math.max(10, Math.min(100, seoBase + fixGain));
+        }
 
-        const fixGain = approvedCount * 5;
+        // Authority Score: based on real GSC impressions/clicks + Moz/Ahrefs
+        if (!mozData && !ahrefsData) {
+          if (gscRealData) {
+            // Real GSC data available - calculate from actual search presence
+            let authBase = 10; // baseline
+            if (gscRealData.totalImpressions > 0) authBase += 5;
+            if (gscRealData.totalImpressions > 10) authBase += 5;
+            if (gscRealData.totalImpressions > 50) authBase += 5;
+            if (gscRealData.totalImpressions > 200) authBase += 10;
+            if (gscRealData.totalClicks > 0) authBase += 10;
+            if (gscRealData.totalClicks > 10) authBase += 10;
+            if (gscRealData.totalKeywords > 3) authBase += 5;
+            if (gscRealData.totalKeywords > 10) authBase += 5;
+            if (gscRealData.avgPosition > 0 && gscRealData.avgPosition < 20) authBase += 10;
+            if (gscRealData.avgPosition > 0 && gscRealData.avgPosition < 10) authBase += 10;
+            parsed.scores.authorityScore = Math.max(5, Math.min(100, authBase + fixGain));
+          } else {
+            // No GSC data, no Moz, no Ahrefs = honest low score
+            parsed.scores.authorityScore = Math.max(5, Math.min(20, 10 + fixGain));
+          }
+        }
 
-        parsed.scores.seoHealth = pageSpeedResult ? pageSpeedResult.score : Math.min(85, baseSeo + fixGain);
-        parsed.scores.llmReadiness = Math.min(75, baseLlm + fixGain);
-        parsed.scores.aiVisibility = Math.min(80, baseAiVis + fixGain);
+        // LLM Readiness: based on structured content quality
+        {
+          let llmBase = 15;
+          if (hasTitle) llmBase += 8;
+          if (hasMetaDesc) llmBase += 8;
+          if (hasHeadings) llmBase += 10;
+          if (hasDecentText) llmBase += 12;
+          // GSC presence signals AI/LLM can find the site
+          if (gscRealData && gscRealData.totalImpressions > 0) llmBase += 7;
+          if (gscRealData && gscRealData.totalKeywords > 3) llmBase += 5;
+          parsed.scores.llmReadiness = Math.max(5, Math.min(100, llmBase + fixGain));
+        }
+
+        // AI Visibility: combination of all signals
+        {
+          let aiBase = 10;
+          if (hasTitle) aiBase += 8;
+          if (hasMetaDesc) aiBase += 8;
+          if (hasHeadings) aiBase += 8;
+          if (hasDecentText) aiBase += 10;
+          if (gscRealData && gscRealData.totalImpressions > 0) aiBase += 10;
+          if (gscRealData && gscRealData.totalClicks > 0) aiBase += 8;
+          if (gscRealData && gscRealData.totalKeywords > 3) aiBase += 5;
+          if (pageSpeedResult && pageSpeedResult.score >= 80) aiBase += 5;
+          parsed.scores.aiVisibility = Math.max(5, Math.min(100, aiBase + fixGain));
+        }
+
+        // Inject real GSC data into parsed result for frontend display
+        if (gscRealData) {
+          parsed.gscAnalytics = gscRealData;
+        }
 
         await saveScanToDB(parsed, user_id, site_id);
         return new Response(JSON.stringify({ success: true, data: parsed }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
