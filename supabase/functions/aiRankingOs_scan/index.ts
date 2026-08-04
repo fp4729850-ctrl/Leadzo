@@ -280,14 +280,26 @@ Make all data specific and relevant to the website text provided below. Output O
         if (ahrefsData) {
           parsed.scores.authorityScore = Math.round((parsed.scores.authorityScore + ahrefsData.dr) / 2);
         }
-        // Pure Authentic LLM Evaluation (Raw baseline matching actual site state)
-        if (approvedRecs && approvedRecs.length > 0) {
-          const incrementalGain = Math.min(approvedRecs.length * 4, 15);
-          parsed.scores.aiVisibility = Math.min(100, (parsed.scores.aiVisibility || 32) + incrementalGain);
-          parsed.scores.llmReadiness = Math.min(100, (parsed.scores.llmReadiness || 28) + incrementalGain);
-          parsed.scores.seoHealth = Math.min(100, (parsed.scores.seoHealth || 42) + incrementalGain);
-          parsed.scores.authorityScore = Math.min(100, (parsed.scores.authorityScore || 35) + Math.round(incrementalGain * 0.7));
+        // --- REALISTIC CALIBRATION FOR AUTHENTIC AUDIT ---
+        // 1. Authority Score: If no third-party Moz/Ahrefs key provided, Authority Score reflects realistic new domain baseline (15 - 25)
+        if (!mozData && !ahrefsData) {
+          parsed.scores.authorityScore = Math.min(25, Math.max(15, parsed.scores.authorityScore || 18));
         }
+
+        // 2. Compute Raw Audit Scores dynamically based on actual DOM elements & approved fixes
+        const hasHeadings = headings && headings.length > 0;
+        const hasDecentText = text && text.length > 800;
+        const approvedCount = approvedRecs ? approvedRecs.length : 0;
+
+        let baseSeo = hasHeadings ? 50 : 38;
+        let baseLlm = hasDecentText ? 45 : 28;
+        let baseAiVis = (hasHeadings && hasDecentText) ? 48 : 32;
+
+        const fixGain = approvedCount * 5;
+
+        parsed.scores.seoHealth = pageSpeedResult ? pageSpeedResult.score : Math.min(85, baseSeo + fixGain);
+        parsed.scores.llmReadiness = Math.min(75, baseLlm + fixGain);
+        parsed.scores.aiVisibility = Math.min(80, baseAiVis + fixGain);
 
         await saveScanToDB(parsed, user_id, site_id);
         return new Response(JSON.stringify({ success: true, data: parsed }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
