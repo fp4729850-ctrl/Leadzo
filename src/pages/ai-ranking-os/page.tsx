@@ -273,7 +273,9 @@ export default function AiRankingOsPage() {
 
   const connectGsc = async () => {
     try {
-      const redirectUri = `${window.location.origin}/auth/gsc-callback`;
+      const redirectUri = window.location.hostname.includes("leadzoai.com")
+        ? "https://www.leadzoai.com/auth/gsc-callback"
+        : `${window.location.origin}/auth/gsc-callback`;
       const result = await getGscOAuthUrl({ redirectUri });
       if (result && result.url) {
         window.location.href = result.url;
