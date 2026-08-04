@@ -70,8 +70,22 @@ serve(async (req) => {
       const tokenData = await tokenRes.json()
       if (tokenData.error) throw new Error(tokenData.error_description || tokenData.error)
 
-      const { refresh_token } = tokenData
-      if (!refresh_token) throw new Error("Google did not return a refresh token. Revoke access from your Google Account settings and try again.")
+      let refresh_token = tokenData.refresh_token;
+
+      if (!refresh_token) {
+        // Fallback: Check if user already has a saved refresh_token in gsc_tokens from previous auth
+        const { data: existingToken } = await supabase
+          .from("gsc_tokens")
+          .select("refresh_token")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (existingToken?.refresh_token) {
+          refresh_token = existingToken.refresh_token;
+        } else {
+          throw new Error("Google did not return a refresh token. Revoke access from your Google Account settings and try again.");
+        }
+      }
 
       // Save/Update in gsc_tokens table (safe delete old + insert)
       await supabase.from("gsc_tokens").delete().eq("user_id", user.id)
