@@ -18,14 +18,14 @@ export default function GscCallback() {
     if (errorParam) {
       setError("Google access denied. Please try again.");
       setStatus("error");
-      setTimeout(() => navigate("/seo-agent"), 3000);
+      setTimeout(() => navigate("/gsc-dashboard"), 3000);
       return;
     }
 
     if (!code) {
       setError("No authorization code received.");
       setStatus("error");
-      setTimeout(() => navigate("/seo-agent"), 3000);
+      setTimeout(() => navigate("/gsc-dashboard"), 3000);
       return;
     }
 
@@ -34,17 +34,17 @@ export default function GscCallback() {
       .then((result) => {
         if (result.success) {
           setStatus("success");
-          setTimeout(() => navigate("/seo-agent"), 2000);
+          setTimeout(() => navigate("/gsc-dashboard"), 2000);
         } else {
           setError(result.error ?? "Token exchange failed");
           setStatus("error");
-          setTimeout(() => navigate("/seo-agent"), 3000);
+          setTimeout(() => navigate("/gsc-dashboard"), 3000);
         }
       })
       .catch((err: unknown) => {
         setError(err instanceof Error ? err.message : "Unknown error");
         setStatus("error");
-        setTimeout(() => navigate("/seo-agent"), 3000);
+        setTimeout(() => navigate("/gsc-dashboard"), 3000);
       });
   }, [exchangeCode, navigate]);
 
