@@ -466,7 +466,7 @@ export default function AiRankingOsPage() {
 
             {/* Tab Contents */}
             <div className="border border-border/30 rounded-xl bg-card p-5 shadow-sm">
-              {activeTab === "ai-visibility" && <AIVisibilityCenter data={latestScan.full_data?.aiVisibilityCenter} />}
+              {activeTab === "ai-visibility" && <AIVisibilityCenter data={latestScan.full_data?.aiVisibilityCenter} domain={activeSite.domain} />}
               {activeTab === "content-intelligence" && <ContentIntelligenceCenter data={latestScan.full_data?.contentIntelligence} />}
               {activeTab === "tech-optimization" && <TechnicalOptimizationCenter data={latestScan.full_data?.technicalOptimization} />}
               {activeTab === "competitor-intel" && <CompetitorIntelligenceCenter data={latestScan.full_data?.competitorIntelligence} />}
@@ -525,10 +525,47 @@ function ImprovementItem({ title, gain }: { title: string; gain: string }) {
 }
 
 // --- AI Visibility Center ---
-function AIVisibilityCenter({ data }: { data: any }) {
+function AIVisibilityCenter({ data, domain }: { data: any; domain: string }) {
   if (!data) return <PlaceholderView title="AI Visibility Center" />;
   return (
     <div className="space-y-5">
+      <SectionHeader icon={Globe} title="Google Preferred Source Accelerator" desc="Generate and distribute your custom personalization link." />
+      <div className="p-4 rounded-xl border border-primary/20 bg-primary/5 space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs font-bold text-foreground">Custom Personalization Link</p>
+          <Badge variant="secondary" className="text-[9px]">Google SGE Personalization</Badge>
+        </div>
+        <p className="text-[11px] text-muted-foreground leading-relaxed">
+          When users click this link, Google will save your website as their preferred source. This ensures your site ranks first in their Google AI Overviews and search results.
+        </p>
+        <div className="flex items-center gap-2">
+          <Input
+            readOnly
+            value={`https://google.com/preferences/source?q=${domain}`}
+            className="bg-card text-xs h-8 border border-border/50 select-all"
+          />
+          <Button
+            onClick={() => {
+              navigator.clipboard.writeText(`https://google.com/preferences/source?q=${domain}`);
+              toast.success("Shortcut link copied to clipboard!");
+            }}
+            size="sm"
+            className="h-8 text-xs shrink-0"
+          >
+            Copy Link
+          </Button>
+        </div>
+        <div className="text-[10px] text-muted-foreground space-y-1 bg-background/40 p-2.5 rounded border border-border/5">
+          <p className="font-semibold text-foreground/80">🚀 Recommended Distribution Channels:</p>
+          <ul className="list-disc pl-4 space-y-0.5">
+            <li>Add this link to your monthly customer newsletter.</li>
+            <li>Post this shortcut link on your social media bios and posts.</li>
+            <li>Insert a "Set as Preferred Source" CTA button in your website footer.</li>
+            <li>Add the link underneath your team's email signatures.</li>
+          </ul>
+        </div>
+      </div>
+
       <SectionHeader icon={Globe} title="Entity Coverage" desc="Recognized brand, product, and topic entities on your site." />
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {data.entityCoverage?.map((e: any, i: number) => (
