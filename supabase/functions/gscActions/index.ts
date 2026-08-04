@@ -80,7 +80,10 @@ serve(async (req) => {
       })
 
       const tokenData = await tokenRes.json()
-      if (tokenData.error) throw new Error(tokenData.error_description || tokenData.error)
+      if (tokenData.error) {
+        console.error("Google token error details:", tokenData);
+        throw new Error(tokenData.error_description || tokenData.error);
+      }
 
       let refresh_token = tokenData.refresh_token;
 
@@ -293,8 +296,9 @@ serve(async (req) => {
     throw new Error("Invalid action")
 
   } catch (err: any) {
+    console.error("gscActions error:", err.message);
     return new Response(JSON.stringify({ success: false, error: err.message }), {
-      status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }
+      status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" }
     })
   }
 })
