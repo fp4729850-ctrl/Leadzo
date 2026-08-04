@@ -438,9 +438,9 @@ export function useAction(apiEndpoint: any) {
       functionRoute = 'whatsappTemplate_create';
     }
 
-    if (queryStr.startsWith('gscActions.')) {
+    if (queryStr.startsWith('gscActions.') || queryStr.startsWith('gscActions:')) {
       functionRoute = 'gscActions';
-      args.action = queryStr.split('.')[1];
+      args.action = queryStr.replace('gscActions.', '').replace('gscActions:', '');
     }
 
     const { data, error } = await supabase.functions.invoke(functionRoute, {
