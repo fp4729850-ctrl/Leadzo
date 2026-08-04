@@ -326,12 +326,12 @@ export default function AiRankingOsPage() {
                 size="sm"
                 className={`h-8 text-xs border border-border/50 gap-1.5 shrink-0 ${
                   activeSite.gsc_connected
-                    ? "bg-blue-500/10 text-blue-400 border-blue-500/20 hover:bg-blue-500/20"
+                    ? "bg-green-500/10 text-green-400 border-green-500/20 hover:bg-green-500/20"
                     : "bg-secondary/30 text-foreground hover:bg-secondary/50"
                 }`}
               >
-                <Search size={12} className={activeSite.gsc_connected ? "text-blue-400" : ""} />
-                {activeSite.gsc_connected ? "GSC Connected" : "Connect GSC"}
+                {activeSite.gsc_connected ? <CheckCircle2 size={12} className="text-green-400" /> : <Search size={12} />}
+                GSC: {activeSite.gsc_connected ? "Connected" : "Connect"}
               </Button>
               <Button
                 onClick={toggleAutopilot}
