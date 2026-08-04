@@ -16,9 +16,10 @@ serve(async (req) => {
   }
 
   try {
-    const { url, user_id, site_id } = await req.json()
-    if (!url) throw new Error("URL is required")
-    let targetUrl = url.trim();
+    const { url, domain, user_id, site_id } = await req.json()
+    const rawUrl = domain || url
+    if (!rawUrl) throw new Error("Domain or URL is required")
+    let targetUrl = rawUrl.trim();
     if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
       targetUrl = 'https://' + targetUrl;
     }
