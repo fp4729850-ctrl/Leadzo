@@ -374,8 +374,6 @@ Make all data specific and relevant to the website text provided below. Output O
         const hasDecentText = text && text.length > 800;
         const hasTitle = !!pageTitle && pageTitle.length > 5;
         const hasMetaDesc = !!metaDesc && metaDesc.length > 20;
-        const approvedCount = approvedRecs ? approvedRecs.length : 0;
-        const fixGain = Math.min(approvedCount * 3, 15); // max +15 from approved fixes
 
         // SEO Health: based on PageSpeed (real) + on-page signals
         if (pageSpeedResult) {
@@ -383,13 +381,13 @@ Make all data specific and relevant to the website text provided below. Output O
           if (!hasTitle) seoBase -= 10;
           if (!hasMetaDesc) seoBase -= 8;
           if (!hasHeadings) seoBase -= 10;
-          parsed.scores.seoHealth = Math.max(10, Math.min(100, seoBase + fixGain));
+          parsed.scores.seoHealth = Math.max(10, Math.min(100, seoBase));
         } else {
           let seoBase = 30; // no PageSpeed data = low baseline
           if (hasTitle) seoBase += 10;
           if (hasMetaDesc) seoBase += 10;
           if (hasHeadings) seoBase += 10;
-          parsed.scores.seoHealth = Math.max(10, Math.min(100, seoBase + fixGain));
+          parsed.scores.seoHealth = Math.max(10, Math.min(100, seoBase));
         }
 
         // Authority Score: based on real GSC impressions/clicks + Moz/Ahrefs
@@ -407,10 +405,10 @@ Make all data specific and relevant to the website text provided below. Output O
             if (gscRealData.totalKeywords > 10) authBase += 5;
             if (gscRealData.avgPosition > 0 && gscRealData.avgPosition < 20) authBase += 10;
             if (gscRealData.avgPosition > 0 && gscRealData.avgPosition < 10) authBase += 10;
-            parsed.scores.authorityScore = Math.max(5, Math.min(100, authBase + fixGain));
+            parsed.scores.authorityScore = Math.max(5, Math.min(100, authBase));
           } else {
             // No GSC data, no Moz, no Ahrefs = honest low score
-            parsed.scores.authorityScore = Math.max(5, Math.min(20, 10 + fixGain));
+            parsed.scores.authorityScore = Math.max(5, Math.min(20, 10));
           }
         }
 
@@ -424,7 +422,7 @@ Make all data specific and relevant to the website text provided below. Output O
           // GSC presence signals AI/LLM can find the site
           if (gscRealData && gscRealData.totalImpressions > 0) llmBase += 7;
           if (gscRealData && gscRealData.totalKeywords > 3) llmBase += 5;
-          parsed.scores.llmReadiness = Math.max(5, Math.min(100, llmBase + fixGain));
+          parsed.scores.llmReadiness = Math.max(5, Math.min(100, llmBase));
         }
 
         // AI Visibility: combination of all signals
@@ -438,7 +436,7 @@ Make all data specific and relevant to the website text provided below. Output O
           if (gscRealData && gscRealData.totalClicks > 0) aiBase += 8;
           if (gscRealData && gscRealData.totalKeywords > 3) aiBase += 5;
           if (pageSpeedResult && pageSpeedResult.score >= 80) aiBase += 5;
-          parsed.scores.aiVisibility = Math.max(5, Math.min(100, aiBase + fixGain));
+          parsed.scores.aiVisibility = Math.max(5, Math.min(100, aiBase));
         }
 
         // Inject real GSC data into parsed result for frontend display
