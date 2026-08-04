@@ -20,6 +20,7 @@ import CampaignLaunchPage from "./pages/campaign-launch/page.tsx";
 import OptimizationPage from "./pages/optimization/page.tsx";
 import CrmPage from "./pages/crm/page.tsx";
 import SeoAgentPage from "./pages/seo-agent/page.tsx";
+import AiRankingOsPage from "./pages/ai-ranking-os/page.tsx";
 import GscCallback from "./pages/auth/gsc-callback/page.tsx";
 import SettingsPage from "./pages/settings/page.tsx";
 import LearningAgentPage from "./pages/learning-agent/page.tsx";
@@ -66,6 +67,7 @@ export default function App() {
             <Route path="/optimization" element={<OptimizationPage />} />
             <Route path="/crm" element={<CrmPage />} />
             <Route path="/seo-agent" element={<SeoAgentPage />} />
+            <Route path="/ai-ranking-os" element={<AiRankingOsPage />} />
             <Route path="/reddit-agent" element={<RedditAgentPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/learning-agent" element={<LearningAgentPage />} />

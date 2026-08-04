@@ -17,6 +17,7 @@ const NAV_ITEMS = [
   { path: "/email-campaign", label: "Bulk Email", icon: Mail },
   { path: "/ai-reminders", label: "AI Reminders", icon: Settings2 }, // Using Settings2 as placeholder, will update later if needed
   { path: "/seo-agent", label: "SEO Agent", icon: Search },
+  { path: "/ai-ranking-os", label: "AI Ranking OS", icon: Search },
   { path: "/reddit-agent", label: "Reddit Agent", icon: MessageCircle },
   { path: "/campaign-launch", label: "Insta & Google Campaign", icon: Rocket },
   { path: "/insta-campaign", label: "Insta DM Campaign", icon: Camera },
@@ -35,7 +36,7 @@ const NAV_ITEMS = [
   { path: "/settings", label: "Settings", icon: Settings },
 ] as const;
 
-const LIVE_PATHS = ["/dashboard", "/pipeline", "/inbox", "/analytics", "/ceo-dashboard", "/market-intelligence", "/creative-generation", "/campaign-launch", "/optimization", "/learning-agent", "/crm", "/wa-sender", "/email-campaign", "/insta-campaign", "/bulk-calling", "/ai-reminders", "/seo-agent", "/reddit-agent", "/gsc-dashboard", "/pricing", "/settings"];
+const LIVE_PATHS = ["/dashboard", "/pipeline", "/inbox", "/analytics", "/ceo-dashboard", "/market-intelligence", "/creative-generation", "/campaign-launch", "/optimization", "/learning-agent", "/crm", "/wa-sender", "/email-campaign", "/insta-campaign", "/bulk-calling", "/ai-reminders", "/seo-agent", "/ai-ranking-os", "/reddit-agent", "/gsc-dashboard", "/pricing", "/settings"];
 
 import InstallBanner from "@/components/install-banner.tsx";
 
