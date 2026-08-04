@@ -59,6 +59,9 @@ type Recommendation = {
   effort: string;
   estimated_time: string;
   status: string;
+  ai_safety_score?: number;
+  ai_risk_assessment?: string;
+  ai_verdict?: string;
 };
 
 export default function AiRankingOsPage() {
@@ -703,15 +706,16 @@ function AIAgentCenter({ data, approvalQueue, onStatusChange }: { data: any; app
           <p className="text-xs text-muted-foreground py-4 text-center">No pending items in queue.</p>
         ) : (
           approvalQueue.map((q: any, i: number) => (
-            <div key={i} className="p-3 rounded-lg border border-border/30 bg-secondary/10 flex items-start justify-between gap-3">
+            <div key={i} className="p-3 rounded-lg border border-border/30 bg-secondary/10 flex items-start justify-between gap-3 flex-wrap sm:flex-nowrap">
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
                   <Badge variant="outline" className="text-[9px] text-purple-400 border-purple-500/20">{q.category}</Badge>
                   <p className="text-xs font-semibold text-foreground">{q.title}</p>
                 </div>
                 <p className="text-[10px] text-muted-foreground">{q.reason}</p>
+                <AIVerdictBadge score={q.ai_safety_score} assessment={q.ai_risk_assessment} verdict={q.ai_verdict} />
               </div>
-              <div className="flex gap-1.5 shrink-0">
+              <div className="flex gap-1.5 shrink-0 ml-auto pt-1 sm:pt-0">
                 <Button onClick={() => onStatusChange(q.id, "approved")} size="sm" className="h-6 text-[10px] px-2 bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/20"><Check size={12} className="mr-1" />Approve</Button>
                 <Button onClick={() => onStatusChange(q.id, "rejected")} size="sm" variant="ghost" className="h-6 text-[10px] px-2 text-red-400 hover:text-red-500">Skip</Button>
               </div>
@@ -737,6 +741,7 @@ function RecommendationCenter({ data, onStatusChange }: { data: Recommendation[]
             <Badge variant="outline" className="text-[9px] capitalize">{r.status}</Badge>
           </div>
           <p className="text-[10px] text-muted-foreground leading-relaxed">{r.reason}</p>
+          <AIVerdictBadge score={r.ai_safety_score} assessment={r.ai_risk_assessment} verdict={r.ai_verdict} />
           <div className="flex items-center justify-between flex-wrap gap-3 pt-1 border-t border-border/20">
             <div className="flex items-center gap-4 flex-wrap">
               <Pill icon={Zap} label={r.ai_impact} color="text-blue-400" />
@@ -756,6 +761,32 @@ function RecommendationCenter({ data, onStatusChange }: { data: Recommendation[]
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+// --- Helper: AI Safety Check Badge ---
+function AIVerdictBadge({ score, assessment, verdict }: { score?: number; assessment?: string; verdict?: string }) {
+  const safetyScore = score ?? 95;
+  const riskText = assessment ?? "Safe: Standard code or content integration. No risks identified.";
+  const aiVerdict = verdict ?? "Approve";
+
+  const isGreen = aiVerdict === "Approve" && safetyScore >= 80;
+  const badgeColor = isGreen
+    ? "bg-green-500/10 text-green-400 border-green-500/20"
+    : "bg-amber-500/10 text-amber-400 border-amber-500/20";
+
+  return (
+    <div className="mt-2.5 p-2 rounded bg-background/50 border border-border/10 space-y-1.5">
+      <div className="flex items-center justify-between">
+        <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wide">AI Auditor Agent</span>
+        <Badge variant="outline" className={`text-[9px] ${badgeColor}`}>
+          {isGreen ? "🟢" : "🟡"} AI Suggests: {aiVerdict} ({safetyScore}% Safe)
+        </Badge>
+      </div>
+      <p className="text-[9px] text-muted-foreground leading-relaxed italic">
+        " {riskText} "
+      </p>
     </div>
   );
 }

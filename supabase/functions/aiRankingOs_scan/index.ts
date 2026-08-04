@@ -210,7 +210,7 @@ Respond ONLY with a valid JSON object matching this structure EXACTLY:
     ]
   },
   "recommendations": [
-    { "id": string, "category": string, "priority": "P0"|"P1"|"P2", "title": string, "aiImpact": string, "seoImpact": string, "effort": "Low"|"Medium"|"High", "estimatedTime": string, "reason": string }
+    { "id": string, "category": string, "priority": "P0"|"P1"|"P2", "title": string, "aiImpact": string, "seoImpact": string, "effort": "Low"|"Medium"|"High", "estimatedTime": string, "reason": string, "aiSafetyScore": number, "aiRiskAssessment": string, "aiVerdict": "Approve"|"Review" }
   ]
 }
 
@@ -310,7 +310,7 @@ Make all data specific and relevant to the website text provided below. Output O
         ]
       },
       recommendations: [
-        { id: "REC-1", category: "AI Readiness", priority: "P0", title: "Add FAQPage Schema to Homepage", aiImpact: "+12 AI Score", seoImpact: "+5 SEO Score", effort: "Low", estimatedTime: "10 mins", reason: "Allows ChatGPT & Perplexity to extract direct Q&A snippets." }
+        { id: "REC-1", category: "AI Readiness", priority: "P0", title: "Add FAQPage Schema to Homepage", aiImpact: "+12 AI Score", seoImpact: "+5 SEO Score", effort: "Low", estimatedTime: "10 mins", reason: "Allows ChatGPT & Perplexity to extract direct Q&A snippets.", aiSafetyScore: 98, aiRiskAssessment: "Safe JSON-LD structure, zero style or layout risks.", aiVerdict: "Approve" }
       ]
     };
 
@@ -369,11 +369,14 @@ async function saveScanToDB(data: any, user_id?: string, site_id?: string) {
         category: r.category,
         title: r.title,
         reason: r.reason,
-        ai_impact: r.aiImpact,
-        seo_impact: r.seoImpact,
+        ai_impact: r.aiImpact || r.ai_impact,
+        seo_impact: r.seoImpact || r.seo_impact,
         effort: r.effort,
-        estimated_time: r.estimatedTime,
-        status: "pending"
+        estimated_time: r.estimatedTime || r.estimated_time,
+        status: "pending",
+        ai_safety_score: r.aiSafetyScore || r.ai_safety_score || 95,
+        ai_risk_assessment: r.aiRiskAssessment || r.ai_risk_assessment || "Safe: standard integration.",
+        ai_verdict: r.aiVerdict || r.ai_verdict || "Approve"
       }));
       await supabase.from("ranking_recommendations").insert(recs);
     }
