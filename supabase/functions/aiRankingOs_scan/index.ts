@@ -271,7 +271,7 @@ ${approvedSummary}`;
     // --- EXECUTE REAL AGENT SCRIPTS ---
     // 1. SEO Agent
     const seoAgentLog = gscRealData 
-      ? `Analyzed ${gscRealData.totalKeywords} keyword clusters. Identified search impressions (${gscRealData.totalImpressions}) and top query: "${gscRealData.topQueries[0]?.query || 'N/A'}".`
+      ? `Analyzed ${gscRealData.totalKeywords} keyword clusters. Identified search impressions (${gscRealData.totalImpressions}) and top query: "${gscRealData.topKeywords?.[0]?.keyword || 'N/A'}".`
       : `Audited baseline metadata. Searched for organic GSC keyword integration. Found 0 GSC keys.`;
 
     // 2. Content Agent
@@ -577,6 +577,15 @@ async function saveScanToDB(data: any, user_id?: string, site_id?: string) {
   if (!user_id || !site_id) return;
   try {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    
+    // Fetch site autopilot status
+    const { data: site } = await supabase
+      .from("ranking_sites")
+      .select("auto_scan")
+      .eq("id", site_id)
+      .single();
+    const isAutopilot = site?.auto_scan || false;
+
     const scores = data.scores;
     const { data: savedScan } = await supabase
       .from("ranking_scans")
@@ -595,24 +604,45 @@ async function saveScanToDB(data: any, user_id?: string, site_id?: string) {
       .single();
 
     if (savedScan && data.recommendations?.length > 0) {
-      const recs = data.recommendations.map((r: any) => ({
-        scan_id: savedScan.id,
-        site_id,
-        user_id,
-        priority: r.priority,
-        category: r.category,
-        title: r.title,
-        reason: r.reason,
-        ai_impact: r.aiImpact || r.ai_impact,
-        seo_impact: r.seoImpact || r.seo_impact,
-        effort: r.effort,
-        estimated_time: r.estimatedTime || r.estimated_time,
-        status: "pending",
-        ai_safety_score: r.aiSafetyScore || r.ai_safety_score || 95,
-        ai_risk_assessment: r.aiRiskAssessment || r.ai_risk_assessment || "Safe: standard integration.",
-        ai_verdict: r.aiVerdict || r.ai_verdict || "Approve"
-      }));
+      const recs = data.recommendations.map((r: any) => {
+        const safetyScore = r.aiSafetyScore || r.ai_safety_score || 95;
+        const verdict = r.aiVerdict || r.ai_verdict || "Approve";
+        const autoApproved = isAutopilot && verdict === "Approve" && safetyScore >= 90;
+        
+        return {
+          scan_id: savedScan.id,
+          site_id,
+          user_id,
+          priority: r.priority,
+          category: r.category,
+          title: r.title,
+          reason: r.reason,
+          ai_impact: r.aiImpact || r.ai_impact,
+          seo_impact: r.seoImpact || r.seo_impact,
+          effort: r.effort,
+          estimated_time: r.estimatedTime || r.estimated_time,
+          status: autoApproved ? "approved" : "pending",
+          approved_at: autoApproved ? new Date().toISOString() : null,
+          ai_safety_score: safetyScore,
+          ai_risk_assessment: r.aiRiskAssessment || r.ai_risk_assessment || "Safe: standard integration.",
+          ai_verdict: verdict
+        };
+      });
       await supabase.from("ranking_recommendations").insert(recs);
+
+      // Log auto-approval actions by agents
+      const autoApprovedRecs = recs.filter((re: any) => re.status === "approved");
+      if (autoApprovedRecs.length > 0) {
+        const logs = autoApprovedRecs.map((re: any) => ({
+          site_id,
+          user_id,
+          agent_name: "Content Agent",
+          action: "Autopilot Auto-Approval",
+          result: { details: `Autopilot automatically approved and deployed safe recommendation: "${re.title}"` },
+          triggered_by: "auto"
+        }));
+        await supabase.from("ranking_agents_log").insert(logs);
+      }
     }
 
     // Update last_scanned_at

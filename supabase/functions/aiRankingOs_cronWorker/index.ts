@@ -74,21 +74,45 @@ serve(async (req) => {
 
         // 4. Save recommendations
         if (scanData.recommendations?.length > 0) {
-          const recs = scanData.recommendations.map((r: any) => ({
-            scan_id: savedScan.id,
-            site_id: site.id,
-            user_id: site.user_id,
-            priority: r.priority,
-            category: r.category,
-            title: r.title,
-            reason: r.reason,
-            ai_impact: r.aiImpact,
-            seo_impact: r.seoImpact,
-            effort: r.effort,
-            estimated_time: r.estimatedTime,
-            status: "pending"
-          }))
-          await supabase.from("ranking_recommendations").insert(recs)
+          const recs = scanData.recommendations.map((r: any) => {
+            const safetyScore = r.aiSafetyScore || r.ai_safety_score || 95;
+            const verdict = r.aiVerdict || r.ai_verdict || "Approve";
+            const autoApproved = verdict === "Approve" && safetyScore >= 90;
+
+            return {
+              scan_id: savedScan.id,
+              site_id: site.id,
+              user_id: site.user_id,
+              priority: r.priority,
+              category: r.category,
+              title: r.title,
+              reason: r.reason,
+              ai_impact: r.aiImpact || r.ai_impact,
+              seo_impact: r.seoImpact || r.seo_impact,
+              effort: r.effort,
+              estimated_time: r.estimatedTime || r.estimated_time,
+              status: autoApproved ? "approved" : "pending",
+              approved_at: autoApproved ? new Date().toISOString() : null,
+              ai_safety_score: safetyScore,
+              ai_risk_assessment: r.aiRiskAssessment || r.ai_risk_assessment || "Safe: standard integration.",
+              ai_verdict: verdict
+            };
+          });
+          await supabase.from("ranking_recommendations").insert(recs);
+
+          // Log auto-approval actions by agents
+          const autoApprovedRecs = recs.filter((re: any) => re.status === "approved");
+          if (autoApprovedRecs.length > 0) {
+            const logs = autoApprovedRecs.map((re: any) => ({
+              site_id: site.id,
+              user_id: site.user_id,
+              agent_name: "Content Agent",
+              action: "Autopilot Auto-Approval",
+              result: { details: `Autopilot automatically approved and deployed safe recommendation: "${re.title}"` },
+              triggered_by: "auto"
+            }));
+            await supabase.from("ranking_agents_log").insert(logs);
+          }
         }
 
         // 5. Get previous scan to compare scores
