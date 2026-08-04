@@ -106,6 +106,20 @@ serve(async (req) => {
 
       if (tokenData.error) {
         console.error("Google token error details:", tokenData);
+        // Fallback: If code was already redeemed or invalid, check if user has an existing saved token
+        const { data: existingToken } = await supabase
+          .from("gsc_tokens")
+          .select("refresh_token")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (existingToken?.refresh_token) {
+          await supabase.from("ranking_sites").update({ gsc_connected: true }).eq("user_id", user.id);
+          return new Response(JSON.stringify({ success: true }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        }
+
         throw new Error(tokenData.error_description || tokenData.error);
       }
 

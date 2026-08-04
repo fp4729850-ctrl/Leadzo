@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAction } from "@/lib/convex-supabase-adapter";
 import { api } from "@/convex/_generated/api.js";
@@ -9,8 +9,12 @@ export default function GscCallback() {
   const exchangeCode = useAction(api.gscActions.exchangeGscCode);
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const [error, setError] = useState("");
+  const processedRef = useRef(false);
 
   useEffect(() => {
+    if (processedRef.current) return;
+    processedRef.current = true;
+
     const params = new URLSearchParams(window.location.search);
     const code = params.get("code");
     const errorParam = params.get("error");
