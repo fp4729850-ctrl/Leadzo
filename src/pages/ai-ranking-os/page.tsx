@@ -1,15 +1,17 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   BarChart, Activity, ShieldCheck, Zap, Globe, FileText, Settings, Database,
   MessageSquare, Sliders, CheckCircle2, TrendingUp, AlertTriangle, Loader2,
   Search, Users, Bot, Clock, Target, ArrowUpRight, BookOpen, Link2,
   AlertCircle, CheckCircle, XCircle, BarChart2, Lightbulb, Calendar,
-  Download, RefreshCw, ChevronRight, Star, Info
+  Download, RefreshCw, ChevronRight, Star, Plus, Check, Trash
 } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
 import { supabase } from "@/lib/supabase.ts";
+import { useAuth } from "@/hooks/use-auth.ts";
+import { toast } from "sonner";
 
 const TABS = [
   { id: "ai-visibility", label: "AI Visibility", icon: Globe },
@@ -23,56 +25,228 @@ const TABS = [
   { id: "settings-center", label: "Settings", icon: Settings },
 ];
 
-type ScanData = {
-  scores: { aiVisibility: number; llmReadiness: number; seoHealth: number; authorityScore: number };
-  highImpactTasks: { priority: string; title: string; impact: string; reason: string }[];
-  recentImprovements: { title: string; gain: string }[];
-  aiVisibilityCenter: any;
-  contentIntelligence: any;
-  technicalOptimization: any;
-  competitorIntelligence: any;
-  aiAgentCenter: any;
-  recommendations: any[];
+type Site = {
+  id: string;
+  domain: string;
+  verified: boolean;
+  auto_scan: boolean;
+  scan_frequency: string;
+  gsc_connected: boolean;
+  last_scanned_at: string | null;
+};
+
+type Scan = {
+  id: string;
+  site_id: string;
+  score_ai_visibility: number;
+  score_llm_readiness: number;
+  score_seo_health: number;
+  score_authority: number;
+  full_data: any;
+  high_impact_tasks: any;
+  scanned_at: string;
+};
+
+type Recommendation = {
+  id: string;
+  priority: string;
+  category: string;
+  title: string;
+  reason: string;
+  ai_impact: string;
+  seo_impact: string;
+  effort: string;
+  estimated_time: string;
+  status: string;
 };
 
 export default function AiRankingOsPage() {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState(TABS[0].id);
   const [domain, setDomain] = useState("");
   const [loading, setLoading] = useState(false);
-  const [scanData, setScanData] = useState<ScanData | null>(null);
+  const [sites, setSites] = useState<Site[]>([]);
+  const [activeSite, setActiveSite] = useState<Site | null>(null);
+  const [scans, setScans] = useState<Scan[]>([]);
+  const [latestScan, setLatestScan] = useState<Scan | null>(null);
+  const [recs, setRecs] = useState<Recommendation[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  const runScan = async () => {
+  // Load user sites on mount
+  useEffect(() => {
+    if (user?.id) {
+      loadSites();
+    }
+  }, [user?.id]);
+
+  // Load scans when active site changes
+  useEffect(() => {
+    if (activeSite?.id) {
+      loadScans(activeSite.id);
+    } else {
+      setScans([]);
+      setLatestScan(null);
+      setRecs([]);
+    }
+  }, [activeSite?.id]);
+
+  const loadSites = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("ranking_sites")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      setSites(data || []);
+      if (data && data.length > 0 && !activeSite) {
+        setActiveSite(data[0]);
+        setDomain(data[0].domain);
+      }
+    } catch (e: any) {
+      console.error("Failed to load sites:", e);
+    }
+  };
+
+  const loadScans = async (siteId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("ranking_scans")
+        .select("*")
+        .eq("site_id", siteId)
+        .order("scanned_at", { ascending: false });
+      if (error) throw error;
+      setScans(data || []);
+      if (data && data.length > 0) {
+        setLatestScan(data[0]);
+        loadRecommendations(data[0].id);
+      } else {
+        setLatestScan(null);
+        setRecs([]);
+      }
+    } catch (e: any) {
+      console.error("Failed to load scans:", e);
+    }
+  };
+
+  const loadRecommendations = async (scanId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("ranking_recommendations")
+        .select("*")
+        .eq("scan_id", scanId)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      setRecs(data || []);
+    } catch (e: any) {
+      console.error("Failed to load recommendations:", e);
+    }
+  };
+
+  const handleConnectAndScan = async () => {
     if (!domain.trim()) return;
+    if (!user?.id) {
+      toast.error("Please login to connect and scan a site.");
+      return;
+    }
+
     setLoading(true);
     setError(null);
-    setScanData(null);
+
     try {
+      // 1. Ensure site exists in DB
+      let site = sites.find(s => s.domain.toLowerCase() === domain.trim().toLowerCase());
+      if (!site) {
+        const { data, error: siteInsertErr } = await supabase
+          .from("ranking_sites")
+          .insert({
+            user_id: user.id,
+            domain: domain.trim(),
+            verified: false
+          })
+          .select()
+          .single();
+
+        if (siteInsertErr) throw siteInsertErr;
+        site = data;
+        await loadSites();
+        setActiveSite(site);
+      }
+
+      // 2. Run the Edge function scan
       const { data, error: fnErr } = await supabase.functions.invoke("aiRankingOs_scan", {
-        body: { url: domain.trim() }
+        body: { 
+          url: domain.trim(),
+          user_id: user.id,
+          site_id: site!.id
+        }
       });
       if (fnErr) throw new Error(fnErr.message);
+      
       if (data?.success && data?.data) {
-        setScanData(data.data);
+        toast.success("Audit completed successfully!");
+        await loadScans(site!.id);
       } else {
         throw new Error("Scan returned no data.");
       }
     } catch (e: any) {
       setError(e.message || "Scan failed. Please try again.");
+      toast.error(e.message || "Scan failed");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") runScan();
+  const updateRecStatus = async (recId: string, newStatus: string) => {
+    try {
+      const { error } = await supabase
+        .from("ranking_recommendations")
+        .update({ 
+          status: newStatus,
+          approved_at: newStatus === "approved" ? new Date().toISOString() : null,
+          done_at: newStatus === "done" ? new Date().toISOString() : null
+        })
+        .eq("id", recId);
+      if (error) throw error;
+      
+      // Update local state
+      setRecs(prev => prev.map(r => r.id === recId ? { ...r, status: newStatus } : r));
+      toast.success(`Recommendation marked as ${newStatus}`);
+
+      // Log agent action
+      if (activeSite && user) {
+        await supabase.from("ranking_agents_log").insert({
+          site_id: activeSite.id,
+          user_id: user.id,
+          agent_name: "User Interface",
+          action: `User marked recommendation ${recId} as ${newStatus}`,
+          result: { recId, status: newStatus }
+        });
+      }
+    } catch (e: any) {
+      toast.error("Failed to update status");
+      console.error(e);
+    }
   };
 
-  const scores = scanData?.scores;
+  const deleteSite = async (siteId: string) => {
+    if (!confirm("Are you sure you want to delete this website and all its scan history?")) return;
+    try {
+      const { error } = await supabase.from("ranking_sites").delete().eq("id", siteId);
+      if (error) throw error;
+      toast.success("Website deleted successfully");
+      await loadSites();
+      if (activeSite?.id === siteId) {
+        setActiveSite(null);
+        setDomain("");
+      }
+    } catch (e) {
+      toast.error("Failed to delete website");
+    }
+  };
 
   return (
     <div className="flex flex-col h-full bg-background/50 overflow-hidden">
-
+      
       {/* Header */}
       <div className="px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border bg-background/80 backdrop-blur-sm shrink-0">
         <div>
@@ -81,79 +255,124 @@ export default function AiRankingOsPage() {
             AI Ranking OS
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">
-            End-to-end SEO & AI Visibility Platform — Vol. 1–7
+            Persistent SEO & AI Visibility Command Center
           </p>
         </div>
         <div className="flex items-center gap-2 w-full sm:w-auto">
+          {sites.length > 0 && (
+            <select 
+              value={activeSite?.id || ""} 
+              onChange={(e) => {
+                const s = sites.find(x => x.id === e.target.value);
+                if (s) {
+                  setActiveSite(s);
+                  setDomain(s.domain);
+                }
+              }}
+              className="bg-secondary/50 border border-border/50 text-foreground text-xs rounded-lg px-2.5 py-1.5 focus:outline-none"
+            >
+              {sites.map(s => <option key={s.id} value={s.id}>{s.domain.replace(/https?:\/\//, "")}</option>)}
+            </select>
+          )}
           <Input
             value={domain}
             onChange={(e) => setDomain(e.target.value)}
-            onKeyDown={handleKeyDown}
-            className="sm:w-72 bg-secondary/30 text-sm"
+            className="sm:w-64 bg-secondary/30 text-xs h-8"
             placeholder="https://yourwebsite.com"
           />
-          <Button onClick={runScan} disabled={loading} className="shrink-0 bg-primary text-primary-foreground text-sm">
-            {loading ? <><Loader2 className="animate-spin mr-1.5" size={14} />Scanning...</> : <><Search size={14} className="mr-1.5" />Run Scan</>}
+          <Button onClick={handleConnectAndScan} disabled={loading} size="sm" className="shrink-0 bg-primary text-primary-foreground h-8 text-xs">
+            {loading ? <><Loader2 className="animate-spin mr-1.5" size={12} />Scanning...</> : <><Search size={12} className="mr-1.5" />Connect & Scan</>}
           </Button>
         </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-5 space-y-5">
-
-        {/* Loading State */}
+        
+        {/* Loading / Error States */}
         {loading && (
           <div className="flex flex-col items-center justify-center py-20 space-y-4 text-center">
-            <div className="relative size-20">
-              <div className="absolute inset-0 rounded-full border-4 border-primary/20 animate-pulse" />
-              <div className="absolute inset-2 rounded-full border-4 border-primary/40 animate-ping" />
-              <Zap className="absolute inset-0 m-auto text-primary" size={28} />
-            </div>
-            <p className="text-foreground font-semibold text-lg">AI Ranking OS Analyzing...</p>
-            <p className="text-muted-foreground text-sm max-w-sm">Crawling site, running 6 AI agents, calculating your AI Visibility Score and 9 center reports.</p>
+            <Loader2 className="animate-spin text-primary size-12" />
+            <p className="text-foreground font-semibold">Generating AI Ranking OS Insights...</p>
+            <p className="text-muted-foreground text-xs max-w-sm">Saving site profile, auditing meta structures, and parsing citation possibilities...</p>
           </div>
         )}
 
-        {/* Error State */}
         {error && !loading && (
           <div className="flex items-start gap-3 p-4 rounded-xl border border-red-500/20 bg-red-500/5">
-            <AlertCircle className="text-red-400 shrink-0 mt-0.5" size={18} />
+            <AlertCircle className="text-red-400 shrink-0 mt-0.5" size={16} />
             <div>
-              <p className="text-sm font-semibold text-red-400">Scan Failed</p>
-              <p className="text-xs text-muted-foreground mt-1">{error}</p>
+              <p className="text-xs font-semibold text-red-400">Scan Execution Error</p>
+              <p className="text-[11px] text-muted-foreground mt-1">{error}</p>
             </div>
           </div>
         )}
 
-        {/* Default State — No Scan Yet */}
-        {!loading && !scanData && !error && (
+        {/* No Sites Configured */}
+        {!loading && !activeSite && !error && (
           <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
-            <div className="size-16 rounded-full bg-primary/10 flex items-center justify-center">
-              <Globe className="text-primary" size={28} />
+            <Globe className="text-primary size-16" />
+            <h3 className="text-lg font-semibold text-foreground">Welcome to AI Ranking OS</h3>
+            <p className="text-muted-foreground text-xs max-w-md">Connect your website to crawl, run AI audits, analyze topic coverage, and orchestrate automatic agents.</p>
+            <div className="flex items-center gap-3">
+              <Input
+                value={domain}
+                onChange={(e) => setDomain(e.target.value)}
+                placeholder="https://example.com"
+                className="w-64 bg-secondary/30 h-9"
+              />
+              <Button onClick={handleConnectAndScan} className="bg-primary text-primary-foreground"><Plus size={14} className="mr-1.5" />Add Site</Button>
             </div>
-            <p className="text-lg font-semibold text-foreground">Connect Your Website</p>
-            <p className="text-muted-foreground text-sm max-w-md">Enter your domain above and click <strong>Run Scan</strong> to get your AI Visibility Score, SEO audit, and 9 center analysis powered by AI agents.</p>
           </div>
         )}
 
-        {/* Scan Results */}
-        {!loading && scanData && (
+        {/* Active Site but no Scan Yet */}
+        {!loading && activeSite && !latestScan && !error && (
+          <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
+            <Activity className="text-primary size-16" />
+            <h3 className="text-lg font-semibold text-foreground">{activeSite.domain} connected!</h3>
+            <p className="text-muted-foreground text-xs max-w-md">The site has been connected to your profile but has not been crawled. Click the button below to execute your first scan.</p>
+            <Button onClick={handleConnectAndScan} className="bg-primary text-primary-foreground"><Search size={14} className="mr-1.5" />Start First Scan</Button>
+          </div>
+        )}
+
+        {/* Scan Results Board */}
+        {!loading && activeSite && latestScan && (
           <>
             {/* Score Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              <ScoreCard title="AI Visibility" score={scores!.aiVisibility} icon={Globe} color="text-blue-500" />
-              <ScoreCard title="LLM Readiness" score={scores!.llmReadiness} icon={MessageSquare} color="text-purple-500" />
-              <ScoreCard title="SEO Health" score={scores!.seoHealth} icon={Activity} color="text-green-500" />
-              <ScoreCard title="Authority Score" score={scores!.authorityScore} icon={ShieldCheck} color="text-amber-500" />
+              <ScoreCard title="AI Visibility" score={latestScan.score_ai_visibility} icon={Globe} color="text-blue-500" />
+              <ScoreCard title="LLM Readiness" score={latestScan.score_llm_readiness} icon={MessageSquare} color="text-purple-500" />
+              <ScoreCard title="SEO Health" score={latestScan.score_seo_health} icon={Activity} color="text-green-500" />
+              <ScoreCard title="Authority Score" score={latestScan.score_authority} icon={ShieldCheck} color="text-amber-500" />
             </div>
 
-            {/* Quick Insights */}
+            {/* Score Trend Sparkline (If multiple scans exist) */}
+            {scans.length > 1 && (
+              <div className="border border-border/30 rounded-xl bg-card p-4">
+                <h4 className="text-xs font-semibold text-foreground mb-3 flex items-center gap-1.5"><TrendingUp size={14} className="text-primary" /> AI Visibility Score Trend</h4>
+                <div className="flex items-end gap-3 h-16 pt-2">
+                  {scans.slice().reverse().map((s, idx) => (
+                    <div key={idx} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end">
+                      <div className="w-full bg-primary/20 rounded-t hover:bg-primary transition-all relative group" style={{ height: `${s.score_ai_visibility}%` }}>
+                        <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-popover text-popover-foreground text-[9px] px-1 rounded shadow opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                          {s.score_ai_visibility} ({new Date(s.scanned_at).toLocaleDateString()})
+                        </div>
+                      </div>
+                      <span className="text-[8px] text-muted-foreground">{new Date(s.scanned_at).toLocaleDateString([], { month: "short", day: "numeric" })}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Quick Insights Row */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <div className="border border-border/50 bg-secondary/10 rounded-xl p-4">
                 <h3 className="font-semibold text-xs text-foreground flex items-center gap-1.5 mb-3 uppercase tracking-wide">
                   <AlertTriangle size={14} className="text-red-400" /> Top High-Impact Tasks
                 </h3>
                 <div className="space-y-2">
-                  {scanData.highImpactTasks.slice(0, 4).map((t, i) => (
+                  {latestScan.high_impact_tasks?.slice(0, 4).map((t: any, i: number) => (
                     <TaskItem key={i} priority={t.priority} title={t.title} impact={t.impact} />
                   ))}
                 </div>
@@ -163,14 +382,14 @@ export default function AiRankingOsPage() {
                   <TrendingUp size={14} className="text-green-400" /> Recent Improvements
                 </h3>
                 <div className="space-y-2">
-                  {scanData.recentImprovements.slice(0, 4).map((r, i) => (
+                  {latestScan.full_data?.recentImprovements?.slice(0, 4).map((r: any, i: number) => (
                     <ImprovementItem key={i} title={r.title} gain={r.gain} />
                   ))}
                 </div>
               </div>
             </div>
 
-            {/* Tabs */}
+            {/* Tab navigation */}
             <div className="border-b border-border">
               <div className="flex overflow-x-auto gap-5 pb-px">
                 {TABS.map((tab) => (
@@ -189,17 +408,17 @@ export default function AiRankingOsPage() {
               </div>
             </div>
 
-            {/* Tab Content */}
+            {/* Tab Contents */}
             <div className="border border-border/30 rounded-xl bg-card p-5 shadow-sm">
-              {activeTab === "ai-visibility" && <AIVisibilityCenter data={scanData.aiVisibilityCenter} />}
-              {activeTab === "content-intelligence" && <ContentIntelligenceCenter data={scanData.contentIntelligence} />}
-              {activeTab === "tech-optimization" && <TechnicalOptimizationCenter data={scanData.technicalOptimization} />}
-              {activeTab === "competitor-intel" && <CompetitorIntelligenceCenter data={scanData.competitorIntelligence} />}
-              {activeTab === "ai-agents" && <AIAgentCenter data={scanData.aiAgentCenter} />}
-              {activeTab === "recommendations" && <RecommendationCenter data={scanData.recommendations} />}
-              {activeTab === "reports" && <ReportsCenter domain={domain} scores={scanData.scores} />}
+              {activeTab === "ai-visibility" && <AIVisibilityCenter data={latestScan.full_data?.aiVisibilityCenter} />}
+              {activeTab === "content-intelligence" && <ContentIntelligenceCenter data={latestScan.full_data?.contentIntelligence} />}
+              {activeTab === "tech-optimization" && <TechnicalOptimizationCenter data={latestScan.full_data?.technicalOptimization} />}
+              {activeTab === "competitor-intel" && <CompetitorIntelligenceCenter data={latestScan.full_data?.competitorIntelligence} />}
+              {activeTab === "ai-agents" && <AIAgentCenter data={latestScan.full_data?.aiAgentCenter} approvalQueue={recs.filter(r => r.status === "pending")} onStatusChange={updateRecStatus} />}
+              {activeTab === "recommendations" && <RecommendationCenter data={recs} onStatusChange={updateRecStatus} />}
+              {activeTab === "reports" && <ReportsCenter domain={activeSite.domain} scores={{ aiVisibility: latestScan.score_ai_visibility, seoHealth: latestScan.score_seo_health }} />}
               {activeTab === "automation" && <AutomationCenter />}
-              {activeTab === "settings-center" && <SettingsCenter />}
+              {activeTab === "settings-center" && <SettingsCenter site={activeSite} onDelete={deleteSite} />}
             </div>
           </>
         )}
@@ -402,7 +621,7 @@ function CompetitorIntelligenceCenter({ data }: { data: any }) {
 }
 
 // --- AI Agent Center ---
-function AIAgentCenter({ data }: { data: any }) {
+function AIAgentCenter({ data, approvalQueue, onStatusChange }: { data: any; approvalQueue: Recommendation[]; onStatusChange: (id: string, stat: string) => void }) {
   if (!data) return <PlaceholderView title="AI Agent Center" />;
   return (
     <div className="space-y-5">
@@ -427,45 +646,60 @@ function AIAgentCenter({ data }: { data: any }) {
 
       <SectionHeader icon={CheckCircle2} title="Approval Queue" desc="Agent recommendations awaiting your review." />
       <div className="space-y-2">
-        {data.approvalQueue?.map((q: any, i: number) => (
-          <div key={i} className="p-3 rounded-lg border border-border/30 bg-secondary/10 flex items-start justify-between gap-3">
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-1">
-                <Badge variant="outline" className="text-[9px] text-purple-400 border-purple-500/20">{q.agent}</Badge>
-                <p className="text-xs font-semibold text-foreground">{q.action}</p>
+        {approvalQueue.length === 0 ? (
+          <p className="text-xs text-muted-foreground py-4 text-center">No pending items in queue.</p>
+        ) : (
+          approvalQueue.map((q: any, i: number) => (
+            <div key={i} className="p-3 rounded-lg border border-border/30 bg-secondary/10 flex items-start justify-between gap-3">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <Badge variant="outline" className="text-[9px] text-purple-400 border-purple-500/20">{q.category}</Badge>
+                  <p className="text-xs font-semibold text-foreground">{q.title}</p>
+                </div>
+                <p className="text-[10px] text-muted-foreground">{q.reason}</p>
               </div>
-              <p className="text-[10px] text-muted-foreground">Target: {q.target} — {q.reason}</p>
+              <div className="flex gap-1.5 shrink-0">
+                <Button onClick={() => onStatusChange(q.id, "approved")} size="sm" className="h-6 text-[10px] px-2 bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/20"><Check size={12} className="mr-1" />Approve</Button>
+                <Button onClick={() => onStatusChange(q.id, "rejected")} size="sm" variant="ghost" className="h-6 text-[10px] px-2 text-red-400 hover:text-red-500">Skip</Button>
+              </div>
             </div>
-            <div className="flex gap-1.5 shrink-0">
-              <Button size="sm" className="h-6 text-[10px] px-2 bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/20">Approve</Button>
-              <Button size="sm" variant="ghost" className="h-6 text-[10px] px-2 text-muted-foreground">Skip</Button>
-            </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
     </div>
   );
 }
 
 // --- Recommendation Center ---
-function RecommendationCenter({ data }: { data: any[] }) {
+function RecommendationCenter({ data, onStatusChange }: { data: Recommendation[]; onStatusChange: (id: string, stat: string) => void }) {
   if (!data || !data.length) return <PlaceholderView title="Recommendation Center" />;
   return (
     <div className="space-y-3">
       <SectionHeader icon={CheckCircle2} title="All Recommendations" desc="Sorted by priority. Each item has a reason, AI impact, SEO impact, effort, and estimated time." />
       {data.map((r: any, i: number) => (
-        <div key={i} className="p-4 rounded-xl border border-border/30 bg-secondary/10 space-y-2">
+        <div key={i} className="p-4 rounded-xl border border-border/30 bg-secondary/10 space-y-2 relative">
           <div className="flex items-start gap-3 flex-wrap">
             <PriorityBadge p={r.priority} />
             <p className="text-xs font-bold text-foreground flex-1">{r.title}</p>
-            <Badge variant="secondary" className="text-[9px]">{r.category}</Badge>
+            <Badge variant="outline" className="text-[9px] capitalize">{r.status}</Badge>
           </div>
           <p className="text-[10px] text-muted-foreground leading-relaxed">{r.reason}</p>
-          <div className="flex items-center gap-4 pt-1 flex-wrap">
-            <Pill icon={Zap} label={`AI: ${r.aiImpact}`} color="text-blue-400" />
-            <Pill icon={TrendingUp} label={`SEO: ${r.seoImpact}`} color="text-green-400" />
-            <Pill icon={Target} label={`Effort: ${r.effort}`} color="text-amber-400" />
-            <Pill icon={Clock} label={r.estimatedTime} color="text-purple-400" />
+          <div className="flex items-center justify-between flex-wrap gap-3 pt-1 border-t border-border/20">
+            <div className="flex items-center gap-4 flex-wrap">
+              <Pill icon={Zap} label={r.ai_impact} color="text-blue-400" />
+              <Pill icon={TrendingUp} label={r.seo_impact} color="text-green-400" />
+              <Pill icon={Target} label={`Effort: ${r.effort}`} color="text-amber-400" />
+              <Pill icon={Clock} label={r.estimated_time} color="text-purple-400" />
+            </div>
+            {r.status === "pending" && (
+              <div className="flex gap-2">
+                <Button onClick={() => onStatusChange(r.id, "approved")} size="sm" className="h-6 text-[10px] bg-primary/20 text-primary border border-primary/30">Approve</Button>
+                <Button onClick={() => onStatusChange(r.id, "rejected")} size="sm" variant="ghost" className="h-6 text-[10px] text-muted-foreground">Reject</Button>
+              </div>
+            )}
+            {r.status === "approved" && (
+              <Button onClick={() => onStatusChange(r.id, "done")} size="sm" className="h-6 text-[10px] bg-green-500/20 text-green-400 border border-green-500/30">Mark Completed</Button>
+            )}
           </div>
         </div>
       ))}
@@ -501,7 +735,7 @@ function AutomationCenter() {
       <SectionHeader icon={Activity} title="Automation Center" desc="Set up scheduled scans, content refresh reminders and health automations." />
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {[
-          { label: "Weekly Scan", icon: Calendar, desc: "Auto-scan every Monday at 9 AM" },
+          { label: "Weekly Scan", icon: Calendar, desc: "Auto-scan every Monday at 3 AM" },
           { label: "Content Refresh", icon: RefreshCw, desc: "Alert when pages are older than 90 days" },
           { label: "Health Watch", icon: Activity, desc: "Alert if SEO Health drops below 70" },
         ].map((a, i) => (
@@ -518,23 +752,14 @@ function AutomationCenter() {
 }
 
 // --- Settings Center ---
-function SettingsCenter() {
+function SettingsCenter({ site, onDelete }: { site: Site; onDelete: (id: string) => void }) {
   return (
     <div className="space-y-4">
-      <SectionHeader icon={Settings} title="Settings" desc="Manage teams, API keys, integrations, billing and roles." />
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {[
-          { label: "Teams & Roles", icon: Users, desc: "Add team members, assign permissions" },
-          { label: "API Keys", icon: Info, desc: "Generate and revoke API access keys" },
-          { label: "Integrations", icon: Link2, desc: "Connect GSC, GA4, CMS platforms" },
-          { label: "Billing", icon: ArrowUpRight, desc: "Manage subscription and usage" },
-        ].map((s, i) => (
-          <div key={i} className="p-4 rounded-xl border border-border/30 bg-secondary/10 flex items-start gap-3">
-            <s.icon size={16} className="text-primary mt-0.5 shrink-0" />
-            <div><p className="text-xs font-bold text-foreground">{s.label}</p><p className="text-[10px] text-muted-foreground mt-0.5">{s.desc}</p></div>
-            <Button size="sm" variant="ghost" className="ml-auto text-[10px] h-6 shrink-0">Open</Button>
-          </div>
-        ))}
+      <SectionHeader icon={Settings} title="Settings" desc="Manage connected site properties, API integrations, and subscriptions." />
+      <div className="p-4 rounded-xl border border-red-500/20 bg-red-500/5 space-y-3">
+        <h4 className="text-xs font-bold text-red-400">Danger Zone</h4>
+        <p className="text-[10px] text-muted-foreground">Remove this site from your workspace. This action deletes all saved scans and recommendations history.</p>
+        <Button onClick={() => onDelete(site.id)} variant="destructive" size="sm" className="h-8 text-xs bg-red-600 hover:bg-red-700 text-white"><Trash size={12} className="mr-1.5" />Delete Site Connection</Button>
       </div>
     </div>
   );
@@ -572,7 +797,7 @@ function Pill({ icon: Icon, label, color }: { icon: any; label: string; color: s
 function PlaceholderView({ title }: { title: string }) {
   return (
     <div className="flex flex-col items-center justify-center min-h-[200px] text-center space-y-3">
-      <Settings size={24} className="text-muted-foreground" />
+      <Settings size={24} className="text-muted-foreground animate-spin-slow" />
       <p className="text-sm font-semibold text-foreground">{title}</p>
       <p className="text-xs text-muted-foreground">Run a scan to populate this center with data.</p>
     </div>
