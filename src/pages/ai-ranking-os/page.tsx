@@ -272,6 +272,10 @@ export default function AiRankingOsPage() {
   const getGscOAuthUrl = useAction(api.gscActions.getGscOAuthUrl);
 
   const connectGsc = async () => {
+    if (activeSite?.gsc_connected) {
+      toast.success("Google Search Console is already connected and syncing live!");
+      return;
+    }
     try {
       const redirectUri = window.location.hostname.includes("leadzoai.com")
         ? "https://www.leadzoai.com/auth/gsc-callback"
