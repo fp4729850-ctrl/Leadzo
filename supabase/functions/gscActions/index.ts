@@ -67,19 +67,43 @@ serve(async (req) => {
       const { code, redirectUri } = body
       if (!code || !redirectUri) throw new Error("Missing code or redirectUri")
 
-      const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+      let primaryRedirectUri = redirectUri;
+      let tokenRes = await fetch("https://oauth2.googleapis.com/token", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({
           code,
           client_id: GOOGLE_CLIENT_ID,
           client_secret: GOOGLE_CLIENT_SECRET,
-          redirect_uri: redirectUri,
+          redirect_uri: primaryRedirectUri,
           grant_type: "authorization_code",
         }),
       })
 
-      const tokenData = await tokenRes.json()
+      let tokenData = await tokenRes.json()
+
+      if (tokenData.error && primaryRedirectUri.includes("leadzoai.com")) {
+        const altRedirectUri = primaryRedirectUri.includes("www.leadzoai.com")
+          ? primaryRedirectUri.replace("www.leadzoai.com", "leadzoai.com")
+          : primaryRedirectUri.replace("leadzoai.com", "www.leadzoai.com");
+
+        const retryRes = await fetch("https://oauth2.googleapis.com/token", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({
+            code,
+            client_id: GOOGLE_CLIENT_ID,
+            client_secret: GOOGLE_CLIENT_SECRET,
+            redirect_uri: altRedirectUri,
+            grant_type: "authorization_code",
+          }),
+        });
+        const retryData = await retryRes.json();
+        if (!retryData.error) {
+          tokenData = retryData;
+        }
+      }
+
       if (tokenData.error) {
         console.error("Google token error details:", tokenData);
         throw new Error(tokenData.error_description || tokenData.error);
