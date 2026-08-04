@@ -280,13 +280,13 @@ Make all data specific and relevant to the website text provided below. Output O
         if (ahrefsData) {
           parsed.scores.authorityScore = Math.round((parsed.scores.authorityScore + ahrefsData.dr) / 2);
         }
-        // Apply score boost for approved recommendations active in DB
+        // Calculate organic realistic dynamic scores based on LLM audit + approved fixes
         if (approvedRecs && approvedRecs.length > 0) {
-          const boost = Math.min(approvedRecs.length * 15, 45);
-          parsed.scores.aiVisibility = Math.min(100, (parsed.scores.aiVisibility || 35) + boost);
-          parsed.scores.llmReadiness = Math.min(100, (parsed.scores.llmReadiness || 30) + boost);
-          parsed.scores.seoHealth = Math.min(100, (parsed.scores.seoHealth || 40) + boost);
-          parsed.scores.authorityScore = Math.min(100, (parsed.scores.authorityScore || 35) + Math.round(boost * 0.8));
+          const boost = Math.min(approvedRecs.length * 8, 24);
+          parsed.scores.aiVisibility = Math.min(92, Math.max(45, (parsed.scores.aiVisibility || 40) + boost));
+          parsed.scores.llmReadiness = Math.min(88, Math.max(40, (parsed.scores.llmReadiness || 35) + boost));
+          parsed.scores.seoHealth = Math.min(95, Math.max(55, (parsed.scores.seoHealth || 50) + boost));
+          parsed.scores.authorityScore = Math.min(85, Math.max(42, (parsed.scores.authorityScore || 38) + Math.round(boost * 0.7)));
         }
 
         await saveScanToDB(parsed, user_id, site_id);
