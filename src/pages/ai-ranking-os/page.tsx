@@ -244,6 +244,25 @@ export default function AiRankingOsPage() {
     }
   };
 
+  const toggleAutopilot = async () => {
+    if (!activeSite) return;
+    try {
+      const newVal = !activeSite.auto_scan;
+      const { error } = await supabase
+        .from("ranking_sites")
+        .update({ auto_scan: newVal })
+        .eq("id", activeSite.id);
+      if (error) throw error;
+      
+      const updatedSite = { ...activeSite, auto_scan: newVal };
+      setActiveSite(updatedSite);
+      setSites(prev => prev.map(s => s.id === activeSite.id ? updatedSite : s));
+      toast.success(`Autopilot ${newVal ? "enabled" : "disabled"}`);
+    } catch (e) {
+      toast.error("Failed to update Autopilot");
+    }
+  };
+
   return (
     <div className="flex flex-col h-full bg-background/50 overflow-hidden">
       
@@ -259,6 +278,21 @@ export default function AiRankingOsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2 w-full sm:w-auto">
+          {activeSite && (
+            <Button
+              onClick={toggleAutopilot}
+              variant="outline"
+              size="sm"
+              className={`h-8 text-xs border border-border/50 gap-1.5 shrink-0 ${
+                activeSite.auto_scan
+                  ? "bg-green-500/10 text-green-400 border-green-500/20 hover:bg-green-500/20"
+                  : "bg-secondary/30 text-muted-foreground hover:bg-secondary/50"
+              }`}
+            >
+              <Zap size={12} className={activeSite.auto_scan ? "animate-pulse" : ""} />
+              Autopilot: {activeSite.auto_scan ? "ON" : "OFF"}
+            </Button>
+          )}
           {sites.length > 0 && (
             <select 
               value={activeSite?.id || ""} 
@@ -417,8 +451,8 @@ export default function AiRankingOsPage() {
               {activeTab === "ai-agents" && <AIAgentCenter data={latestScan.full_data?.aiAgentCenter} approvalQueue={recs.filter(r => r.status === "pending")} onStatusChange={updateRecStatus} />}
               {activeTab === "recommendations" && <RecommendationCenter data={recs} onStatusChange={updateRecStatus} />}
               {activeTab === "reports" && <ReportsCenter domain={activeSite.domain} scores={{ aiVisibility: latestScan.score_ai_visibility, seoHealth: latestScan.score_seo_health }} />}
-              {activeTab === "automation" && <AutomationCenter />}
-              {activeTab === "settings-center" && <SettingsCenter site={activeSite} onDelete={deleteSite} />}
+              {activeTab === "automation" && <AutomationCenter site={activeSite} onToggle={toggleAutopilot} />}
+              {activeTab === "settings-center" && <SettingsCenter site={activeSite} onToggle={toggleAutopilot} onDelete={deleteSite} />}
             </div>
           </>
         )}
@@ -729,33 +763,65 @@ function ReportsCenter({ domain, scores }: { domain: string; scores: any }) {
 }
 
 // --- Automation Center ---
-function AutomationCenter() {
+function AutomationCenter({ site, onToggle }: { site: Site | null; onToggle: () => void }) {
+  if (!site) return null;
   return (
     <div className="space-y-4">
       <SectionHeader icon={Activity} title="Automation Center" desc="Set up scheduled scans, content refresh reminders and health automations." />
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {[
-          { label: "Weekly Scan", icon: Calendar, desc: "Auto-scan every Monday at 3 AM" },
-          { label: "Content Refresh", icon: RefreshCw, desc: "Alert when pages are older than 90 days" },
-          { label: "Health Watch", icon: Activity, desc: "Alert if SEO Health drops below 70" },
-        ].map((a, i) => (
-          <div key={i} className="p-4 rounded-xl border border-border/30 bg-secondary/10 space-y-2">
-            <a.icon size={20} className="text-primary" />
-            <p className="text-xs font-bold text-foreground">{a.label}</p>
-            <p className="text-[10px] text-muted-foreground">{a.desc}</p>
-            <Button size="sm" variant="outline" className="text-[10px] h-6 w-full">Configure</Button>
+        <div className="p-4 rounded-xl border border-border/30 bg-secondary/10 space-y-2">
+          <Calendar size={20} className="text-primary" />
+          <p className="text-xs font-bold text-foreground">Weekly Scan (Autopilot)</p>
+          <p className="text-[10px] text-muted-foreground">Auto-scan domain every Monday at 3 AM.</p>
+          <div className="flex items-center justify-between pt-1">
+            <span className={`text-[10px] font-semibold ${site.auto_scan ? "text-green-400" : "text-muted-foreground"}`}>
+              {site.auto_scan ? "Active" : "Inactive"}
+            </span>
+            <Button onClick={onToggle} size="sm" variant="outline" className="text-[10px] h-6 px-3">
+              {site.auto_scan ? "Disable" : "Enable"}
+            </Button>
           </div>
-        ))}
+        </div>
+        <div className="p-4 rounded-xl border border-border/30 bg-secondary/10 space-y-2">
+          <RefreshCw size={20} className="text-primary" />
+          <p className="text-xs font-bold text-foreground">Content Refresh</p>
+          <p className="text-[10px] text-muted-foreground">Alert when pages are older than 90 days.</p>
+          <Button size="sm" variant="outline" className="text-[10px] h-6 w-full">Configure</Button>
+        </div>
+        <div className="p-4 rounded-xl border border-border/30 bg-secondary/10 space-y-2">
+          <Activity size={20} className="text-primary" />
+          <p className="text-xs font-bold text-foreground">Health Watch</p>
+          <p className="text-[10px] text-muted-foreground">Alert if SEO Health drops below 70.</p>
+          <Button size="sm" variant="outline" className="text-[10px] h-6 w-full">Configure</Button>
+        </div>
       </div>
     </div>
   );
 }
 
 // --- Settings Center ---
-function SettingsCenter({ site, onDelete }: { site: Site; onDelete: (id: string) => void }) {
+function SettingsCenter({ site, onToggle, onDelete }: { site: Site; onToggle: () => void; onDelete: (id: string) => void }) {
   return (
     <div className="space-y-4">
       <SectionHeader icon={Settings} title="Settings" desc="Manage connected site properties, API integrations, and subscriptions." />
+      <div className="p-4 rounded-xl border border-border/30 bg-secondary/10 space-y-3">
+        <h4 className="text-xs font-bold text-foreground">Autopilot Configurations</h4>
+        <p className="text-[10px] text-muted-foreground">Toggle automated scans and updates for this domain.</p>
+        <div className="flex items-center gap-3">
+          <Button
+            onClick={onToggle}
+            variant="outline"
+            size="sm"
+            className={`h-8 text-xs border border-border/50 gap-1.5 ${
+              site.auto_scan
+                ? "bg-green-500/10 text-green-400 border-green-500/20 hover:bg-green-500/20"
+                : "bg-secondary/30 text-muted-foreground hover:bg-secondary/50"
+            }`}
+          >
+            Autopilot is: {site.auto_scan ? "ON" : "OFF"}
+          </Button>
+        </div>
+      </div>
       <div className="p-4 rounded-xl border border-red-500/20 bg-red-500/5 space-y-3">
         <h4 className="text-xs font-bold text-red-400">Danger Zone</h4>
         <p className="text-[10px] text-muted-foreground">Remove this site from your workspace. This action deletes all saved scans and recommendations history.</p>
