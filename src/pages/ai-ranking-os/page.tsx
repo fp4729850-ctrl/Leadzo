@@ -33,6 +33,7 @@ type Site = {
   scan_frequency: string;
   gsc_connected: boolean;
   last_scanned_at: string | null;
+  api_keys?: any;
 };
 
 type Scan = {
@@ -263,6 +264,24 @@ export default function AiRankingOsPage() {
     }
   };
 
+  const updateApiKeys = async (keys: any) => {
+    if (!activeSite) return;
+    try {
+      const { error } = await supabase
+        .from("ranking_sites")
+        .update({ api_keys: keys })
+        .eq("id", activeSite.id);
+      if (error) throw error;
+
+      const updatedSite = { ...activeSite, api_keys: keys };
+      setActiveSite(updatedSite);
+      setSites(prev => prev.map(s => s.id === activeSite.id ? updatedSite : s));
+      toast.success("API keys updated successfully");
+    } catch (e) {
+      toast.error("Failed to save API keys");
+    }
+  };
+
   return (
     <div className="flex flex-col h-full bg-background/50 overflow-hidden">
       
@@ -452,7 +471,7 @@ export default function AiRankingOsPage() {
               {activeTab === "recommendations" && <RecommendationCenter data={recs} onStatusChange={updateRecStatus} />}
               {activeTab === "reports" && <ReportsCenter domain={activeSite.domain} scores={{ aiVisibility: latestScan.score_ai_visibility, seoHealth: latestScan.score_seo_health }} />}
               {activeTab === "automation" && <AutomationCenter site={activeSite} onToggle={toggleAutopilot} />}
-              {activeTab === "settings-center" && <SettingsCenter site={activeSite} onToggle={toggleAutopilot} onDelete={deleteSite} />}
+              {activeTab === "settings-center" && <SettingsCenter site={activeSite} onToggle={toggleAutopilot} onDelete={deleteSite} onUpdateKeys={updateApiKeys} />}
             </div>
           </>
         )}
@@ -800,10 +819,35 @@ function AutomationCenter({ site, onToggle }: { site: Site | null; onToggle: () 
 }
 
 // --- Settings Center ---
-function SettingsCenter({ site, onToggle, onDelete }: { site: Site; onToggle: () => void; onDelete: (id: string) => void }) {
+function SettingsCenter({ site, onToggle, onDelete, onUpdateKeys }: { site: Site; onToggle: () => void; onDelete: (id: string) => void; onUpdateKeys: (keys: any) => Promise<void> }) {
+  const [pagespeedKey, setPagespeedKey] = useState(site.api_keys?.pagespeed_key || "");
+  const [mozId, setMozId] = useState(site.api_keys?.moz_id || "");
+  const [mozSecret, setMozSecret] = useState(site.api_keys?.moz_secret || "");
+  const [ahrefsToken, setAhrefsToken] = useState(site.api_keys?.ahrefs_token || "");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setPagespeedKey(site.api_keys?.pagespeed_key || "");
+    setMozId(site.api_keys?.moz_id || "");
+    setMozSecret(site.api_keys?.moz_secret || "");
+    setAhrefsToken(site.api_keys?.ahrefs_token || "");
+  }, [site.id, site.api_keys]);
+
+  const handleSaveKeys = async () => {
+    setSaving(true);
+    await onUpdateKeys({
+      pagespeed_key: pagespeedKey,
+      moz_id: mozId,
+      moz_secret: mozSecret,
+      ahrefs_token: ahrefsToken
+    });
+    setSaving(false);
+  };
+
   return (
     <div className="space-y-4">
       <SectionHeader icon={Settings} title="Settings" desc="Manage connected site properties, API integrations, and subscriptions." />
+      
       <div className="p-4 rounded-xl border border-border/30 bg-secondary/10 space-y-3">
         <h4 className="text-xs font-bold text-foreground">Autopilot Configurations</h4>
         <p className="text-[10px] text-muted-foreground">Toggle automated scans and updates for this domain.</p>
@@ -822,6 +866,59 @@ function SettingsCenter({ site, onToggle, onDelete }: { site: Site; onToggle: ()
           </Button>
         </div>
       </div>
+
+      <div className="p-4 rounded-xl border border-border/30 bg-secondary/10 space-y-3">
+        <h4 className="text-xs font-bold text-foreground">API Integrations (Moz, Ahrefs, PageSpeed)</h4>
+        <p className="text-[10px] text-muted-foreground">Save your credentials to enable real third-party Moz Domain Authority, Ahrefs Organic Keywords, and Google PageSpeed Insights speed metrics.</p>
+        <div className="space-y-3">
+          <div>
+            <label className="text-[10px] font-bold text-muted-foreground block mb-1">Google PageSpeed API Key (Optional)</label>
+            <Input
+              type="password"
+              value={pagespeedKey}
+              onChange={(e) => setPagespeedKey(e.target.value)}
+              className="bg-card text-xs h-8 border border-border/50"
+              placeholder="Google PageSpeed API Key"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[10px] font-bold text-muted-foreground block mb-1">Moz Access ID</label>
+              <Input
+                type="text"
+                value={mozId}
+                onChange={(e) => setMozId(e.target.value)}
+                className="bg-card text-xs h-8 border border-border/50"
+                placeholder="Moz Access ID"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-muted-foreground block mb-1">Moz Secret Key</label>
+              <Input
+                type="password"
+                value={mozSecret}
+                onChange={(e) => setMozSecret(e.target.value)}
+                className="bg-card text-xs h-8 border border-border/50"
+                placeholder="Moz Secret Key"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="text-[10px] font-bold text-muted-foreground block mb-1">Ahrefs API Token</label>
+            <Input
+              type="password"
+              value={ahrefsToken}
+              onChange={(e) => setAhrefsToken(e.target.value)}
+              className="bg-card text-xs h-8 border border-border/50"
+              placeholder="Ahrefs API Token"
+            />
+          </div>
+          <Button onClick={handleSaveKeys} disabled={saving} size="sm" className="h-8 text-xs bg-primary text-primary-foreground">
+            {saving ? "Saving..." : "Save API Configurations"}
+          </Button>
+        </div>
+      </div>
+
       <div className="p-4 rounded-xl border border-red-500/20 bg-red-500/5 space-y-3">
         <h4 className="text-xs font-bold text-red-400">Danger Zone</h4>
         <p className="text-[10px] text-muted-foreground">Remove this site from your workspace. This action deletes all saved scans and recommendations history.</p>
