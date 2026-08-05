@@ -94,6 +94,36 @@ serve(async (req) => {
       return new Response(JSON.stringify({ url: invoice.invoice_url }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
+    } else if (gateway === 'stripe') {
+      const stripePayload = new URLSearchParams({
+        "success_url": `${req.headers.get('origin')}/dashboard?payment=success`,
+        "cancel_url": `${req.headers.get('origin')}/pricing?payment=cancelled`,
+        "mode": "subscription",
+        "client_reference_id": user.id,
+        "subscription_data[metadata][user_id]": user.id,
+        "subscription_data[metadata][plan_name]": planId,
+        "line_items[0][price]": priceId,
+        "line_items[0][quantity]": "1"
+      })
+
+      const stripeApiKey = Deno.env.get('STRIPE_SECRET_KEY')
+      if (!stripeApiKey) throw new Error('Stripe secret key missing in secrets')
+
+      const stripeResponse = await fetch("https://api.stripe.com/v1/checkout/sessions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${stripeApiKey}`,
+          "Content-Type": "application/x-www-form-urlencoded"
+        },
+        body: stripePayload.toString()
+      })
+
+      const session = await stripeResponse.json()
+      if (session.error) throw new Error(session.error.message || "Stripe checkout session failed")
+
+      return new Response(JSON.stringify({ url: session.url }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      })
     }
 
     throw new Error('Invalid gateway')

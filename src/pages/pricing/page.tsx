@@ -17,6 +17,7 @@ const PLANS = [
     name: "Starter",
     price: 23,
     paddlePriceId: "pri_01ky23fy2gnmjfwypga2make39", // Starter Plan
+    stripePriceId: "price_1StarterPlaceholder",
     features: [
       "2,300 Tokens / month",
       "Live Inbox",
@@ -30,6 +31,7 @@ const PLANS = [
     price: 55,
     popular: true,
     paddlePriceId: "pri_01ky23sneq97rgq7wa3324bpyv", // Pro Plan
+    stripePriceId: "price_1ProPlaceholder",
     features: [
       "5,500 Tokens / month",
       "Advanced Auto-reply",
@@ -43,6 +45,7 @@ const PLANS = [
     name: "Agency",
     price: 135,
     paddlePriceId: "pri_01ky23y9a508n40enht0pfxwga", // Agency Plan
+    stripePriceId: "price_1AgencyPlaceholder",
     features: [
       "10,350 Tokens / month",
       "Multiple Workspaces",
@@ -95,6 +98,24 @@ export default function PricingPage() {
     }
   };
 
+  const handleStripeCheckout = async (plan: any) => {
+    if (!user) return toast.error("Please login to subscribe");
+    setLoadingPlan(plan.id);
+    try {
+      const res = await supabase.functions.invoke('create-checkout', {
+        body: { planId: plan.id, priceId: plan.stripePriceId, gateway: 'stripe' }
+      });
+      if (res.error) throw res.error;
+      if (res.data?.url) {
+        window.location.href = res.data.url;
+      }
+    } catch (e: any) {
+      toast.error(e.message || "Failed to initiate Stripe checkout");
+    } finally {
+      setLoadingPlan(null);
+    }
+  };
+
   const handleCryptoCheckout = async (planId: string) => {
     if (!user) return toast.error("Please login to subscribe");
     setLoadingPlan(planId);
@@ -118,7 +139,7 @@ export default function PricingPage() {
       <div className="text-center mb-16">
         <h1 className="text-4xl font-bold tracking-tight mb-4">Simple, transparent pricing</h1>
         <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-          Choose the right plan for your business. Pay securely with Credit Card (via Paddle) or Crypto (USDT/BTC).
+          Choose the right plan for your business. Pay securely with Credit Card (via Stripe/Paddle) or Crypto (USDT/BTC).
         </p>
       </div>
 
@@ -149,12 +170,22 @@ export default function PricingPage() {
 
             <div className="space-y-3">
               <Button 
-                onClick={() => handlePaddleCheckout(plan)} 
+                onClick={() => handleStripeCheckout(plan)} 
                 disabled={loadingPlan === plan.id}
                 className={`w-full ${plan.popular ? '' : 'variant-outline'}`}
               >
                 {loadingPlan === plan.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
-                Subscribe with Card
+                Subscribe (Stripe Card)
+              </Button>
+
+              <Button 
+                onClick={() => handlePaddleCheckout(plan)} 
+                disabled={loadingPlan === plan.id}
+                variant="outline"
+                className="w-full text-xs opacity-80"
+              >
+                {loadingPlan === plan.id ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <CreditCard className="mr-2 h-3 w-3" />}
+                Subscribe (Paddle Card)
               </Button>
               
               <Button 
