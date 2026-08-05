@@ -516,7 +516,10 @@ export default function AiRemindersPage() {
                         r.status === 'called' ? 'bg-emerald-500/10 text-emerald-500' :
                         'bg-red-500/10 text-red-500'
                       }`}>
-                        {r.status.toUpperCase()}
+                        {r.status === 'called' ? (
+                          r.reminder_type === 'whatsapp' ? 'SENT' :
+                          r.reminder_type === 'both' ? 'CALLED & SENT' : 'CALLED'
+                        ) : r.status.toUpperCase()}
                       </span>
                     </td>
                     <td className="px-4 py-3">
