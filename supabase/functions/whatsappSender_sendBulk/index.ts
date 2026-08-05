@@ -28,16 +28,24 @@ serve(async (req) => {
     if (apiType === "meta") {
       let token = "";
       let phoneId = "";
+      let tokenCost = 1.00;
+      let requiredTokens = 0;
       
       if (billingMode === "wallet") {
         token = Deno.env.get("META_WHATSAPP_API_TOKEN") || Deno.env.get("WHATSAPP_API_TOKEN") || "";
         phoneId = Deno.env.get("META_WHATSAPP_PHONE_ID") || Deno.env.get("WHATSAPP_PHONE_NUMBER_ID") || "";
         
         if (user) {
-          const { data: userData } = await supabase.from('users').select('credits').eq('id', user.id).single();
-          const requiredCredits = numbers.length;
-          if (!userData || userData.credits < requiredCredits) {
-            return new Response(JSON.stringify({ error: "Insufficient Leadzo Credits" }), { status: 402, headers: corsHeaders });
+          const { data: rateData } = await supabase.from('token_rates').select('token_cost').eq('action_type', 'whatsapp_message').single();
+          tokenCost = rateData ? Number(rateData.token_cost) : 1.00;
+          requiredTokens = numbers.length * tokenCost;
+
+          const { data: balanceData } = await supabase.from('token_balances').select('balance').eq('user_id', user.id).single();
+          const currentBalance = balanceData ? Number(balanceData.balance) : 0;
+          if (currentBalance < requiredTokens) {
+            return new Response(JSON.stringify({
+              error: `Insufficient tokens. Required: ${requiredTokens.toFixed(2)}, Current Balance: ${currentBalance.toFixed(2)}`
+            }), { status: 402, headers: corsHeaders });
           }
         }
       } else if (billingMode === "byot") {
@@ -91,9 +99,17 @@ serve(async (req) => {
       if (billingMode === "wallet" && user) {
         const successCount = results.filter(r => r.success).length;
         if (successCount > 0) {
-          const { data: userData } = await supabase.from('users').select('credits').eq('id', user.id).single();
-          if (userData) {
-            await supabase.from('users').update({ credits: userData.credits - successCount }).eq('id', user.id);
+          const actualDeduction = successCount * tokenCost;
+          const { data: balanceData } = await supabase.from('token_balances').select('balance').eq('user_id', user.id).single();
+          if (balanceData) {
+            const newBalance = Number(balanceData.balance) - actualDeduction;
+            await supabase.from('token_balances').update({ balance: newBalance, updated_at: new Date().toISOString() }).eq('user_id', user.id);
+
+            await supabase.from('token_transactions').insert({
+              user_id: user.id,
+              amount: -actualDeduction,
+              description: `Sent ${successCount} WhatsApp template(s) via Meta API (${tokenCost} tokens/msg)`
+            });
           }
         }
       }
