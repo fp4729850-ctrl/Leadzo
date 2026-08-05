@@ -39,37 +39,40 @@ serve(async (req) => {
     // 2. Loop through each user's setting
     for (const setting of settings || []) {
       try {
-        const publishPlan = setting.publish_plan || [];
-        
-        // Find the first unpublished item of each type
-        const blogIndex = publishPlan.findIndex((item: any) => !item.published && (!item.type || item.type === "blog"));
-        const localIndex = publishPlan.findIndex((item: any) => !item.published && item.type === "local_page");
-        let strikingIndex = publishPlan.findIndex((item: any) => !item.published && item.type === "striking_distance");
-        
-        // Auto-inject striking distance task if none exists in queue
-        if (strikingIndex === -1) {
-          publishPlan.push({
-            week: "Daily Auto",
-            task: `Optimize random Page 2 keyword`,
-            type: "striking_distance",
-            keywords: [`${setting.niche || 'services'} strategy ${Math.floor(Math.random()*100)}`],
-            priority: "High",
-            published: false
-          });
-          strikingIndex = publishPlan.length - 1;
+        // Enforce randomized interval check (8, 10, or 12 hours) between blogs
+        const { data: lastBlog } = await supabase
+          .from("blogs")
+          .select("created_at")
+          .eq("website_url", setting.url)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (lastBlog) {
+          const lastBlogTime = new Date(lastBlog.created_at).getTime();
+          // Generate a stable pseudo-randomized interval of 8, 10, or 12 hours based on last blog's timestamp seed
+          const intervals = [8, 10, 12];
+          const targetIntervalHours = intervals[lastBlogTime % intervals.length];
+          const hoursSinceLast = (Date.now() - lastBlogTime) / (1000 * 60 * 60);
+
+          if (hoursSinceLast < targetIntervalHours) {
+            console.log(`Skipping website ${setting.url}. Only ${hoursSinceLast.toFixed(2)} hours elapsed since last blog. Target is ${targetIntervalHours} hours.`);
+            continue;
+          }
         }
 
-        const indicesToProcess = [blogIndex, localIndex, strikingIndex].filter(i => i !== -1);
+        const publishPlan = setting.publish_plan || [];
         
-        if (indicesToProcess.length === 0) {
+        // Find the first unpublished item of any type to process (one per cron tick)
+        const nextItemIndex = publishPlan.findIndex((item: any) => !item.published);
+        
+        if (nextItemIndex === -1) {
           console.log(`User ${setting.user_id} has no pending items in publish_plan.`);
           continue;
         }
 
-        for (const nextItemIndex of indicesToProcess) {
-          try {
-            const targetItem = publishPlan[nextItemIndex];
-            console.log(`Processing topic: ${targetItem.task || targetItem.title} for ${setting.url}`);
+        const targetItem = publishPlan[nextItemIndex];
+        console.log(`Processing topic: ${targetItem.task || targetItem.title} for ${setting.url}`);
 
         // 2.5 Fetch previous blogs for Internal Linking
         const { data: prevBlogs } = await supabase
@@ -105,6 +108,8 @@ Respond ONLY with a JSON object in this format:
 Your task is to write an optimized blog post for the following keywords that are currently ranking on Page 2 (Striking Distance):
 ${targetItem.keywords.join(', ')}
 
+Ensure the content has a unique marketing hook. Focus on a specific aspect of the niche (e.g., ad spend ROI, WhatsApp automation, or AI lead capture). Avoid repeating intros or structural outlines from previous posts. Write a distinct, high-value piece that acts as an industry case study or guide.
+
 Respond ONLY with a JSON object in this format:
 {
   "title": "A high-CTR, highly optimized SEO title covering these keywords",
@@ -117,6 +122,11 @@ Respond ONLY with a JSON object in this format:
           prompt = `You are an expert SEO Content Writer for the website ${setting.url} in the niche of ${setting.niche}.
 Please write a highly optimized, engaging blog post about: "${targetItem.task}".
 Include headings, paragraphs, and use these keywords naturally: ${targetItem.keywords.join(', ')}.${internalLinksCtx}
+
+IMPORTANT FOR CONTENT DIVERSITY:
+- Make this post highly distinct from previous articles. 
+- Focus deeply on one specific sub-angle (e.g., Leadzo's WhatsApp CRM lead nurturing, or autonomous Meta ad bidding, or synthetic SEO crawling visibility).
+- Avoid generic intro/outro text. Write with concrete SaaS/marketing authority and include unique industry examples.
 
 Respond ONLY with a JSON object in this format:
 {
@@ -294,12 +304,6 @@ ${contentData.html_content}
 
         results.push({ user_id: setting.user_id, status: "success", title: contentData.title });
         console.log(`Successfully auto-published for ${setting.user_id}: ${contentData.title}`);
-
-          } catch (itemErr: any) {
-            console.error(`Error processing item for ${setting.user_id}:`, itemErr);
-            results.push({ user_id: setting.user_id, status: "error", error: itemErr.message });
-          }
-        } // end of indicesToProcess loop
 
         await supabase
           .from("seo_autopilot_settings")
