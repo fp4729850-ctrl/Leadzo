@@ -331,6 +331,34 @@ serve(async (req) => {
       })
     }
 
+    // ── 7. SUBMIT SITEMAP ─────────────────────────────────────────────────
+    if (action === "submitSitemap") {
+      const { siteUrl, feedUrl } = body
+      if (!siteUrl || !feedUrl) throw new Error("Missing params")
+      const accessToken = await getAccessToken()
+      const res = await fetch(`https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(siteUrl)}/sitemaps/${encodeURIComponent(feedUrl)}`, {
+        method: "PUT",
+        headers: { "Authorization": `Bearer ${accessToken}` }
+      })
+      return new Response(JSON.stringify({ success: res.ok, status: res.status }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      })
+    }
+
+    // ── 8. GET SITEMAPS ──────────────────────────────────────────────────
+    if (action === "getSitemaps") {
+      const { siteUrl } = body
+      if (!siteUrl) throw new Error("Missing params")
+      const accessToken = await getAccessToken()
+      const res = await fetch(`https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(siteUrl)}/sitemaps`, {
+        headers: { "Authorization": `Bearer ${accessToken}` }
+      })
+      const data = await res.json()
+      return new Response(JSON.stringify({ success: true, sitemaps: data.sitemap || [] }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      })
+    }
+
     throw new Error("Invalid action")
 
   } catch (err: any) {
