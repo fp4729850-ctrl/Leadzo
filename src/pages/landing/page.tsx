@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button.tsx";
-import { ArrowRight, Bot, BarChart, Rocket, ShieldCheck, MessageCircle, LayoutDashboard } from "lucide-react";
+import { ArrowRight, Bot, BarChart, Rocket, ShieldCheck, MessageCircle, LayoutDashboard, Globe } from "lucide-react";
 
 export default function LandingPage() {
   return (
@@ -37,12 +37,17 @@ export default function LandingPage() {
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
             Leadzo AI automates your digital marketing across Google, Meta, and more. Launch campaigns in minutes, let AI optimize your budget, and watch your business grow.
           </p>
-          <div className="flex justify-center gap-4">
+          <div className="flex justify-center gap-4 flex-wrap">
             <Link to="/dashboard">
               <Button size="lg" className="rounded-full text-base px-8 h-12">
                 Start for Free
               </Button>
             </Link>
+            <a href="https://google.com/preferences/source?q=www.leadzoai.com" target="_blank" rel="noopener noreferrer">
+              <Button size="lg" variant="outline" className="rounded-full text-base px-8 h-12 border-primary/20 hover:border-primary/50 text-foreground bg-primary/5 hover:bg-primary/10 gap-2">
+                <Globe className="size-4 text-primary" /> Add to Google Preferred Sources
+              </Button>
+            </a>
           </div>
         </section>
 
@@ -89,10 +94,8 @@ export default function LandingPage() {
                   <li>Set daily budgets and manage automated bidding strategies.</li>
                   <li>Perform keyword research via Google Keyword Planner services.</li>
                   <li>Fetch performance metrics for our unified analytics dashboard.</li>
+                  <li>All actions require explicit user authorization. Leadzo AI complies strictly with Google's API Terms of Service.</li>
                 </ul>
-                <p className="text-xs text-muted-foreground italic">
-                  * All actions require explicit user authorization. Leadzo AI complies strictly with Google's API Terms of Service.
-                </p>
               </div>
             </div>
           </div>
@@ -151,11 +154,16 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="border-t border-border bg-background py-8">
         <div className="container mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
-          <div className="flex items-center gap-2">
-            <Bot className="size-5" />
-            <span>&copy; {new Date().getFullYear()} Leadzo AI. All rights reserved.</span>
+          <div className="flex flex-col md:flex-row items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Bot className="size-5" />
+              <span>&copy; {new Date().getFullYear()} Leadzo AI. All rights reserved.</span>
+            </div>
+            <a href="https://google.com/preferences/source?q=www.leadzoai.com" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/5 hover:bg-primary/10 border border-primary/20 text-xs font-medium text-foreground transition-colors">
+              <Globe className="size-3 text-primary" /> Add to Google Preferred Sources
+            </a>
           </div>
-          <div className="flex gap-6">
+          <div className="flex gap-6 font-medium">
             <a href="#" className="hover:text-foreground transition-colors">Privacy Policy</a>
             <a href="#" className="hover:text-foreground transition-colors">Terms of Service</a>
             <a href="#" className="hover:text-foreground transition-colors">Contact Support</a>
