@@ -32,6 +32,9 @@ import BlogListingPage from "./pages/blog/page.tsx";
 import BlogArticlePage from "./pages/blog/article.tsx";
 import RedditAgentPage from "./pages/reddit-agent/page.tsx";
 import PricingPage from "./pages/pricing/page.tsx";
+import PrivacyPage from "./pages/legal/privacy.tsx";
+import TermsPage from "./pages/legal/terms.tsx";
+import RefundsPage from "./pages/legal/refunds.tsx";
 
 import { useServiceWorker } from "@/hooks/use-service-worker.ts";
 
@@ -45,6 +48,9 @@ export default function App() {
         <BrowserRouter>
         <Routes>
           <Route path="/" element={<LandingPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/terms" element={<TermsPage />} />
+          <Route path="/refunds" element={<RefundsPage />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/auth/meta-callback" element={<MetaCallback />} />
           <Route path="/auth/gsc-callback" element={<GscCallback />} />

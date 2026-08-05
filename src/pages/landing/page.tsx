@@ -164,9 +164,9 @@ export default function LandingPage() {
             </a>
           </div>
           <div className="flex gap-6 font-medium">
-            <a href="#" className="hover:text-foreground transition-colors">Privacy Policy</a>
-            <a href="#" className="hover:text-foreground transition-colors">Terms of Service</a>
-            <a href="#" className="hover:text-foreground transition-colors">Contact Support</a>
+            <Link to="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</Link>
+            <Link to="/terms" className="hover:text-foreground transition-colors">Terms of Service</Link>
+            <Link to="/refunds" className="hover:text-foreground transition-colors">Refund Policy</Link>
           </div>
         </div>
       </footer>
