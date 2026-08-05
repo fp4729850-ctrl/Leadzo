@@ -122,13 +122,17 @@ export default function AiRemindersPage() {
 
       const { error } = await supabase
         .from("call_reminders")
-        .update({ script_template: scriptTemplate, language: language })
+        .update({ 
+          script_template: scriptTemplate, 
+          language: language,
+          reminder_type: reminderType 
+        })
         .eq("user_id", user.id)
         .eq("status", "pending");
 
       if (error) throw error;
       
-      toast.success("AI Script updated successfully for all pending calls!");
+      toast.success("AI Script & Reminder Type updated successfully for all pending reminders!");
       fetchSavedReminders();
     } catch (error: any) {
       toast.error(error.message);
@@ -146,7 +150,7 @@ export default function AiRemindersPage() {
       const res = await fetch("https://stbqeiapgdaklktrlrjm.supabase.co/functions/v1/aiReminders_generatePrompt", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ templateType: templateName, language: language })
+        body: JSON.stringify({ templateType: templateName, language: language, reminderType: reminderType })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to generate");
