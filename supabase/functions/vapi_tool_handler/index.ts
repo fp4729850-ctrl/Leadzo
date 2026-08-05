@@ -87,8 +87,6 @@ serve(async (req) => {
       const userId = metadata.userId
 
       if (userId && durationSeconds > 0) {
-        const durationMinutes = Math.ceil(durationSeconds / 60)
-        
         const supabaseAdmin = createClient(
           Deno.env.get('SUPABASE_URL') ?? '',
           Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -98,24 +96,25 @@ serve(async (req) => {
         const { data: rateData } = await supabaseAdmin.from('token_rates').select('token_cost').eq('action_type', 'voice_call_minute').single()
         const tokenCost = rateData ? Number(rateData.token_cost) : 12.00
 
-        const totalCost = durationMinutes * tokenCost
+        // 2. Calculate exact pro-rata cost based on seconds
+        const totalCost = Number(((durationSeconds / 60) * tokenCost).toFixed(2))
 
-        // 2. Fetch current balance
+        // 3. Fetch current balance
         const { data: balanceData } = await supabaseAdmin.from('token_balances').select('balance').eq('user_id', userId).single()
         const currentBalance = balanceData ? Number(balanceData.balance) : 0
 
-        // 3. Deduct balance
+        // 4. Deduct balance
         const newBalance = Math.max(0, currentBalance - totalCost)
         await supabaseAdmin.from('token_balances').update({ balance: newBalance, updated_at: new Date().toISOString() }).eq('user_id', userId)
 
-        // 4. Log transaction
+        // 5. Log transaction
         await supabaseAdmin.from('token_transactions').insert({
           user_id: userId,
           amount: -totalCost,
-          description: `AI Voice Call completed: ${durationMinutes} min(s) duration (${tokenCost} tokens/min)`
+          description: `AI Voice Call completed: ${durationSeconds} sec(s) duration (${tokenCost} tokens/min)`
         })
 
-        console.log(`Charged user ${userId} for AI Voice Call: ${totalCost} tokens (${durationMinutes} mins)`)
+        console.log(`Charged user ${userId} for AI Voice Call: ${totalCost} tokens (${durationSeconds} seconds)`)
       }
       
       return new Response(JSON.stringify({ status: "success" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } })
