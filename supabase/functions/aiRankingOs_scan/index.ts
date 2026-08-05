@@ -493,6 +493,26 @@ Make all data specific and relevant to the website text provided below. Output O
           approvalQueue: parsed.aiAgentCenter?.approvalQueue || []
         };
 
+        // Override structured data status based on DB approvals (since scraper fetch does not run CDN optimizer.js JS)
+        const hasApprovedFAQ = approvedRecs.some(r => r.title.toLowerCase().includes("faq") || r.category === "FAQ");
+        const hasApprovedOrg = approvedRecs.some(r => r.title.toLowerCase().includes("organization") || r.title.toLowerCase().includes("brand"));
+        const hasApprovedSoft = approvedRecs.some(r => r.title.toLowerCase().includes("software"));
+
+        if (parsed.aiVisibilityCenter?.structuredData) {
+          parsed.aiVisibilityCenter.structuredData = parsed.aiVisibilityCenter.structuredData.map((s: any) => {
+            if (s.schema === "FAQPage" && (hasApprovedFAQ || s.found)) {
+              return { ...s, found: true, recommendation: "Active and injected via Leadzo Edge CDN" };
+            }
+            if (s.schema === "Organization" && (hasApprovedOrg || s.found)) {
+              return { ...s, found: true, recommendation: "Active and injected via Leadzo Edge CDN" };
+            }
+            if (s.schema === "SoftwareApplication" && (hasApprovedSoft || s.found)) {
+              return { ...s, found: true, recommendation: "Active and injected via Leadzo Edge CDN" };
+            }
+            return s;
+          });
+        }
+
         await saveScanToDB(parsed, user_id, site_id);
         return new Response(JSON.stringify({ success: true, data: parsed }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       } catch (e) {
@@ -501,6 +521,10 @@ Make all data specific and relevant to the website text provided below. Output O
     }
 
     // Fallback response if AI APIs fail
+    const hasApprovedFAQFallback = approvedRecs.some(r => r.title.toLowerCase().includes("faq") || r.category === "FAQ");
+    const hasApprovedOrgFallback = approvedRecs.some(r => r.title.toLowerCase().includes("organization") || r.title.toLowerCase().includes("brand"));
+    const hasApprovedSoftFallback = approvedRecs.some(r => r.title.toLowerCase().includes("software"));
+
     const fallbackData = {
       scores: { aiVisibility: 65, llmReadiness: 60, seoHealth: 78, authorityScore: 52 },
       highImpactTasks: [
@@ -512,7 +536,11 @@ Make all data specific and relevant to the website text provided below. Output O
       ],
       aiVisibilityCenter: {
         entityCoverage: [ { entity: "Brand Name", status: "Covered", type: "Organization" }, { entity: "Core Product", status: "Weak", type: "Product" } ],
-        structuredData: [ { schema: "FAQPage", found: false, recommendation: "Add FAQ JSON-LD script" } ],
+        structuredData: [ 
+          { schema: "FAQPage", found: hasApprovedFAQFallback, recommendation: hasApprovedFAQFallback ? "Active and injected via Leadzo Edge CDN" : "Add FAQ JSON-LD script" },
+          { schema: "Organization", found: hasApprovedOrgFallback, recommendation: hasApprovedOrgFallback ? "Active and injected via Leadzo Edge CDN" : "Add Organization JSON-LD script" },
+          { schema: "SoftwareApplication", found: hasApprovedSoftFallback, recommendation: hasApprovedSoftFallback ? "Active and injected via Leadzo Edge CDN" : "Add SoftwareApplication JSON-LD script" }
+        ],
         citationOpportunities: [ { source: "Wikipedia / Industry Directory", relevance: "High", action: "Create listing" } ],
         topicAuthorityMap: [ { topic: "Primary Services", coverage: 70 }, { topic: "Industry Insights", coverage: 40 } ]
       },
