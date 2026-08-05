@@ -72,6 +72,11 @@ export default function PricingPage() {
       }
     };
     document.body.appendChild(script);
+
+    // Load Razorpay.js
+    const rzpScript = document.createElement("script");
+    rzpScript.src = "https://checkout.razorpay.com/v1/checkout.js";
+    document.body.appendChild(rzpScript);
   }, []);
 
   const handlePaddleCheckout = async (plan: any) => {
@@ -111,6 +116,50 @@ export default function PricingPage() {
       }
     } catch (e: any) {
       toast.error(e.message || "Failed to initiate Stripe checkout");
+    } finally {
+      setLoadingPlan(null);
+    }
+  };
+
+  const handleRazorpayCheckout = async (plan: any) => {
+    if (!user) return toast.error("Please login to subscribe");
+    setLoadingPlan(plan.id);
+    try {
+      const res = await supabase.functions.invoke('create-checkout', {
+        body: { planId: plan.id, gateway: 'razorpay' }
+      });
+      if (res.error) throw res.error;
+      
+      const { orderId, amount, currency, keyId } = res.data || {};
+      if (!orderId) throw new Error("Order creation failed on backend");
+
+      const options = {
+        key: keyId,
+        amount: amount,
+        currency: currency,
+        name: "Leadzo AI",
+        description: `Leadzo ${plan.name} Plan Subscription`,
+        order_id: orderId,
+        handler: function (response: any) {
+          toast.success("Payment successful! Account setup will complete shortly.");
+          setTimeout(() => {
+            window.location.href = "/dashboard?payment=success";
+          }, 2000);
+        },
+        prefill: {
+          name: user.email?.split("@")[0] || "",
+          email: user.email || ""
+        },
+        theme: {
+          color: "#3B82F6"
+        }
+      };
+
+      const rzp = new (window as any).Razorpay(options);
+      rzp.open();
+
+    } catch (e: any) {
+      toast.error(e.message || "Failed to initiate Razorpay checkout");
     } finally {
       setLoadingPlan(null);
     }
@@ -170,24 +219,14 @@ export default function PricingPage() {
 
             <div className="space-y-3">
               <Button 
-                onClick={() => handleStripeCheckout(plan)} 
+                onClick={() => handleRazorpayCheckout(plan)} 
                 disabled={loadingPlan === plan.id}
                 className={`w-full ${plan.popular ? '' : 'variant-outline'}`}
               >
                 {loadingPlan === plan.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
-                Subscribe (Stripe Card)
+                Subscribe (Card / UPI)
               </Button>
 
-              <Button 
-                onClick={() => handlePaddleCheckout(plan)} 
-                disabled={loadingPlan === plan.id}
-                variant="outline"
-                className="w-full text-xs opacity-80"
-              >
-                {loadingPlan === plan.id ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <CreditCard className="mr-2 h-3 w-3" />}
-                Subscribe (Paddle Card)
-              </Button>
-              
               <Button 
                 onClick={() => handleCryptoCheckout(plan.id)} 
                 disabled={loadingPlan === plan.id}
@@ -197,6 +236,26 @@ export default function PricingPage() {
                 {loadingPlan === plan.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Bitcoin className="mr-2 h-4 w-4" />}
                 Pay with Crypto
               </Button>
+
+              <div className="flex gap-2">
+                <Button 
+                  onClick={() => handleStripeCheckout(plan)} 
+                  disabled={loadingPlan === plan.id}
+                  variant="outline"
+                  className="flex-1 text-[10px] h-8 opacity-80"
+                >
+                  Stripe Card
+                </Button>
+
+                <Button 
+                  onClick={() => handlePaddleCheckout(plan)} 
+                  disabled={loadingPlan === plan.id}
+                  variant="outline"
+                  className="flex-1 text-[10px] h-8 opacity-80"
+                >
+                  Paddle Card
+                </Button>
+              </div>
             </div>
           </div>
         ))}

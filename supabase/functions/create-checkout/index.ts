@@ -124,6 +124,43 @@ serve(async (req) => {
       return new Response(JSON.stringify({ url: session.url }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       })
+    } else if (gateway === 'razorpay') {
+      const rzpKeyId = Deno.env.get('RAZORPAY_KEY_ID')
+      const rzpKeySecret = Deno.env.get('RAZORPAY_KEY_SECRET')
+      if (!rzpKeyId || !rzpKeySecret) throw new Error('Razorpay configuration missing on backend')
+
+      // Convert USD to INR (e.g. 1 USD = 84 INR) for domestic Indian gateway compatibility
+      const inrAmount = amount * 84
+      const amountInPaisa = Math.round(inrAmount * 100)
+
+      const rzpResponse = await fetch('https://api.razorpay.com/v1/orders', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Basic ' + btoa(`${rzpKeyId}:${rzpKeySecret}`),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          amount: amountInPaisa,
+          currency: 'INR',
+          receipt: `receipt_${user.id.slice(0, 10)}_${Date.now()}`,
+          notes: {
+            user_id: user.id,
+            plan_name: planId
+          }
+        })
+      })
+
+      const order = await rzpResponse.json()
+      if (order.error) throw new Error(order.error.description || 'Razorpay order creation failed')
+
+      return new Response(JSON.stringify({ 
+        orderId: order.id, 
+        amount: order.amount, 
+        currency: order.currency,
+        keyId: rzpKeyId
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
     }
 
     throw new Error('Invalid gateway')
