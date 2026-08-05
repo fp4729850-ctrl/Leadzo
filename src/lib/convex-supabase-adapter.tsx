@@ -320,7 +320,12 @@ export function useQuery(apiEndpoint: any, args: any = {}): any {
       return (data || []).map((item: any) => ({
         ...item,
         _id: item.id || item._id,
-        _creationTime: item._creationTime || (item.created_at ? new Date(item.created_at).getTime() : Date.now())
+        _creationTime: item._creationTime || (item.created_at ? new Date(item.created_at).getTime() : Date.now()),
+        ...(tableName === 'campaigns' ? {
+          totalRecipients: item.total_recipients || 0,
+          sentCount: item.sent_count || 0,
+          prompt: item.content || ""
+        } : {})
       }));
     },
     enabled: true,
@@ -383,6 +388,13 @@ export function useMutation(apiEndpoint: any) {
       if (cleanArgs.text) { cleanArgs.content = cleanArgs.text; delete cleanArgs.text; }
       if (cleanArgs.role) { cleanArgs.sender = cleanArgs.role; delete cleanArgs.role; }
       if (cleanArgs.leadId) { cleanArgs.lead_id = cleanArgs.leadId; delete cleanArgs.leadId; }
+    }
+
+    if (tableName === 'campaigns') {
+      if (cleanArgs.prompt) { cleanArgs.content = cleanArgs.prompt; delete cleanArgs.prompt; }
+      if (cleanArgs.totalRecipients !== null && cleanArgs.totalRecipients !== undefined) { cleanArgs.total_recipients = cleanArgs.totalRecipients; delete cleanArgs.totalRecipients; }
+      if (cleanArgs.sentCount !== null && cleanArgs.sentCount !== undefined) { cleanArgs.sent_count = cleanArgs.sentCount; delete cleanArgs.sentCount; }
+      if (!cleanArgs.name) { cleanArgs.name = "Bulk Campaign " + new Date().toLocaleDateString(); }
     }
 
     if (isDelete) {
