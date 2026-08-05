@@ -109,12 +109,12 @@ export default function LandingPage() {
               <div className="p-6 border border-border rounded-2xl bg-card">
                 <Bot className="size-8 text-primary mb-4" />
                 <h3 className="font-bold text-lg mb-2">Autonomous AI Agents</h3>
-                <p className="text-muted-foreground text-sm">Deploy intelligent agents to handle SEO, Reddit outreach, and CRM follow-ups automatically.</p>
+                <p className="text-muted-foreground text-sm">Deploy intelligent agents to automate customer success, SEO data analysis, and CRM lead mapping.</p>
               </div>
               <div className="p-6 border border-border rounded-2xl bg-card">
                 <MessageCircle className="size-8 text-chart-2 mb-4" />
-                <h3 className="font-bold text-lg mb-2">Bulk Messaging</h3>
-                <p className="text-muted-foreground text-sm">Send personalized bulk campaigns via WhatsApp, Email, and SMS with AI-generated copy.</p>
+                <h3 className="font-bold text-lg mb-2">Lead Engagement</h3>
+                <p className="text-muted-foreground text-sm">Automate lead follow-ups and customer success updates via WhatsApp, Email, and SMS.</p>
               </div>
               <div className="p-6 border border-border rounded-2xl bg-card">
                 <LayoutDashboard className="size-8 text-chart-3 mb-4" />
