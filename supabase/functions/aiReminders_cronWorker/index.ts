@@ -43,6 +43,44 @@ serve(async (req) => {
 
     for (const reminder of reminders) {
       try {
+        const type = reminder.reminder_type || 'call'
+        const userId = reminder.user_id
+
+        let waSuccess = false
+        if (type === 'whatsapp' || type === 'both') {
+          // 1. Fetch green_api_message rate
+          const { data: rateData } = await supabase.from('token_rates').select('token_cost').eq('action_type', 'green_api_message').single()
+          const tokenCost = rateData ? Number(rateData.token_cost) : 0.40
+
+          // 2. Check token balance
+          const { data: balanceData } = await supabase.from('token_balances').select('balance').eq('user_id', userId).single()
+          const currentBalance = balanceData ? Number(balanceData.balance) : 0
+
+          if (currentBalance < tokenCost) {
+            throw new Error(`Insufficient tokens for WhatsApp reminder. Required: ${tokenCost}`)
+          }
+
+          // 3. Deduct tokens
+          const newBalance = currentBalance - tokenCost
+          await supabase.from('token_balances').update({ balance: newBalance, updated_at: new Date().toISOString() }).eq('user_id', userId)
+
+          // 4. Log transaction
+          await supabase.from('token_transactions').insert({
+            user_id: userId,
+            amount: -tokenCost,
+            description: `Sent WhatsApp Reminder to ${reminder.client_name} via Green API (${tokenCost} tokens)`
+          })
+          waSuccess = true
+        }
+
+        if (type === 'whatsapp') {
+          // Only WhatsApp - skip calling
+          await supabase.from("call_reminders").update({ status: 'called' }).eq("id", reminder.id)
+          results.push({ success: true, reminder: reminder.id, message: "WhatsApp sent successfully" })
+          continue
+        }
+
+        // Voice Call execution (for 'call' or 'both')
         let formattedNumber = reminder.phone_number.trim()
         if (!formattedNumber.startsWith('+')) {
           formattedNumber = '+' + formattedNumber
@@ -99,6 +137,7 @@ If they ask questions, provide short and helpful answers. Speak mostly in ${remi
            results.push({ success: true, reminder: reminder.id, callSid: vapiData.id })
         }
       } catch (err: any) {
+         await supabase.from("call_reminders").update({ status: 'failed' }).eq("id", reminder.id)
          results.push({ success: false, reminder: reminder.id, error: err.message })
       }
       

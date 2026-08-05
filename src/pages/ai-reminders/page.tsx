@@ -12,6 +12,7 @@ export default function AiRemindersPage() {
   const [reminders, setReminders] = useState<any[]>([]);
   const [scriptTemplate, setScriptTemplate] = useState("Hello {name}, your payment of {amount} is due on {due_date}. Please make the payment as soon as possible.");
   const [language, setLanguage] = useState("Hindi/English");
+  const [reminderType, setReminderType] = useState<"call" | "whatsapp" | "both">("call");
   const [isSaving, setIsSaving] = useState(false);
   const [savedReminders, setSavedReminders] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -96,6 +97,7 @@ export default function AiRemindersPage() {
         amount_or_context: r.amount_or_context,
         script_template: scriptTemplate,
         language: language,
+        reminder_type: reminderType,
         status: "pending"
       }));
 
@@ -202,6 +204,7 @@ export default function AiRemindersPage() {
         amount_or_context: manualContext,
         script_template: scriptTemplate,
         language: language,
+        reminder_type: reminderType,
         status: "pending",
         is_active: true
       };
@@ -337,6 +340,19 @@ export default function AiRemindersPage() {
                 <option value="Hindi/English">Hindi/English (Mixed)</option>
               </select>
             </div>
+
+            <div className="mb-4">
+              <label className="text-sm font-medium mb-1 block">Reminder Type</label>
+              <select 
+                className="w-full p-2.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                value={reminderType}
+                onChange={(e) => setReminderType(e.target.value as any)}
+              >
+                <option value="call">📞 Only Voice Call</option>
+                <option value="whatsapp">💬 Only WhatsApp Message (via Green API)</option>
+                <option value="both">📞+💬 Both Voice Call & WhatsApp</option>
+              </select>
+            </div>
             
             <Button 
               onClick={() => {
@@ -403,7 +419,9 @@ export default function AiRemindersPage() {
           </div>
           <Button onClick={handleSave} disabled={reminders.length === 0 || isSaving} className="w-full mt-4 bg-chart-2 hover:bg-chart-2/90 text-white">
             {isSaving ? <Loader2 className="animate-spin mr-2" size={16} /> : <Save className="mr-2" size={16} />}
-            Save & Schedule Calls
+            {reminderType === 'call' ? 'Save & Schedule Calls' :
+             reminderType === 'whatsapp' ? 'Save & Schedule WhatsApp Reminders' :
+             'Save & Schedule Calls + WhatsApp'}
           </Button>
         </div>
       </div>
@@ -438,7 +456,23 @@ export default function AiRemindersPage() {
                   <label className="text-xs font-medium mb-1 block">Amount & Context</label>
                   <input type="text" className="w-full p-2 bg-background border border-border rounded-lg text-sm" value={manualContext} onChange={e => setManualContext(e.target.value)} placeholder="e.g. ₹15000 Premium" />
                 </div>
-                <Button onClick={handleAddManual} className="w-full">Save & Schedule</Button>
+                <div className="mb-2">
+                  <label className="text-xs font-medium mb-1 block">Reminder Type</label>
+                  <select 
+                    className="w-full p-2 bg-background border border-border rounded-lg text-sm focus:outline-none"
+                    value={reminderType}
+                    onChange={(e) => setReminderType(e.target.value as any)}
+                  >
+                    <option value="call">📞 Only Voice Call</option>
+                    <option value="whatsapp">💬 Only WhatsApp Message</option>
+                    <option value="both">📞+💬 Both</option>
+                  </select>
+                </div>
+                <Button onClick={handleAddManual} className="w-full">
+                  {reminderType === 'call' ? 'Save & Schedule Call' :
+                   reminderType === 'whatsapp' ? 'Save & Schedule WhatsApp' :
+                   'Save & Schedule Both'}
+                </Button>
               </div>
             </DialogContent>
           </Dialog>
@@ -450,6 +484,7 @@ export default function AiRemindersPage() {
                 <th className="px-4 py-3 font-medium rounded-tl-lg">Client</th>
                 <th className="px-4 py-3 font-medium">Phone</th>
                 <th className="px-4 py-3 font-medium">Due Date</th>
+                <th className="px-4 py-3 font-medium">Type</th>
                 <th className="px-4 py-3 font-medium">Status</th>
                 <th className="px-4 py-3 font-medium">Script</th>
                 <th className="px-4 py-3 font-medium text-center">Active</th>
@@ -465,6 +500,16 @@ export default function AiRemindersPage() {
                     <td className="px-4 py-3 font-medium">{r.client_name}</td>
                     <td className="px-4 py-3">{r.phone_number}</td>
                     <td className="px-4 py-3">{r.due_date}</td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-1 rounded-full text-[10.5px] font-semibold ${
+                        r.reminder_type === 'whatsapp' ? 'bg-emerald-500/10 text-emerald-500' :
+                        r.reminder_type === 'both' ? 'bg-indigo-500/10 text-indigo-500' :
+                        'bg-sky-500/10 text-sky-500'
+                       }`}>
+                        {r.reminder_type === 'whatsapp' ? '💬 WhatsApp' :
+                         r.reminder_type === 'both' ? '📞+💬 Both' : '📞 Call'}
+                      </span>
+                    </td>
                     <td className="px-4 py-3">
                       <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
                         r.status === 'pending' ? 'bg-amber-500/10 text-amber-500' :
