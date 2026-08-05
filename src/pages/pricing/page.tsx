@@ -18,7 +18,7 @@ const PLANS = [
     price: 23,
     paddlePriceId: "pri_01ky23fy2gnmjfwypga2make39", // Starter Plan
     features: [
-      "2,300 AI Messages / month",
+      "2,300 Tokens / month",
       "Live Inbox",
       "Basic Analytics",
       "Email Support"
@@ -31,7 +31,7 @@ const PLANS = [
     popular: true,
     paddlePriceId: "pri_01ky23sneq97rgq7wa3324bpyv", // Pro Plan
     features: [
-      "5,500 AI Messages / month",
+      "5,500 Tokens / month",
       "Advanced Auto-reply",
       "CRM Integration",
       "Meta/Google Ads API",
@@ -44,7 +44,7 @@ const PLANS = [
     price: 135,
     paddlePriceId: "pri_01ky23y9a508n40enht0pfxwga", // Agency Plan
     features: [
-      "10,350 AI Messages / month",
+      "10,350 Tokens / month",
       "Multiple Workspaces",
       "White-label Reports",
       "Dedicated Account Manager",
