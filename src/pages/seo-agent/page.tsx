@@ -462,7 +462,20 @@ ${contentData.content}
     try {
       const allKeywords = keywordClusters.flatMap((c) => c.keywords.map((k) => k.term));
       const result = await generatePublishPlan({ url, niche, keywords: allKeywords.length > 0 ? allKeywords : [niche] });
-      setPublishPlan(result.weeks); markComplete("publish"); toast.success("AI Publish Plan ready!");
+      setPublishPlan(result.weeks);
+      
+      // Auto-save to database immediately if autopilot is already configured
+      if (autopilotId) {
+        const { error: saveErr } = await supabase
+          .from("seo_autopilot_settings")
+          .update({ publish_plan: result.weeks })
+          .eq("id", autopilotId);
+        if (saveErr) console.error("Auto-save failed:", saveErr);
+        else console.log("Auto-saved regenerated publish plan to database.");
+      }
+      
+      markComplete("publish");
+      toast.success("AI Publish Plan ready!");
     } catch (err: any) { 
       toast.error(err?.message || "Plan generation failed."); 
     }
