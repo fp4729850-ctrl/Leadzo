@@ -89,14 +89,44 @@ Respond ONLY with a JSON object containing EXACTLY this structure:
             if (!aiText) throw new Error("Empty response from AI")
             
             const parsed = JSON.parse(aiText.replace(/```json/gi, "").replace(/```/g, "").trim())
-            
-            return new Response(JSON.stringify(parsed), { headers: { ...corsHeaders, "Content-Type": "application/json" } })
-        } catch (err) {
-            lastError = err;
-        }
+        
+        return new Response(JSON.stringify(parsed), { headers: { ...corsHeaders, "Content-Type": "application/json" } })
+      } catch (err) {
+        lastError = err;
+      }
     }
     
-    
+    // Fallback to OpenAI (via user's OPENAI_API_KEY)
+    const openAIKey = Deno.env.get("OPENAI_API_KEY")
+    if (openAIKey) {
+      try {
+        const polliPayload = {
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: `Write a blog post targeting the keyword: "${keyword}"` }
+          ],
+          model: "gpt-4o-mini",
+          response_format: { type: "json_object" }
+        }
+        const openAiRes = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${openAIKey}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(polliPayload)
+        })
+        if (openAiRes.ok) {
+          const aiData = await openAiRes.json()
+          const aiText = aiData.choices[0].message.content
+          const parsed = JSON.parse(aiText.replace(/```json/gi, "").replace(/```/g, "").trim())
+          return new Response(JSON.stringify(parsed), { headers: { ...corsHeaders, "Content-Type": "application/json" } })
+        }
+      } catch (openAiErr) {
+        console.error("OpenAI fallback failed:", openAiErr)
+      }
+    }
+
     // Advanced Two-Step Fallback to Pollinations AI
     try {
         // Extract keyword

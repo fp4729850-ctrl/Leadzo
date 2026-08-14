@@ -77,12 +77,42 @@ Generate exactly 4-6 weeks of content ideas.`
             const parsed = JSON.parse(aiText.replace(/```json/gi, "").replace(/```/g, "").trim())
             
             return new Response(JSON.stringify(parsed), { headers: { ...corsHeaders, "Content-Type": "application/json" } })
-        } catch (err) {
-            lastError = err;
-        }
+      } catch (err) {
+        lastError = err;
+      }
     }
     
-    
+    // Fallback to OpenAI (via user's OPENAI_API_KEY)
+    const openAIKey = Deno.env.get("OPENAI_API_KEY")
+    if (openAIKey) {
+      try {
+        const polliPayload = {
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: `Generate publishing plan for website: ${url || 'n/a'} in niche: ${niche || 'n/a'}` }
+          ],
+          model: "gpt-4o-mini",
+          response_format: { type: "json_object" }
+        }
+        const openAiRes = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${openAIKey}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(polliPayload)
+        })
+        if (openAiRes.ok) {
+          const aiData = await openAiRes.json()
+          const aiText = aiData.choices[0].message.content
+          const parsed = JSON.parse(aiText.replace(/```json/gi, "").replace(/```/g, "").trim())
+          return new Response(JSON.stringify(parsed), { headers: { ...corsHeaders, "Content-Type": "application/json" } })
+        }
+      } catch (openAiErr) {
+        console.error("OpenAI fallback failed:", openAiErr)
+      }
+    }
+
     console.error("All AI models failed:", lastError?.message);
     console.log("Falling back to Pollinations AI...");
     
