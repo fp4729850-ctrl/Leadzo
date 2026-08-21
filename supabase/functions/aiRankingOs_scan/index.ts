@@ -37,8 +37,8 @@ serve(async (req) => {
         .maybeSingle();
       currentBalance = balanceData?.balance ? parseFloat(balanceData.balance) : 0;
       if (currentBalance < requiredTokens) {
-        return new Response(JSON.stringify({ error: `Insufficient tokens. Required: ${requiredTokens}, Available: ${currentBalance}` }), {
-          status: 400,
+        return new Response(JSON.stringify({ success: false, error: `Insufficient tokens. Required: ${requiredTokens}, Available: ${currentBalance}` }), {
+          status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
       }

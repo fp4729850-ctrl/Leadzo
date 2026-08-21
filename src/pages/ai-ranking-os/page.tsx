@@ -193,7 +193,7 @@ export default function AiRankingOsPage() {
         toast.success("Audit completed successfully!");
         await loadScans(site!.id);
       } else {
-        throw new Error("Scan returned no data.");
+        throw new Error(data?.error || "Scan returned no data.");
       }
     } catch (e: any) {
       setError(e.message || "Scan failed. Please try again.");
