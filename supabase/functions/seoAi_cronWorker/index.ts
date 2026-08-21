@@ -74,6 +74,21 @@ serve(async (req) => {
         const targetItem = publishPlan[nextItemIndex];
         console.log(`Processing topic: ${targetItem.task || targetItem.title} for ${setting.url}`);
 
+        // 2.3 Check token balance before initiating AI generation
+        const { data: balanceData } = await supabase
+          .from("token_balances")
+          .select("balance")
+          .eq("user_id", setting.user_id)
+          .maybeSingle();
+
+        const currentBalance = balanceData?.balance ? parseFloat(balanceData.balance) : 0;
+        const requiredTokens = 10.00;
+
+        if (currentBalance < requiredTokens) {
+          console.warn(`Insufficient token balance for user ${setting.user_id}. Has ${currentBalance}, requires ${requiredTokens}. Skipping generation.`);
+          continue;
+        }
+
         // 2.5 Fetch previous blogs for Internal Linking
         const { data: prevBlogs } = await supabase
           .from("blogs")
@@ -255,7 +270,23 @@ Respond ONLY with a JSON object in this format:
             website_url: setting.url
           })
 
-        if (insertErr) throw insertErr;
+         if (insertErr) throw insertErr;
+
+        // 4.3 Deduct tokens from user balance
+        const newBalance = currentBalance - requiredTokens;
+        await supabase
+          .from("token_balances")
+          .update({ balance: newBalance, updated_at: new Date().toISOString() })
+          .eq("user_id", setting.user_id);
+
+        // Record token transaction ledger entry
+        await supabase
+          .from("token_transactions")
+          .insert({
+            user_id: setting.user_id,
+            amount: -requiredTokens,
+            description: `AI SEO Article Published: "${contentData.title || targetItem.task}"`
+          });
 
         // 4.5 Auto-Push to GitHub if configured
         if (setting.github_repo && setting.github_token) {
