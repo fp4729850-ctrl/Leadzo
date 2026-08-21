@@ -22,6 +22,19 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.replace("Bearer ", ""))
     if (authError || !user) throw new Error("Invalid token")
 
+    // 0. Check token balance (Requires at least 12 tokens for 1 minute of call)
+    const { data: balanceData } = await supabase
+      .from("token_balances")
+      .select("balance")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    const currentBalance = balanceData?.balance ? parseFloat(balanceData.balance) : 0;
+    const requiredTokens = 12.00;
+    if (currentBalance < requiredTokens) {
+      throw new Error(`Insufficient tokens. A minimum of ${requiredTokens} tokens is required to start a call. Your balance: ${currentBalance}`);
+    }
+
     const { leadId, script, engine = "vapi", voiceId = "nova" } = await req.json()
     // engine: "vapi" | "voicebox" | "voicebox_clone"
     if (!leadId) throw new Error("Missing leadId")
