@@ -360,6 +360,13 @@ export function useMutation(apiEndpoint: any) {
       return data;
     }
     
+    // Handle GSC disconnect by user_id since no row ID is passed from the UI
+    if (mappingKey === 'gsc.disconnectGsc' && user) {
+      const { data, error } = await supabase.from('gsc_tokens').delete().eq('user_id', user.id).select();
+      if (error) throw error;
+      return data?.[0] || null;
+    }
+    
     const isDelete = method.toLowerCase().includes('delete') || 
                      method.toLowerCase().includes('remove') || 
                      method === 'disconnectGsc';
