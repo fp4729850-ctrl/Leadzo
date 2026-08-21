@@ -274,6 +274,8 @@ function CampaignHistoryItem({ campaign, onDelete }: { campaign: { _id: Id<"laun
 }
 
 function CampaignLaunchInner() {
+  const { user } = useAuth();
+  const [billingOption, setBillingOption] = useState<"byoa" | "agency">("byoa");
   const [step, setStep] = useState(0);
   const [selectedPlatform, setSelectedPlatform] = useState("");
   const [campaignName, setCampaignName] = useState("");
@@ -393,7 +395,12 @@ function CampaignLaunchInner() {
     setLaunching(true);
     
     try {
-      // 1. Check token balance (Requires 150 tokens)
+      const budgetNum = parseInt(budget);
+      // 1. Calculate required tokens (150 setup fee + optional budget funded in tokens)
+      const budgetTokens = billingOption === "agency" ? Math.ceil(budgetNum / 0.8) : 0;
+      const requiredTokens = 150.00 + budgetTokens;
+
+      // 2. Check token balance
       const { data: balanceData } = await supabase
         .from("token_balances")
         .select("balance")
@@ -401,7 +408,6 @@ function CampaignLaunchInner() {
         .maybeSingle();
 
       const currentBalance = balanceData?.balance ? parseFloat(balanceData.balance) : 0;
-      const requiredTokens = 150.00;
 
       if (currentBalance < requiredTokens) {
         toast.error(`Insufficient tokens. Required: ${requiredTokens}, Available: ${currentBalance}`);
@@ -410,7 +416,6 @@ function CampaignLaunchInner() {
       }
 
       const audience = { ageMin: parseInt(ageMin), ageMax: parseInt(ageMax), gender, locations: selectedCities, interests: interests.split(",").map((i) => i.trim()).filter(Boolean) };
-      const budgetNum = parseInt(budget);
       let result: { success: boolean; campaignId?: string; error?: string; details: string };
 
       if (selectedPlatform === "facebook") result = await launchFb({ name: campaignName, objective, budget: budgetNum, budgetType, audience, adHeadline, adCopy, ctaButton, destinationUrl });
@@ -420,20 +425,22 @@ function CampaignLaunchInner() {
       else result = await launchLinkedIn({ name: campaignName, objective, budget: budgetNum, audience, adHeadline, adCopy, destinationUrl });
 
       if (result.success) {
-        // 2. Deduct 150 tokens from user wallet balance
+        // 3. Deduct tokens from user wallet balance
         const newBalance = currentBalance - requiredTokens;
         await supabase
           .from("token_balances")
           .update({ balance: newBalance, updated_at: new Date().toISOString() })
           .eq("user_id", user.id);
 
-        // 3. Record transaction ledger
+        // 4. Record transaction ledger
         await supabase
           .from("token_transactions")
           .insert({
             user_id: user.id,
             amount: -requiredTokens,
-            description: `Launched ${platformMeta?.label || selectedPlatform} Campaign: "${campaignName}"`
+            description: billingOption === "agency"
+              ? `Launched ${platformMeta?.label || selectedPlatform} Campaign via Leadzo Shared Account: "${campaignName}" (Funded ₹${budgetNum} + 150 setup fee)`
+              : `Launched ${platformMeta?.label || selectedPlatform} Campaign: "${campaignName}"`
           });
       }
 
@@ -483,6 +490,45 @@ function CampaignLaunchInner() {
             {step === 1 && (
               <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex flex-col gap-4">
                 <h2 className="text-sm font-bold text-foreground flex items-center gap-2"><Settings size={14} className="text-primary" /> Campaign Settings</h2>
+                
+                {/* Billing Account Option Selection */}
+                <div className="rounded-2xl border border-border bg-card p-5 flex flex-col gap-3">
+                  <label className="text-xs font-semibold text-muted-foreground block">Billing & Ad Account Option *</label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-1">
+                    <button
+                      type="button"
+                      onClick={() => setBillingOption("byoa")}
+                      className={cn(
+                        "p-4 rounded-xl border text-left flex flex-col gap-1 transition-all cursor-pointer",
+                        billingOption === "byoa"
+                          ? "border-primary bg-primary/5 ring-1 ring-primary"
+                          : "border-border bg-muted/10 hover:border-primary/30"
+                      )}
+                    >
+                      <span className="text-xs font-bold text-foreground">Use Connected Ad Account</span>
+                      <span className="text-[10px] text-muted-foreground leading-normal">
+                        Charge ads budget directly on your connected card. Setup fee: 150 Tokens.
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBillingOption("agency")}
+                      className={cn(
+                        "p-4 rounded-xl border text-left flex flex-col gap-1 transition-all cursor-pointer",
+                        billingOption === "agency"
+                          ? "border-primary bg-primary/5 ring-1 ring-primary"
+                          : "border-border bg-muted/10 hover:border-primary/30"
+                      )}
+                    >
+                      <span className="text-xs font-bold text-foreground flex items-center gap-1">
+                        Use Leadzo Agency Account
+                      </span>
+                      <span className="text-[10px] text-muted-foreground leading-normal">
+                        Fund your ads using Leadzo credits. Budget converted to tokens (1 Token = ₹0.80).
+                      </span>
+                    </button>
+                  </div>
+                </div>
                 <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 flex flex-col gap-3">
                   <div className="flex items-center gap-2"><div className="size-7 rounded-lg bg-primary/20 flex items-center justify-center"><Zap size={13} className="text-primary" /></div><div><p className="text-xs font-bold text-foreground">AI Website Scanner</p><p className="text-[10px] text-muted-foreground">Enter your website URL \u2014 AI will read it and auto-fill the entire campaign</p></div></div>
                   <div className="flex gap-2">
@@ -583,7 +629,14 @@ function CampaignLaunchInner() {
                     { label: "Platform", value: platformMeta?.label, icon: Globe },
                     { label: "Campaign", value: campaignName, icon: Target },
                     { label: "Objective", value: objective, icon: Target },
-                    { label: "Budget", value: `\u20b9${parseInt(budget || "0").toLocaleString("en-IN")} / ${budgetType}`, icon: DollarSign },
+                    ...(billingOption === "agency" ? [
+                      { label: "AI Setup Fee", value: "150 Tokens", icon: Zap },
+                      { label: "Ad Funding Cost", value: `${Math.ceil(parseInt(budget || "0") / 0.8)} Tokens (₹${parseInt(budget || "0").toLocaleString("en-IN")})`, icon: DollarSign },
+                      { label: "Total Wallet Cost", value: `${150 + Math.ceil(parseInt(budget || "0") / 0.8)} Tokens`, icon: ShieldCheck }
+                    ] : [
+                      { label: "Setup Fee", value: "150 Tokens (Direct Billing)", icon: Zap },
+                      { label: "Platform Budget", value: `₹${parseInt(budget || "0").toLocaleString("en-IN")} / ${budgetType}`, icon: DollarSign }
+                    ]),
                     { label: "Age Range", value: `${ageMin} \u2013 ${ageMax}`, icon: Users },
                     { label: "Gender", value: gender === "all" ? "All genders" : gender, icon: Users },
                     { label: "Cities", value: selectedCities.join(", "), icon: Globe },
