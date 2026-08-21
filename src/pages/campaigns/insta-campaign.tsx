@@ -14,6 +14,8 @@ import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/
 import { toast } from "sonner";
 import { cn } from "@/lib/utils.ts";
 import CampaignHistoryList from "./_components/campaign-history.tsx";
+import { useAuth } from "@/hooks/use-auth.ts";
+import { supabase } from "@/lib/supabase.ts";
 
 function AiTemplatePanel({ onSelect }: { onSelect: (t: string) => void }) {
   const generate = useAction(api.campaignAi.generateTemplate);
@@ -76,6 +78,7 @@ function AiTemplatePanel({ onSelect }: { onSelect: (t: string) => void }) {
 }
 
 export default function InstaCampaignPage() {
+  const { user } = useAuth();
   const campaigns = useQuery(api.campaigns.list, { type: "instagram" });
   const createCampaign = useMutation(api.campaigns.create);
   const [handlesRaw, setHandlesRaw] = useState("");
@@ -142,6 +145,28 @@ export default function InstaCampaignPage() {
     if (handles.length === 0) { toast.error("Koi target handle nahi hai"); return; }
     if (!message.trim()) { toast.error("DM message likhna zaroori hai"); return; }
     if (serverStatus !== "connected") { toast.error("Pehle Instagram Server se connect karein"); return; }
+    if (!user) return;
+    
+    // 1. Fetch token balance for maximum possible DMs (2.0 tokens per DM)
+    const maxPossibleRecipients = handles.length * maxFollowers;
+    const requiredTokens = maxPossibleRecipients * 2.00;
+
+    let currentBalance = 0;
+    try {
+      const { data: balanceData } = await supabase
+        .from("token_balances")
+        .select("balance")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      currentBalance = balanceData?.balance ? parseFloat(balanceData.balance) : 0;
+    } catch (e) {
+      console.error("Failed to fetch balance:", e);
+    }
+
+    if (currentBalance < requiredTokens) {
+      toast.error(`Insufficient tokens. Max possible recipients: ${maxPossibleRecipients} (${requiredTokens} tokens required). Your balance: ${currentBalance}`);
+      return;
+    }
     
     setLaunching(true);
     setProgress({ total: 0, current: 0, status: "Scraping followers..." });
@@ -166,14 +191,42 @@ export default function InstaCampaignPage() {
         for (const follower of followers) {
           setProgress(p => ({ ...p, status: `Sending to @${follower}...` }));
           
-          await fetch("http://localhost:3002/api/send-dm", {
+          const dmRes = await fetch("http://localhost:3002/api/send-dm", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ username: follower, message })
           });
           
-          totalSent++;
-          setProgress(p => ({ ...p, current: totalSent }));
+          if (dmRes.ok) {
+            // Deduct 2 tokens per successful send
+            try {
+              const { data: latestBalance } = await supabase
+                .from("token_balances")
+                .select("balance")
+                .eq("user_id", user.id)
+                .maybeSingle();
+              const latBal = latestBalance?.balance ? parseFloat(latestBalance.balance) : 0;
+              const newBal = latBal - 2.00;
+              
+              await supabase
+                .from("token_balances")
+                .update({ balance: newBal, updated_at: new Date().toISOString() })
+                .eq("user_id", user.id);
+                
+              await supabase
+                .from("token_transactions")
+                .insert({
+                  user_id: user.id,
+                  amount: -2.00,
+                  description: `Insta DM Sent to @${follower}`
+                });
+            } catch (billingErr) {
+              console.error("Insta DM billing failed:", billingErr);
+            }
+
+            totalSent++;
+            setProgress(p => ({ ...p, current: totalSent }));
+          }
           
           // Delay to prevent ban
           await new Promise(r => setTimeout(r, 8000));
