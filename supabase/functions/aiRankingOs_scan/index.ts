@@ -24,6 +24,26 @@ serve(async (req) => {
       targetUrl = 'https://' + targetUrl;
     }
 
+    // Verify user token balance before scan (Requires 25 tokens)
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    
+    let currentBalance = 0;
+    const requiredTokens = 25.00;
+    if (user_id) {
+      const { data: balanceData } = await supabase
+        .from("token_balances")
+        .select("balance")
+        .eq("user_id", user_id)
+        .maybeSingle();
+      currentBalance = balanceData?.balance ? parseFloat(balanceData.balance) : 0;
+      if (currentBalance < requiredTokens) {
+        return new Response(JSON.stringify({ error: `Insufficient tokens. Required: ${requiredTokens}, Available: ${currentBalance}` }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
+    }
+
     let text = ""
     let pageTitle = ""
     let metaDesc = ""
@@ -593,6 +613,25 @@ Make all data specific and relevant to the website text provided below. Output O
     }
 
     await saveScanToDB(fallbackData, user_id, site_id);
+
+    if (user_id) {
+      // Deduct 25 tokens from user wallet balance
+      const newBalance = currentBalance - requiredTokens;
+      await supabase
+        .from("token_balances")
+        .update({ balance: newBalance, updated_at: new Date().toISOString() })
+        .eq("user_id", user_id);
+
+      // Record token transaction ledger entry
+      await supabase
+        .from("token_transactions")
+        .insert({
+          user_id,
+          amount: -requiredTokens,
+          description: `AI Ranking OS Scan Completed: ${rawUrl}`
+        });
+    }
+
     return new Response(JSON.stringify({ success: true, data: fallbackData }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
   } catch (err: any) {
