@@ -205,6 +205,38 @@ export default function AiRankingOsPage() {
 
   const updateRecStatus = async (recId: string, newStatus: string) => {
     try {
+      if (newStatus === "approved" && user) {
+        const { data: balanceData } = await supabase
+          .from("token_balances")
+          .select("balance")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        
+        const currentBalance = balanceData?.balance ? parseFloat(balanceData.balance) : 0;
+        const requiredTokens = 15.00;
+        
+        if (currentBalance < requiredTokens) {
+          toast.error(`Insufficient tokens. Required: ${requiredTokens}, Available: ${currentBalance}`);
+          return;
+        }
+        
+        // Deduct tokens
+        const newBalance = currentBalance - requiredTokens;
+        await supabase
+          .from("token_balances")
+          .update({ balance: newBalance, updated_at: new Date().toISOString() })
+          .eq("user_id", user.id);
+          
+        // Record transaction
+        await supabase
+          .from("token_transactions")
+          .insert({
+            user_id: user.id,
+            amount: -requiredTokens,
+            description: `AI Agent Auto-Fix Applied: Rec #${recId.slice(0, 8)}`
+          });
+      }
+
       const { error } = await supabase
         .from("ranking_recommendations")
         .update({ 
@@ -506,7 +538,7 @@ export default function AiRankingOsPage() {
 
             {/* Tab Contents */}
             <div className="border border-border/30 rounded-xl bg-card p-5 shadow-sm">
-              {activeTab === "ai-visibility" && <AIVisibilityCenter data={latestScan.full_data?.aiVisibilityCenter} domain={activeSite.domain} />}
+              {activeTab === "ai-visibility" && <AIVisibilityCenter data={latestScan.full_data?.aiVisibilityCenter} domain={activeSite.domain} siteId={activeSite.id} userId={user?.id} />}
               {activeTab === "content-intelligence" && <ContentIntelligenceCenter data={latestScan.full_data?.contentIntelligence} />}
               {activeTab === "tech-optimization" && <TechnicalOptimizationCenter data={latestScan.full_data?.technicalOptimization} />}
               {activeTab === "competitor-intel" && <CompetitorIntelligenceCenter data={latestScan.full_data?.competitorIntelligence} />}
@@ -566,7 +598,57 @@ function ImprovementItem({ title, gain }: { title: string; gain: string }) {
 }
 
 // --- AI Visibility Center ---
-function AIVisibilityCenter({ data, domain }: { data: any; domain: string }) {
+function AIVisibilityCenter({ data, domain, siteId, userId }: { data: any; domain: string; siteId?: string; userId?: string }) {
+  const [activated, setActivated] = useState(() => {
+    return siteId ? localStorage.getItem(`accelerator_${siteId}`) === 'true' : false;
+  });
+  const [loading, setLoading] = useState(false);
+
+  const activateAccelerator = async () => {
+    if (!userId || !siteId) return;
+    setLoading(true);
+    try {
+      // 1. Fetch balance
+      const { data: balanceData } = await supabase
+        .from("token_balances")
+        .select("balance")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      const currentBalance = balanceData?.balance ? parseFloat(balanceData.balance) : 0;
+      const requiredTokens = 10.00;
+
+      if (currentBalance < requiredTokens) {
+        toast.error(`Insufficient tokens. Required: ${requiredTokens}, Available: ${currentBalance}`);
+        return;
+      }
+
+      // 2. Deduct tokens
+      const newBalance = currentBalance - requiredTokens;
+      await supabase
+        .from("token_balances")
+        .update({ balance: newBalance, updated_at: new Date().toISOString() })
+        .eq("user_id", userId);
+
+      // 3. Record transaction
+      await supabase
+        .from("token_transactions")
+        .insert({
+          user_id: userId,
+          amount: -requiredTokens,
+          description: `Activated SGE Accelerator Link for: ${domain}`
+        });
+
+      localStorage.setItem(`accelerator_${siteId}`, 'true');
+      setActivated(true);
+      toast.success("Preferred Source Accelerator link activated successfully!");
+    } catch (e: any) {
+      toast.error(e.message || "Failed to activate link");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (!data) return <PlaceholderView title="AI Visibility Center" />;
   return (
     <div className="space-y-5">
@@ -579,23 +661,34 @@ function AIVisibilityCenter({ data, domain }: { data: any; domain: string }) {
         <p className="text-[11px] text-muted-foreground leading-relaxed">
           When users click this link, Google will save your website as their preferred source. This ensures your site ranks first in their Google AI Overviews and search results.
         </p>
-        <div className="flex items-center gap-2">
-          <Input
-            readOnly
-            value={`https://google.com/preferences/source?q=${domain}`}
-            className="bg-card text-xs h-8 border border-border/50 select-all"
-          />
+        
+        {activated ? (
+          <div className="flex items-center gap-2">
+            <Input
+              readOnly
+              value={`https://google.com/preferences/source?q=${domain}`}
+              className="bg-card text-xs h-8 border border-border/50 select-all"
+            />
+            <Button
+              onClick={() => {
+                navigator.clipboard.writeText(`https://google.com/preferences/source?q=${domain}`);
+                toast.success("Shortcut link copied to clipboard!");
+              }}
+              size="sm"
+              className="h-8 text-xs shrink-0"
+            >
+              Copy Link
+            </Button>
+          </div>
+        ) : (
           <Button
-            onClick={() => {
-              navigator.clipboard.writeText(`https://google.com/preferences/source?q=${domain}`);
-              toast.success("Shortcut link copied to clipboard!");
-            }}
-            size="sm"
-            className="h-8 text-xs shrink-0"
+            onClick={activateAccelerator}
+            disabled={loading}
+            className="w-full h-8 text-xs font-bold"
           >
-            Copy Link
+            {loading ? "Activating (10 Tokens)..." : "Activate Accelerator Link (10 Tokens)"}
           </Button>
-        </div>
+        )}
         <div className="text-[10px] text-muted-foreground space-y-1 bg-background/40 p-2.5 rounded border border-border/5">
           <p className="font-semibold text-foreground/80">🚀 Recommended Distribution Channels:</p>
           <ul className="list-disc pl-4 space-y-0.5">
