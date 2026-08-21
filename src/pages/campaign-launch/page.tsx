@@ -13,11 +13,13 @@ import {
   Sparkles, Rocket, Loader2, CheckCircle2, XCircle, Clock, Trash2, ChevronRight,
   Users, Target, DollarSign, Globe, Megaphone, Settings, AlertTriangle,
   Copy, Check, Zap, RefreshCw, Wallet, TrendingDown, ExternalLink,
-  Upload, ImageIcon, Video, X, FileVideo,
+  Upload, ImageIcon, Video, X, FileVideo, ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils.ts";
 import { toast } from "sonner";
 import type { Id } from "@/convex/_generated/dataModel.d.ts";
+import { useAuth } from "@/hooks/use-auth.ts";
+import { supabase } from "@/lib/supabase.ts";
 
 const PLATFORMS = [
   { value: "facebook", label: "Facebook Ads", color: "#1877F2", secrets: ["FACEBOOK_ADS_ACCESS_TOKEN", "FACEBOOK_AD_ACCOUNT_ID"], docsUrl: "https://developers.facebook.com/docs/marketing-apis/" },
