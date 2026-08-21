@@ -389,24 +389,62 @@ function CampaignLaunchInner() {
   };
 
   const handleLaunch = async () => {
-    if (!selectedPlatform || !campaignName || !objective || !budget) return;
+    if (!selectedPlatform || !campaignName || !objective || !budget || !user) return;
     setLaunching(true);
-    const audience = { ageMin: parseInt(ageMin), ageMax: parseInt(ageMax), gender, locations: selectedCities, interests: interests.split(",").map((i) => i.trim()).filter(Boolean) };
-    const budgetNum = parseInt(budget);
-    let result: { success: boolean; campaignId?: string; error?: string; details: string };
+    
     try {
+      // 1. Check token balance (Requires 150 tokens)
+      const { data: balanceData } = await supabase
+        .from("token_balances")
+        .select("balance")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      const currentBalance = balanceData?.balance ? parseFloat(balanceData.balance) : 0;
+      const requiredTokens = 150.00;
+
+      if (currentBalance < requiredTokens) {
+        toast.error(`Insufficient tokens. Required: ${requiredTokens}, Available: ${currentBalance}`);
+        setLaunching(false);
+        return;
+      }
+
+      const audience = { ageMin: parseInt(ageMin), ageMax: parseInt(ageMax), gender, locations: selectedCities, interests: interests.split(",").map((i) => i.trim()).filter(Boolean) };
+      const budgetNum = parseInt(budget);
+      let result: { success: boolean; campaignId?: string; error?: string; details: string };
+
       if (selectedPlatform === "facebook") result = await launchFb({ name: campaignName, objective, budget: budgetNum, budgetType, audience, adHeadline, adCopy, ctaButton, destinationUrl });
       else if (selectedPlatform === "google") result = await launchGoogle({ name: campaignName, objective, budget: budgetNum, audience, adHeadline, adCopy, destinationUrl });
       else if (selectedPlatform === "tiktok") result = await launchTikTok({ name: campaignName, objective, budget: budgetNum, audience, adHeadline, adCopy, destinationUrl });
       else if (selectedPlatform === "instagram") result = await launchInstagram({ name: campaignName, objective, budget: budgetNum, budgetType, audience, adHeadline, adCopy, ctaButton, destinationUrl });
       else result = await launchLinkedIn({ name: campaignName, objective, budget: budgetNum, audience, adHeadline, adCopy, destinationUrl });
 
+      if (result.success) {
+        // 2. Deduct 150 tokens from user wallet balance
+        const newBalance = currentBalance - requiredTokens;
+        await supabase
+          .from("token_balances")
+          .update({ balance: newBalance, updated_at: new Date().toISOString() })
+          .eq("user_id", user.id);
+
+        // 3. Record transaction ledger
+        await supabase
+          .from("token_transactions")
+          .insert({
+            user_id: user.id,
+            amount: -requiredTokens,
+            description: `Launched ${platformMeta?.label || selectedPlatform} Campaign: "${campaignName}"`
+          });
+      }
+
       await saveCampaign({ name: campaignName, platform: selectedPlatform, status: result.success ? "launched" : "failed", objective, budget: budgetNum, budgetType, audience, adHeadline, adCopy, ctaButton, destinationUrl, platformCampaignId: result.campaignId, errorMessage: result.error, adMediaStorageId: adMediaStorageId ? (adMediaStorageId as Parameters<typeof saveCampaign>[0]["adMediaStorageId"]) : undefined, adMediaType: adMedia ? (adMedia.type.startsWith("video") ? "video" : "image") : undefined, adMediaName: adMedia?.name });
 
       if (result.success) toast.success(`Campaign launched on ${platformMeta?.label}! ID: ${result.campaignId}`);
       else toast.error(`Launch failed: ${result.error}`);
       setActiveTab("history"); setStep(0);
-    } catch { toast.error("Unexpected error. Check Secrets tab."); }
+    } catch (e: any) { 
+      toast.error(e.message || "Unexpected error. Check Secrets tab."); 
+    }
     finally { setLaunching(false); }
   };
 
