@@ -198,6 +198,9 @@ serve(async (req) => {
       })
 
       const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error?.message || "Google API request failed");
+      }
       const sites = (data.siteEntry || []).map((s: any) => s.siteUrl)
       return new Response(JSON.stringify({ success: true, sites }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" }
