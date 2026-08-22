@@ -78,6 +78,48 @@ export default function AiRankingOsPage() {
   const [latestScan, setLatestScan] = useState<Scan | null>(null);
   const [recs, setRecs] = useState<Recommendation[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [sitemaps, setSitemaps] = useState<any[]>([]);
+  const [loadingSitemaps, setLoadingSitemaps] = useState(false);
+  const [submittingSitemap, setSubmittingSitemap] = useState(false);
+
+  const getSitemaps = useAction(api.gscActions.getSitemaps);
+  const submitSitemap = useAction(api.gscActions.submitSitemap);
+
+  const loadSitemaps = async (siteUrl: string) => {
+    if (!siteUrl) return;
+    setLoadingSitemaps(true);
+    try {
+      const result = await getSitemaps({ siteUrl });
+      if (result?.success && result.sitemaps) {
+        setSitemaps(result.sitemaps);
+      }
+    } catch (e) {
+      console.warn("Failed to load sitemaps:", e);
+    } finally {
+      setLoadingSitemaps(false);
+    }
+  };
+
+  const handleSubmitSitemap = async () => {
+    if (!activeSite?.domain) return;
+    setSubmittingSitemap(true);
+    try {
+      const feedUrl = activeSite.domain.startsWith("http")
+        ? `${activeSite.domain.replace(/\/$/, "")}/sitemap.xml`
+        : `https://${activeSite.domain.replace(/\/$/, "")}/sitemap.xml`;
+      const result = await submitSitemap({ siteUrl: activeSite.domain, feedUrl });
+      if (result?.success) {
+        toast.success("Sitemap submitted successfully to Google!");
+        await loadSitemaps(activeSite.domain);
+      } else {
+        toast.error("Failed to submit sitemap. Check GSC property verification.");
+      }
+    } catch (e: any) {
+      toast.error(e.message || "Failed to submit sitemap");
+    } finally {
+      setSubmittingSitemap(false);
+    }
+  };
 
   // Load user sites on mount
   useEffect(() => {
@@ -86,16 +128,22 @@ export default function AiRankingOsPage() {
     }
   }, [user?.id]);
 
-  // Load scans when active site changes
+  // Load scans and sitemaps when active site changes
   useEffect(() => {
     if (activeSite?.id) {
       loadScans(activeSite.id);
+      if (activeSite.gsc_connected) {
+        loadSitemaps(activeSite.domain);
+      } else {
+        setSitemaps([]);
+      }
     } else {
       setScans([]);
       setLatestScan(null);
       setRecs([]);
+      setSitemaps([]);
     }
-  }, [activeSite?.id]);
+  }, [activeSite?.id, activeSite?.gsc_connected]);
 
   const loadSites = async () => {
     try {
@@ -547,7 +595,7 @@ export default function AiRankingOsPage() {
               {activeTab === "recommendations" && <RecommendationCenter data={recs} onStatusChange={updateRecStatus} />}
               {activeTab === "reports" && <ReportsCenter domain={activeSite.domain} scores={{ aiVisibility: latestScan.score_ai_visibility, seoHealth: latestScan.score_seo_health }} />}
               {activeTab === "automation" && <AutomationCenter site={activeSite} onToggle={toggleAutopilot} />}
-              {activeTab === "settings-center" && <SettingsCenter site={activeSite} onToggle={toggleAutopilot} onDelete={deleteSite} onUpdateKeys={updateApiKeys} onConnectGsc={connectGsc} />}
+              {activeTab === "settings-center" && <SettingsCenter site={activeSite} onToggle={toggleAutopilot} onDelete={deleteSite} onUpdateKeys={updateApiKeys} onConnectGsc={connectGsc} sitemaps={sitemaps} submittingSitemap={submittingSitemap} onSubmitSitemap={handleSubmitSitemap} />}
             </div>
           </>
         )}
@@ -1021,7 +1069,25 @@ function AutomationCenter({ site, onToggle }: { site: Site | null; onToggle: () 
 }
 
 // --- Settings Center ---
-function SettingsCenter({ site, onToggle, onDelete, onUpdateKeys, onConnectGsc }: { site: Site; onToggle: () => void; onDelete: (id: string) => void; onUpdateKeys: (keys: any) => Promise<void>; onConnectGsc: () => void }) {
+function SettingsCenter({ 
+  site, 
+  onToggle, 
+  onDelete, 
+  onUpdateKeys, 
+  onConnectGsc,
+  sitemaps,
+  submittingSitemap,
+  onSubmitSitemap
+}: { 
+  site: Site; 
+  onToggle: () => void; 
+  onDelete: (id: string) => void; 
+  onUpdateKeys: (keys: any) => Promise<void>; 
+  onConnectGsc: () => void;
+  sitemaps: any[];
+  submittingSitemap: boolean;
+  onSubmitSitemap: () => Promise<void>;
+}) {
   const [pagespeedKey, setPagespeedKey] = useState(site.api_keys?.pagespeed_key || "");
   const [mozId, setMozId] = useState(site.api_keys?.moz_id || "");
   const [mozSecret, setMozSecret] = useState(site.api_keys?.moz_secret || "");
@@ -1064,6 +1130,40 @@ function SettingsCenter({ site, onToggle, onDelete, onUpdateKeys, onConnectGsc }
           <Search size={13} />
           {site.gsc_connected ? "Reconnect Google Search Console" : "Connect Google Search Console"}
         </Button>
+
+        {site.gsc_connected && (
+          <div className="mt-4 pt-4 border-t border-border/20 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <h5 className="text-[11px] font-bold text-foreground">XML Sitemap Status</h5>
+                <p className="text-[9px] text-muted-foreground mt-0.5">Sitemaps help Google find and index your blogs automatically.</p>
+              </div>
+              <Badge variant="outline" className={`text-[9px] ${sitemaps.length > 0 ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-amber-500/10 text-amber-400 border-amber-500/20"}`}>
+                {sitemaps.length > 0 ? "Submitted & Active" : "No Sitemap Found"}
+              </Badge>
+            </div>
+            {sitemaps.length > 0 ? (
+              <div className="space-y-1.5">
+                {sitemaps.map((sm: any, idx: number) => (
+                  <div key={idx} className="flex justify-between items-center bg-card p-2 rounded-lg border border-border/50 text-[10px] font-mono">
+                    <span className="truncate max-w-[200px]">{sm.path.split('/').pop()}</span>
+                    <span className="text-muted-foreground">Type: {sm.type}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <Button
+                onClick={onSubmitSitemap}
+                disabled={submittingSitemap}
+                size="sm"
+                className="h-8 text-xs gap-1.5 w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold cursor-pointer"
+              >
+                {submittingSitemap ? <Loader2 size={13} className="animate-spin" /> : <Search size={13} />}
+                Submit Sitemap (sitemap.xml)
+              </Button>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="p-4 rounded-xl border border-border/30 bg-secondary/10 space-y-3">
