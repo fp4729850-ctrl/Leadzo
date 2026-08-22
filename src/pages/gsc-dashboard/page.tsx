@@ -72,6 +72,24 @@ function GscDashboardInner() {
     window.location.href = result.url;
   };
 
+  const handleDisconnect = async () => {
+    try {
+      await disconnectGsc();
+      const { supabase } = await import("@/lib/supabase");
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase
+          .from("ranking_sites")
+          .update({ gsc_connected: false })
+          .eq("user_id", user.id);
+      }
+      toast.success("Google Search Console disconnected successfully.");
+      window.location.reload();
+    } catch (e: any) {
+      toast.error(e.message || "Failed to disconnect GSC");
+    }
+  };
+
   const loadSites = useCallback(async () => {
     setLoadingSites(true);
     try {
@@ -134,7 +152,7 @@ function GscDashboardInner() {
         <div><h1 className="text-2xl font-bold">GSC Dashboard</h1><p className="text-muted-foreground text-sm">Real-time data from Google Search Console</p></div>
         <div className="flex items-center gap-2 flex-wrap">
           <Badge variant="secondary" className="gap-1.5"><div className="w-2 h-2 rounded-full bg-green-500" />Connected</Badge>
-          <Button variant="ghost" size="sm" onClick={() => disconnectGsc()} className="text-destructive hover:text-destructive gap-1"><Unlink2 className="w-4 h-4" /> Disconnect</Button>
+          <Button variant="ghost" size="sm" onClick={handleDisconnect} className="text-destructive hover:text-destructive gap-1"><Unlink2 className="w-4 h-4" /> Disconnect</Button>
         </div>
       </div>
 
