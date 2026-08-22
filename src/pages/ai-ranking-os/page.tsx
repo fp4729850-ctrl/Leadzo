@@ -104,15 +104,28 @@ export default function AiRankingOsPage() {
     if (!activeSite?.domain) return;
     setSubmittingSitemap(true);
     try {
-      const feedUrl = activeSite.domain.startsWith("http")
-        ? `${activeSite.domain.replace(/\/$/, "")}/sitemap.xml`
-        : `https://${activeSite.domain.replace(/\/$/, "")}/sitemap.xml`;
-      const result = await submitSitemap({ siteUrl: activeSite.domain, feedUrl });
+      // Build the canonical site URL (must match GSC verified property exactly)
+      const domain = activeSite.domain.replace(/\/$/, "");
+      const siteUrl = domain.startsWith("http") ? domain + "/" : `https://${domain}/`;
+      const feedUrl = `${siteUrl}sitemap.xml`;
+
+      // Try to get the exact verified property URL from GSC first
+      let exactSiteUrl = siteUrl;
+      try {
+        const sitesResult = await getSitemaps({ siteUrl });
+        // If getSitemaps worked, the siteUrl is valid
+        if (sitesResult?.success) exactSiteUrl = siteUrl;
+      } catch {
+        // Try www prefix if plain domain fails
+        exactSiteUrl = siteUrl.includes("www.") ? siteUrl : siteUrl.replace("https://", "https://www.");
+      }
+
+      const result = await submitSitemap({ siteUrl: exactSiteUrl, feedUrl: `${exactSiteUrl}sitemap.xml` });
       if (result?.success) {
         toast.success("Sitemap submitted successfully to Google!");
-        await loadSitemaps(activeSite.domain);
+        await loadSitemaps(exactSiteUrl);
       } else {
-        toast.error("Failed to submit sitemap. Check GSC property verification.");
+        toast.error(`Failed to submit sitemap (status: ${result?.status}). Make sure GSC property is verified.`);
       }
     } catch (e: any) {
       toast.error(e.message || "Failed to submit sitemap");
