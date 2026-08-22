@@ -116,8 +116,8 @@ function GscDashboardInner() {
         getPagePerformance({ siteUrl, startDate, endDate, rowLimit: 20 }),
         getTrafficComparison({ siteUrl, currentStart: startDate, currentEnd: endDate, previousStart: prevStart, previousEnd: prevEnd }),
       ]);
-      if (rankResult.error) toast.error(`Rankings error: ${rankResult.error}`); else setRankings(rankResult.rows);
-      if (pageResult.error) toast.error(`Pages error: ${pageResult.error}`); else setPages(pageResult.rows);
+      if (rankResult.error) toast.error(`Rankings error: ${rankResult.error}`); else setRankings(rankResult.rankings || []);
+      if (pageResult.error) toast.error(`Pages error: ${pageResult.error}`); else setPages(pageResult.pages || []);
       if (!compResult.error) setComparison(compResult);
       setDataLoaded(true); toast.success("Real GSC data loaded!");
     } catch { toast.error("Data load failed"); }
