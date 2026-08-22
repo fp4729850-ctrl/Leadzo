@@ -44,7 +44,7 @@ serve(async (req) => {
       if (!redirectUri) throw new Error("Missing redirectUri")
 
       const scopes = [
-        "https://www.googleapis.com/auth/webmasters.readonly",
+        "https://www.googleapis.com/auth/webmasters",
         "https://www.googleapis.com/auth/userinfo.email"
       ].join(" ")
 
