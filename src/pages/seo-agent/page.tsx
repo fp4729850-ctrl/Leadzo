@@ -17,7 +17,7 @@ import {
   Search, Globe, BarChart2, FileText, Rocket, Activity,
   ChevronRight, CheckCircle2, Loader2, AlertTriangle,
   TrendingUp, TrendingDown, Minus, RefreshCw,
-  BookOpen, Target, Zap, Eye, Link, Unlink, Send,
+  BookOpen, Target, Zap, Eye, Link, Unlink, Send, Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils.ts";
 
@@ -84,6 +84,29 @@ export default function SeoAgentPage() {
   };
   const [globalDashboardData, setGlobalDashboardData] = useState<GlobalDashboardItem[]>([]);
   const [globalDashboardLoading, setGlobalDashboardLoading] = useState(false);
+  const [newTopics, setNewTopics] = useState<Record<string, string>>({});
+
+  const handleAddGlobalTopic = async (settingsId: string, currentPlan: any[]) => {
+    const topicText = newTopics[settingsId]?.trim();
+    if (!topicText) return;
+
+    try {
+      const newPlan = [{ title: topicText, intent: "Custom Topic", keywords: [topicText] }, ...currentPlan];
+      await supabase.from("seo_autopilot_settings").update({ publish_plan: newPlan }).eq("id", settingsId);
+      
+      setNewTopics({ ...newTopics, [settingsId]: "" });
+      toast.success(`"${topicText}" added to Autopilot Plan!`);
+      
+      // Update local state to reflect the change immediately
+      setGlobalDashboardData(prev => prev.map(item => 
+        item.settings.id === settingsId 
+          ? { ...item, settings: { ...item.settings, publish_plan: newPlan } } 
+          : item
+      ));
+    } catch (err: any) {
+      toast.error("Failed to add topic: " + err.message);
+    }
+  };
 
   const [publishPlan, setPublishPlan] = useState<{ week: string; task: string; type: string; keywords: string[]; priority: string; published?: boolean; published_at?: string; }[]>([]);
   const [publishLoading, setPublishLoading] = useState(false);
@@ -752,6 +775,30 @@ ${contentData.content}
                                 </div>
                               )}
                             </div>
+                          </div>
+                        </div>
+
+                        {/* Custom Topic Input */}
+                        <div className="mt-6 pt-6 border-t border-border/50">
+                          <p className="text-sm font-semibold text-muted-foreground mb-3">Add Custom Topic to Autopilot Plan</p>
+                          <div className="flex flex-col sm:flex-row items-center gap-3">
+                            <Input 
+                              placeholder="e.g. WhatsApp Automation for Agencies" 
+                              className="flex-1 bg-background/50 border-border"
+                              value={newTopics[data.settings.id] || ""}
+                              onChange={(e) => setNewTopics({ ...newTopics, [data.settings.id]: e.target.value })}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleAddGlobalTopic(data.settings.id, data.settings.publish_plan || []);
+                              }}
+                            />
+                            <Button 
+                              onClick={() => handleAddGlobalTopic(data.settings.id, data.settings.publish_plan || [])}
+                              disabled={!newTopics[data.settings.id]}
+                              variant="secondary"
+                              className="w-full sm:w-auto gap-2 bg-chart-3/10 text-chart-3 hover:bg-chart-3/20 border border-chart-3/30"
+                            >
+                              <Plus size={16} /> Add Keyword
+                            </Button>
                           </div>
                         </div>
                       </div>
