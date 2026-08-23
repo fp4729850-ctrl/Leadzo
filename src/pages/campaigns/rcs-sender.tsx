@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs.tsx';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card.tsx';
-import { MessageSquareShare, Users, BookTemplate, Send, LayoutDashboard, Plus, Loader2, Upload, Search, CheckCircle2, Smartphone, Image as ImageIcon, PlusCircle, Trash2 } from 'lucide-react';
+import { MessageSquareShare, Users, BookTemplate, Send, LayoutDashboard, Plus, Loader2, Upload, Search, CheckCircle2, Smartphone, Image as ImageIcon, PlusCircle, Trash2, Rocket } from 'lucide-react';
 import { Button } from '@/components/ui/button.tsx';
 import { Input } from '@/components/ui/input.tsx';
 import { Badge } from '@/components/ui/badge.tsx';
@@ -49,11 +49,18 @@ export default function RcsSender() {
     }
   });
 
+  // Campaign State
+  const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [loadingCampaigns, setLoadingCampaigns] = useState(true);
+  const [launchingCampaign, setLaunchingCampaign] = useState(false);
+  const [newCampaign, setNewCampaign] = useState({ name: '', template_id: '' });
+
   useEffect(() => {
     if (user) {
       fetchAgents();
       fetchContacts();
       fetchTemplates();
+      fetchCampaigns();
     }
   }, [user]);
 
@@ -76,6 +83,58 @@ export default function RcsSender() {
     const { data, error } = await supabase.from('rcs_templates').select('*').eq('user_id', user?.id).order('created_at', { ascending: false });
     if (!error && data) setTemplates(data);
     setLoadingTemplates(false);
+  };
+
+  const fetchCampaigns = async () => {
+    setLoadingCampaigns(true);
+    const { data, error } = await supabase.from('rcs_campaigns').select('*, rcs_templates(name)').eq('user_id', user?.id).order('created_at', { ascending: false });
+    if (!error && data) setCampaigns(data);
+    setLoadingCampaigns(false);
+  };
+
+  const handleLaunchCampaign = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCampaign.name || !newCampaign.template_id) return toast.error("Please provide a name and select a template.");
+    if (contacts.length === 0) return toast.error("No contacts available to send to.");
+    if (agents.length === 0) return toast.error("No registered RCS Agent.");
+
+    const selectedTemplate = templates.find(t => t.id === newCampaign.template_id);
+    if (!selectedTemplate) return;
+
+    setLaunchingCampaign(true);
+    try {
+      // Create campaign record
+      const { data: campaignData, error } = await supabase.from('rcs_campaigns').insert({
+        user_id: user?.id,
+        agent_id: agents[0].id,
+        name: newCampaign.name,
+        message_type: selectedTemplate.type,
+        content: selectedTemplate.content,
+        total_contacts: contacts.length, // Sending to all active contacts for now
+        status: 'PROCESSING'
+      }).select().single();
+
+      if (error) throw error;
+      
+      // We will trigger the background edge function here
+      const { error: invokeError } = await supabase.functions.invoke('rcs_queue_campaign', {
+        body: { campaign_id: campaignData.id }
+      });
+
+      if (invokeError) {
+         console.error("Queue error:", invokeError);
+         toast.error("Campaign created but queuing failed.");
+      } else {
+         toast.success("Campaign launched and queued in background!");
+      }
+
+      setNewCampaign({ name: '', template_id: '' });
+      fetchCampaigns();
+    } catch(err: any) {
+      toast.error(err.message || "Failed to launch campaign.");
+    } finally {
+      setLaunchingCampaign(false);
+    }
   };
 
   const handleSaveTemplate = async (e: React.FormEvent) => {
@@ -671,15 +730,101 @@ export default function RcsSender() {
         </TabsContent>
 
         <TabsContent value="campaigns">
-          <Card className="bg-card border-border">
-            <CardHeader>
-              <CardTitle>RCS Campaigns</CardTitle>
-              <CardDescription>Launch and track bulk RCS campaigns.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">Campaign launcher coming soon (Phase 4).</p>
-            </CardContent>
-          </Card>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <Card className="bg-card border-border lg:col-span-1 h-fit sticky top-6">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Send size={18}/> Launch Campaign</CardTitle>
+                <CardDescription>Blast your RCS template to all your active contacts.</CardDescription>
+              </CardHeader>
+              <form onSubmit={handleLaunchCampaign}>
+                <CardContent className="space-y-4">
+                  <div className="space-y-1.5">
+                    <Label>Campaign Name</Label>
+                    <Input placeholder="e.g. Diwali Flash Sale Blast" value={newCampaign.name} onChange={e => setNewCampaign({...newCampaign, name: e.target.value})} required />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Select Template</Label>
+                    <select 
+                      className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      value={newCampaign.template_id}
+                      onChange={e => setNewCampaign({...newCampaign, template_id: e.target.value})}
+                      required
+                    >
+                      <option value="" disabled>Select a template...</option>
+                      {templates.map(t => (
+                        <option key={t.id} value={t.id}>{t.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="mt-4 p-4 bg-background/50 border border-border rounded-lg space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Total Audience</span>
+                      <span className="font-bold text-foreground">{contacts.filter(c => !c.is_opted_out).length} Contacts</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Estimated Cost</span>
+                      <span className="font-bold text-emerald-500">₹{(contacts.filter(c => !c.is_opted_out).length * 0.15).toFixed(2)}</span>
+                    </div>
+                  </div>
+                </CardContent>
+                <CardFooter>
+                  <Button type="submit" className="w-full gap-2 text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700" disabled={launchingCampaign || templates.length === 0 || contacts.length === 0}>
+                    {launchingCampaign ? <Loader2 size={16} className="animate-spin" /> : <Rocket size={16} />}
+                    Launch Broadcast
+                  </Button>
+                </CardFooter>
+              </form>
+            </Card>
+
+            <Card className="bg-card border-border lg:col-span-2">
+              <CardHeader>
+                <CardTitle className="text-lg">Campaign History</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {loadingCampaigns ? (
+                  <div className="flex justify-center p-8"><Loader2 className="animate-spin text-muted-foreground" /></div>
+                ) : campaigns.length === 0 ? (
+                  <div className="text-center p-8 text-muted-foreground border border-dashed border-border rounded-lg bg-background/50">
+                    No campaigns launched yet. Start your first broadcast!
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {campaigns.map(camp => (
+                      <div key={camp.id} className="border border-border rounded-xl p-4 bg-background/50 hover:bg-background transition-colors">
+                        <div className="flex justify-between items-start mb-3">
+                          <div>
+                            <h4 className="font-bold text-foreground text-lg">{camp.name}</h4>
+                            <p className="text-xs text-muted-foreground mt-0.5">Template: {camp.rcs_templates?.name || 'N/A'}</p>
+                          </div>
+                          <Badge className={camp.status === 'COMPLETED' ? 'bg-emerald-500/20 text-emerald-500' : 'bg-blue-500/20 text-blue-500'}>
+                            {camp.status}
+                          </Badge>
+                        </div>
+                        <div className="grid grid-cols-4 gap-4 mt-4 pt-4 border-t border-border/50">
+                          <div>
+                            <p className="text-xs text-muted-foreground mb-1">Audience</p>
+                            <p className="font-semibold text-foreground">{camp.total_contacts}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground mb-1">Sent</p>
+                            <p className="font-semibold text-foreground">{camp.sent_count}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground mb-1">Delivered</p>
+                            <p className="font-semibold text-emerald-500">{camp.delivered_count}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground mb-1">Read (Blue Ticks)</p>
+                            <p className="font-semibold text-blue-500">{camp.read_count}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>
