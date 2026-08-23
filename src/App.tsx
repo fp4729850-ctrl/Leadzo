@@ -11,6 +11,7 @@ import DashboardPage from "./pages/dashboard/page.tsx";
 import InboxPage from "./pages/inbox/page.tsx";
 import AnalyticsPage from "./pages/analytics/page.tsx";
 import WASenderPage from "./pages/campaigns/wa-sender.tsx";
+import RcsSender from "./pages/campaigns/rcs-sender.tsx";
 import EmailCampaignPage from "./pages/campaigns/email-campaign.tsx";
 import InstaCampaignPage from "./pages/campaigns/insta-campaign.tsx";
 import CeoDashboardPage from "./pages/ceo-dashboard/page.tsx";
@@ -64,6 +65,7 @@ export default function App() {
             <Route path="/inbox" element={<InboxPage />} />
             <Route path="/analytics" element={<AnalyticsPage />} />
             <Route path="/wa-sender" element={<WASenderPage />} />
+            <Route path="/rcs-sender" element={<RcsSender />} />
             <Route path="/email-campaign" element={<EmailCampaignPage />} />
             <Route path="/insta-campaign" element={<InstaCampaignPage />} />
             <Route path="/ceo-dashboard" element={<CeoDashboardPage />} />

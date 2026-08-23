@@ -2,7 +2,7 @@ import { Outlet, NavLink, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import {
   Trophy, Layers, MessageSquareCode, BarChart4, Settings2,
-  Send, Mail, Camera, Search, Zap, LayoutDashboard, BarChart3, Wand2, Rocket, SlidersHorizontal, Users, Settings, Brain, Phone, TrendingUp, LogIn, LogOut, MessageCircle, CreditCard
+  Send, Mail, Camera, Search, Zap, LayoutDashboard, BarChart3, Wand2, Rocket, SlidersHorizontal, Users, Settings, Brain, Phone, TrendingUp, LogIn, LogOut, MessageCircle, CreditCard, MessageSquareShare
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth.ts";
 import { Button } from "@/components/ui/button.tsx";
@@ -13,6 +13,7 @@ import { Separator } from "@/components/ui/separator.tsx";
 const NAV_ITEMS = [
   { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { path: "/wa-sender", label: "Bulk Whatsapp", icon: Send },
+  { path: "/rcs-sender", label: "Bulk RCS", icon: MessageSquareShare },
   { path: "/bulk-calling", label: "Bulk Calling", icon: Phone },
   { path: "/email-campaign", label: "Bulk Email", icon: Mail },
   { path: "/ai-reminders", label: "AI Reminders", icon: Settings2 }, // Using Settings2 as placeholder, will update later if needed
