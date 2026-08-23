@@ -7,9 +7,11 @@ import { Input } from '@/components/ui/input.tsx';
 import { Badge } from '@/components/ui/badge.tsx';
 import { Label } from '@/components/ui/label.tsx';
 import { Textarea } from '@/components/ui/textarea.tsx';
+import { Progress } from '@/components/ui/progress.tsx';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase.ts';
 import { useAuth } from '@/hooks/use-auth.ts';
+import Papa from 'papaparse';
 
 export default function RcsSender() {
   const { user } = useAuth();
@@ -26,6 +28,11 @@ export default function RcsSender() {
   const [loadingContacts, setLoadingContacts] = useState(true);
   const [newContact, setNewContact] = useState({ name: '', phone_number: '' });
   const [addingContact, setAddingContact] = useState(false);
+  
+  // CSV Import State
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [importingCsv, setImportingCsv] = useState(false);
+  const [importProgress, setImportProgress] = useState(0);
 
   useEffect(() => {
     if (user) {
@@ -99,6 +106,90 @@ export default function RcsSender() {
     } finally {
       setAddingContact(false);
     }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: async function (results) {
+        if (!results.data || results.data.length === 0) {
+          toast.error("CSV file is empty or invalid format.");
+          return;
+        }
+
+        setImportingCsv(true);
+        setImportProgress(0);
+        let successCount = 0;
+        let errorCount = 0;
+        
+        // Ensure column mapping (some people use 'phone', 'Phone', 'phone_number', 'mobile')
+        const dataRows = results.data as any[];
+        const total = dataRows.length;
+        
+        // Supabase limits bulk insert to reasonable chunks, we will do batches of 500
+        const batchSize = 500;
+        const validContacts = [];
+
+        for (const row of dataRows) {
+          // Detect phone column
+          let rawPhone = row.phone || row.Phone || row.phone_number || row.mobile || row.Mobile;
+          let name = row.name || row.Name || row.first_name || '';
+
+          if (rawPhone) {
+             let phone = String(rawPhone).replace(/\D/g, '');
+             if (!phone.startsWith('91') && phone.length === 10) phone = '91' + phone;
+             if (!phone.startsWith('+')) phone = '+' + phone;
+             
+             validContacts.push({
+               user_id: user?.id,
+               name: name.trim(),
+               phone_number: phone,
+               is_opted_out: false
+             });
+          }
+        }
+
+        if (validContacts.length === 0) {
+           toast.error("No valid phone numbers found. Ensure column header is 'phone'.");
+           setImportingCsv(false);
+           return;
+        }
+
+        try {
+          // Batch insert
+          for (let i = 0; i < validContacts.length; i += batchSize) {
+            const batch = validContacts.slice(i, i + batchSize);
+            const { error } = await supabase.from('rcs_contacts').upsert(batch, { onConflict: 'user_id, phone_number', ignoreDuplicates: true });
+            
+            if (error) {
+              console.error("Batch error:", error);
+              errorCount += batch.length;
+            } else {
+              successCount += batch.length;
+            }
+            
+            setImportProgress(Math.round(((i + batchSize) / validContacts.length) * 100));
+          }
+          
+          if (successCount > 0) {
+             toast.success(`Successfully imported ${successCount} contacts!`);
+             fetchContacts();
+          }
+          if (errorCount > 0) toast.error(`Failed to import ${errorCount} contacts.`);
+          
+        } catch(err: any) {
+           toast.error(err.message || "Bulk import failed");
+        } finally {
+          setImportingCsv(false);
+          setImportProgress(100);
+          if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+      }
+    });
   };
 
   return (
@@ -252,7 +343,23 @@ export default function RcsSender() {
                     <Upload className="mx-auto h-8 w-8 text-muted-foreground mb-3" />
                     <p className="text-sm font-medium text-foreground mb-1">Upload Contacts CSV</p>
                     <p className="text-xs text-muted-foreground mb-4">Required columns: name, phone</p>
-                    <Button variant="secondary" size="sm" className="w-full" disabled>Coming Soon</Button>
+                    <input 
+                      type="file" 
+                      accept=".csv" 
+                      className="hidden" 
+                      ref={fileInputRef} 
+                      onChange={handleFileUpload} 
+                    />
+                    {importingCsv ? (
+                      <div className="space-y-2">
+                        <Progress value={importProgress} className="h-2 w-full" />
+                        <p className="text-xs text-muted-foreground">{importProgress}% Imported...</p>
+                      </div>
+                    ) : (
+                      <Button variant="secondary" size="sm" className="w-full gap-2" onClick={() => fileInputRef.current?.click()}>
+                        Select CSV File
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>
