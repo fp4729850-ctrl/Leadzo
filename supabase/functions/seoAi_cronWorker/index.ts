@@ -106,10 +106,10 @@ serve(async (req) => {
         
         if (targetItem.type === "local_page") {
           prompt = `You are an expert Local SEO Content Writer for the website ${setting.url} in the niche of ${setting.niche}.
-Please write a highly optimized, engaging local landing page about: "${targetItem.task}".
+Please write a highly optimized, engaging local landing page about: "${targetItem.task || targetItem.title}".
 Target City: ${targetItem.city || "Unknown"}
 Service: ${targetItem.service || setting.niche}
-Include localized headings, paragraphs, and use these keywords naturally: ${targetItem.keywords.join(', ')}.${internalLinksCtx}
+Include localized headings, paragraphs, and use these keywords naturally: ${(targetItem.keywords || []).join(', ')}.${internalLinksCtx}
 
 Respond ONLY with a JSON object in this format:
 {
@@ -121,7 +121,7 @@ Respond ONLY with a JSON object in this format:
         } else if (targetItem.type === "striking_distance") {
           prompt = `You are an expert SEO Optimizer for the website ${setting.url}.
 Your task is to write an optimized blog post for the following keywords that are currently ranking on Page 2 (Striking Distance):
-${targetItem.keywords.join(', ')}
+${(targetItem.keywords || []).join(', ')}
 
 Ensure the content has a unique marketing hook. Focus on a specific aspect of the niche (e.g., ad spend ROI, WhatsApp automation, or AI lead capture). Avoid repeating intros or structural outlines from previous posts. Write a distinct, high-value piece that acts as an industry case study or guide.
 
@@ -135,8 +135,8 @@ Respond ONLY with a JSON object in this format:
         } else {
           // Default blog post
           prompt = `You are an expert SEO Content Writer for the website ${setting.url} in the niche of ${setting.niche}.
-Please write a highly optimized, engaging blog post about: "${targetItem.task}".
-Include headings, paragraphs, and use these keywords naturally: ${targetItem.keywords.join(', ')}.${internalLinksCtx}
+Please write a highly optimized, engaging blog post about: "${targetItem.task || targetItem.title}".
+Include headings, paragraphs, and use these keywords naturally: ${(targetItem.keywords || []).join(', ')}.${internalLinksCtx}
 
 IMPORTANT FOR CONTENT DIVERSITY:
 - Make this post highly distinct from previous articles. 
@@ -246,7 +246,8 @@ Respond ONLY with a JSON object in this format:
         const contentData = JSON.parse(text);
 
         // Generate slug from title (always derived from actual title, not AI-generated slug)
-        const cleanSlug = contentData.title
+        const safeTitle = contentData.title || targetItem.task || targetItem.title || "seo-article";
+        const cleanSlug = safeTitle
           .toLowerCase()
           .replace(/[|]/g, '') // remove pipe characters
           .replace(/[^a-z0-9\s-]/g, '') // remove special chars
