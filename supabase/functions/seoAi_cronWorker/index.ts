@@ -261,10 +261,10 @@ Respond ONLY with a JSON object in this format:
         const { error: insertErr } = await supabase
           .from("blogs")
           .insert({
-            title: contentData.title,
+            title: safeTitle,
             slug: finalSlug,
-            html_content: contentData.html_content,
-            seo_description: contentData.seo_description,
+            html_content: contentData.html_content || `<p>Content optimization for ${safeTitle}</p>`,
+            seo_description: contentData.seo_description || `Highly optimized local content for ${safeTitle}`,
             author: "Leadzo AI Autopilot",
             published: true,
             user_id: setting.user_id,
@@ -286,23 +286,21 @@ Respond ONLY with a JSON object in this format:
           .insert({
             user_id: setting.user_id,
             amount: -requiredTokens,
-            description: `AI SEO Article Published: "${contentData.title || targetItem.task}"`
+            description: `AI SEO Article Published: "${safeTitle}"`
           });
 
         // 4.5 Auto-Push to GitHub if configured
         if (setting.github_repo && setting.github_token) {
           try {
             console.log(`Pushing to GitHub repo: ${setting.github_repo}`);
-            const generatedSlug = contentData.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-            const filePath = targetItem.type === "local_page" ? `content/locations/${generatedSlug}.md` : `content/blog/${generatedSlug}.md`;
+            const filePath = targetItem.type === "local_page" ? `content/locations/${cleanSlug}.md` : `content/blog/${cleanSlug}.md`;
             const fileContent = `---
-title: "${contentData.metaTitle || contentData.title}"
-description: "${contentData.seo_description || contentData.metaDescription || ''}"
+title: "${safeTitle}"
+description: "${contentData.seo_description || contentData.metaDescription || `Highly optimized local content for ${safeTitle}`}"
 date: "${new Date().toISOString()}"
 ---
 
-${contentData.html_content}
-`;
+${contentData.html_content || `<p>Content optimization for ${safeTitle}</p>`}`;
             
             // Deno's btoa takes string, but we need to encode properly for unicode
             const encodedContent = btoa(unescape(encodeURIComponent(fileContent)));
