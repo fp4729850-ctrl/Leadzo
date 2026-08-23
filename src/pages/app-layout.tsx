@@ -37,7 +37,7 @@ const NAV_ITEMS = [
   { path: "/settings", label: "Settings", icon: Settings },
 ] as const;
 
-const LIVE_PATHS = ["/dashboard", "/pipeline", "/inbox", "/analytics", "/ceo-dashboard", "/market-intelligence", "/creative-generation", "/campaign-launch", "/optimization", "/learning-agent", "/crm", "/wa-sender", "/email-campaign", "/insta-campaign", "/bulk-calling", "/ai-reminders", "/seo-agent", "/ai-ranking-os", "/reddit-agent", "/gsc-dashboard", "/pricing", "/settings"];
+const LIVE_PATHS = ["/dashboard", "/pipeline", "/inbox", "/analytics", "/ceo-dashboard", "/market-intelligence", "/creative-generation", "/campaign-launch", "/optimization", "/learning-agent", "/crm", "/wa-sender", "/rcs-sender", "/email-campaign", "/insta-campaign", "/bulk-calling", "/ai-reminders", "/seo-agent", "/ai-ranking-os", "/reddit-agent", "/gsc-dashboard", "/pricing", "/settings"];
 
 import InstallBanner from "@/components/install-banner.tsx";
 
