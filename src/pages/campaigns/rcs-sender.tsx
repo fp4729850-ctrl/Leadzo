@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs.tsx';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card.tsx';
-import { MessageSquareShare, Users, BookTemplate, Send, LayoutDashboard, Plus, Loader2, Upload, Search, CheckCircle2 } from 'lucide-react';
+import { MessageSquareShare, Users, BookTemplate, Send, LayoutDashboard, Plus, Loader2, Upload, Search, CheckCircle2, Smartphone, Image as ImageIcon, PlusCircle, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button.tsx';
 import { Input } from '@/components/ui/input.tsx';
 import { Badge } from '@/components/ui/badge.tsx';
@@ -34,10 +34,26 @@ export default function RcsSender() {
   const [importingCsv, setImportingCsv] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
 
+  // Template State
+  const [templates, setTemplates] = useState<any[]>([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(true);
+  const [savingTemplate, setSavingTemplate] = useState(false);
+  const [newTemplate, setNewTemplate] = useState({
+    name: '',
+    type: 'rich_card',
+    content: {
+      title: '',
+      description: '',
+      mediaUrl: '',
+      suggestions: [] as any[]
+    }
+  });
+
   useEffect(() => {
     if (user) {
       fetchAgents();
       fetchContacts();
+      fetchTemplates();
     }
   }, [user]);
 
@@ -53,6 +69,41 @@ export default function RcsSender() {
     const { data, error } = await supabase.from('rcs_contacts').select('*').eq('user_id', user?.id).order('created_at', { ascending: false }).limit(100);
     if (!error && data) setContacts(data);
     setLoadingContacts(false);
+  };
+
+  const fetchTemplates = async () => {
+    setLoadingTemplates(true);
+    const { data, error } = await supabase.from('rcs_templates').select('*').eq('user_id', user?.id).order('created_at', { ascending: false });
+    if (!error && data) setTemplates(data);
+    setLoadingTemplates(false);
+  };
+
+  const handleSaveTemplate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTemplate.name || !newTemplate.content.title) return toast.error("Template Name and Title are required");
+    if (agents.length === 0) return toast.error("Please register an RCS Agent first.");
+    
+    setSavingTemplate(true);
+    try {
+      const { error } = await supabase.from('rcs_templates').insert({
+        user_id: user?.id,
+        agent_id: agents[0].id, // Using first agent for now
+        name: newTemplate.name,
+        type: newTemplate.type,
+        content: newTemplate.content,
+        status: 'APPROVED' // Auto-approve for demo purposes
+      });
+      if (error) throw error;
+      toast.success("Template Saved!");
+      setNewTemplate({
+        name: '', type: 'rich_card', content: { title: '', description: '', mediaUrl: '', suggestions: [] }
+      });
+      fetchTemplates();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to save template");
+    } finally {
+      setSavingTemplate(false);
+    }
   };
 
   const handleCreateAgent = async (e: React.FormEvent) => {
@@ -415,15 +466,208 @@ export default function RcsSender() {
         </TabsContent>
 
         <TabsContent value="templates">
-          <Card className="bg-card border-border">
-            <CardHeader>
-              <CardTitle>RCS Templates</CardTitle>
-              <CardDescription>Design Rich Cards, Carousels, and Suggested Replies.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">Template composer coming soon (Phase 3).</p>
-            </CardContent>
-          </Card>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            {/* Left: Template Builder Form */}
+            <Card className="bg-card border-border lg:col-span-2">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><BookTemplate size={18}/> Visual Template Composer</CardTitle>
+                <CardDescription>Design Rich Cards and Suggested Replies for your campaign.</CardDescription>
+              </CardHeader>
+              <form onSubmit={handleSaveTemplate}>
+                <CardContent className="space-y-6">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label>Template Name</Label>
+                      <Input placeholder="e.g. Diwali Offer Card" value={newTemplate.name} onChange={e => setNewTemplate({...newTemplate, name: e.target.value})} required />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Message Type</Label>
+                      <select 
+                        className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                        value={newTemplate.type}
+                        onChange={e => setNewTemplate({...newTemplate, type: e.target.value})}
+                      >
+                        <option value="rich_card">Standalone Rich Card</option>
+                        <option value="text">Text Only</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 border border-border p-4 rounded-xl bg-background/50">
+                    <h3 className="font-semibold text-sm">Card Content</h3>
+                    <div className="space-y-1.5">
+                      <Label>Image URL (Optional)</Label>
+                      <div className="flex gap-2">
+                        <Input placeholder="https://example.com/image.jpg" value={newTemplate.content.mediaUrl} onChange={e => setNewTemplate({...newTemplate, content: {...newTemplate.content, mediaUrl: e.target.value}})} />
+                        <Button type="button" variant="outline" size="icon"><ImageIcon size={16} /></Button>
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Card Title</Label>
+                      <Input placeholder="Card Title" value={newTemplate.content.title} onChange={e => setNewTemplate({...newTemplate, content: {...newTemplate.content, title: e.target.value}})} required />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Description</Label>
+                      <Textarea placeholder="Description text..." rows={3} value={newTemplate.content.description} onChange={e => setNewTemplate({...newTemplate, content: {...newTemplate.content, description: e.target.value}})} />
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 border border-border p-4 rounded-xl bg-background/50">
+                    <div className="flex justify-between items-center">
+                      <h3 className="font-semibold text-sm">Suggested Replies & Actions</h3>
+                      <Button 
+                        type="button" 
+                        variant="ghost" 
+                        size="sm" 
+                        className="text-primary h-8"
+                        onClick={() => setNewTemplate({...newTemplate, content: {...newTemplate.content, suggestions: [...newTemplate.content.suggestions, { text: 'New Button', postbackData: 'reply_1', actionUrl: '' }]}})}
+                        disabled={newTemplate.content.suggestions.length >= 4}
+                      >
+                        <PlusCircle size={16} className="mr-1" /> Add Button
+                      </Button>
+                    </div>
+                    
+                    {newTemplate.content.suggestions.length === 0 ? (
+                      <p className="text-xs text-muted-foreground text-center py-2">No buttons added yet. Max 4 allowed.</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {newTemplate.content.suggestions.map((sug: any, idx: number) => (
+                          <div key={idx} className="flex items-center gap-3 bg-background p-2 rounded-lg border border-border">
+                            <Input 
+                              placeholder="Button Text" 
+                              className="w-1/3 h-8" 
+                              value={sug.text}
+                              onChange={e => {
+                                const newSugs = [...newTemplate.content.suggestions];
+                                newSugs[idx].text = e.target.value;
+                                setNewTemplate({...newTemplate, content: {...newTemplate.content, suggestions: newSugs}});
+                              }}
+                            />
+                            <Input 
+                              placeholder="URL (optional)" 
+                              className="flex-1 h-8" 
+                              value={sug.actionUrl}
+                              onChange={e => {
+                                const newSugs = [...newTemplate.content.suggestions];
+                                newSugs[idx].actionUrl = e.target.value;
+                                setNewTemplate({...newTemplate, content: {...newTemplate.content, suggestions: newSugs}});
+                              }}
+                            />
+                            <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => {
+                                const newSugs = [...newTemplate.content.suggestions];
+                                newSugs.splice(idx, 1);
+                                setNewTemplate({...newTemplate, content: {...newTemplate.content, suggestions: newSugs}});
+                            }}>
+                              <Trash2 size={16} />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                </CardContent>
+                <CardFooter>
+                  <Button type="submit" className="w-full gap-2" disabled={savingTemplate}>
+                    {savingTemplate ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
+                    Save Template
+                  </Button>
+                </CardFooter>
+              </form>
+            </Card>
+
+            {/* Right: Live Mobile Preview */}
+            <Card className="bg-card border-border lg:col-span-1 h-fit sticky top-6">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2"><Smartphone size={18}/> Live Preview</CardTitle>
+              </CardHeader>
+              <CardContent className="flex justify-center pb-8">
+                {/* Simulated Android Phone Frame */}
+                <div className="w-[300px] h-[600px] border-[8px] border-zinc-900 rounded-[2.5rem] bg-zinc-950 shadow-2xl relative overflow-hidden flex flex-col">
+                  {/* Phone Header */}
+                  <div className="h-16 bg-zinc-900 flex items-center px-4 gap-3 shrink-0">
+                    <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center border border-primary/30">
+                      <MessageSquareShare size={16} className="text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-zinc-100 font-semibold text-sm tracking-tight">{agents[0]?.business_name || 'Business Name'}</p>
+                      <p className="text-emerald-400 text-[10px] flex items-center gap-1"><CheckCircle2 size={10} /> Verified</p>
+                    </div>
+                  </div>
+                  
+                  {/* Chat Area */}
+                  <div className="flex-1 p-3 flex flex-col justify-end gap-2 bg-[#000000]">
+                    {/* Rich Card Bubble */}
+                    <div className="bg-zinc-900 rounded-2xl overflow-hidden self-start max-w-[90%] border border-zinc-800">
+                      {newTemplate.content.mediaUrl && (
+                        <div className="h-32 w-full bg-zinc-800 border-b border-zinc-800">
+                          <img src={newTemplate.content.mediaUrl} alt="Media" className="w-full h-full object-cover" onError={(e) => (e.currentTarget.style.display = 'none')} />
+                        </div>
+                      )}
+                      <div className="p-3">
+                        {newTemplate.content.title ? (
+                           <h4 className="font-bold text-zinc-100 text-sm leading-tight mb-1">{newTemplate.content.title}</h4>
+                        ) : (
+                           <h4 className="font-bold text-zinc-500 text-sm leading-tight mb-1">Card Title</h4>
+                        )}
+                        {newTemplate.content.description ? (
+                           <p className="text-xs text-zinc-400 leading-relaxed">{newTemplate.content.description}</p>
+                        ) : (
+                           <p className="text-xs text-zinc-600 leading-relaxed">Description goes here...</p>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Suggested Replies / Actions (Chips) */}
+                    {newTemplate.content.suggestions.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-1">
+                        {newTemplate.content.suggestions.map((sug: any, idx: number) => (
+                          <div key={idx} className="bg-zinc-900 border border-zinc-700 rounded-full px-3 py-1.5 flex items-center gap-1.5 self-start shadow-sm">
+                            <span className="text-zinc-200 text-xs font-medium">{sug.text || 'Button'}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Input area */}
+                  <div className="h-12 border-t border-zinc-800 bg-zinc-950 flex items-center px-4">
+                    <div className="w-full h-8 bg-zinc-900 rounded-full flex items-center px-3">
+                      <span className="text-zinc-600 text-xs">RCS message...</span>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Saved Templates List */}
+            <Card className="bg-card border-border lg:col-span-3">
+              <CardHeader>
+                <CardTitle className="text-lg">Saved Templates</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {loadingTemplates ? (
+                  <div className="flex justify-center p-8"><Loader2 className="animate-spin text-muted-foreground" /></div>
+                ) : templates.length === 0 ? (
+                   <p className="text-center text-muted-foreground py-8">No templates saved yet.</p>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                    {templates.map(t => (
+                      <div key={t.id} className="border border-border rounded-xl p-4 bg-background/50 hover:bg-background transition-colors cursor-pointer relative group">
+                        <Badge variant="secondary" className="absolute top-3 right-3">{t.status}</Badge>
+                        <h4 className="font-semibold">{t.name}</h4>
+                        <p className="text-xs text-muted-foreground mt-1 capitalize">{t.type.replace('_', ' ')}</p>
+                        <div className="mt-4 pt-3 border-t border-border/50 text-xs truncate text-muted-foreground">
+                          {t.content?.title}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         <TabsContent value="campaigns">
