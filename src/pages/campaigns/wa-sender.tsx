@@ -23,6 +23,7 @@ import CampaignHistoryList from "./_components/campaign-history.tsx";
 
 type SendStatus = "pending" | "sending" | "sent" | "failed";
 interface NumberResult { number: string; status: SendStatus; error?: string; }
+interface ActiveCampaign { id: string; name: string; results: NumberResult[]; sending: boolean; }
 
 function SetupPanel({ onTest }: { onTest: () => void }) {
   const { user, signin } = useAuth();
@@ -297,7 +298,7 @@ function AiTemplatePanel({ campaignType, onSelect }: { campaignType: string; onS
   );
 }
 
-function SendingProgressPanel({ results, sending, onStop, onClose }: { results: NumberResult[]; sending: boolean; onStop: () => void; onClose: () => void }) {
+function SendingProgressPanel({ title, results, sending, onStop, onClose }: { title?: string; results: NumberResult[]; sending: boolean; onStop: () => void; onClose: () => void }) {
   const sentCount = results.filter((r) => r.status === "sent").length;
   const failedCount = results.filter((r) => r.status === "failed").length;
   const total = results.length;
@@ -312,11 +313,11 @@ function SendingProgressPanel({ results, sending, onStop, onClose }: { results: 
           {sending ? <Loader2 size={15} className="text-[#25D366] animate-spin" /> : <Send size={15} className="text-[#25D366]" />}
         </div>
         <div className="flex-1">
-          <p className="text-sm font-semibold">{sending ? "Bhej raha hai…" : "Campaign Complete"}</p>
+          <p className="text-sm font-semibold">{title || (sending ? "Bhej raha hai…" : "Campaign Complete")}</p>
           <p className="text-[11px] text-muted-foreground">{sentCount} bheje · {failedCount} failed · {total - done} baaki</p>
         </div>
         {isDone ? (
-          <Button size="sm" variant="secondary" className="h-7 text-xs" onClick={onClose}><RefreshCw size={11} className="mr-1" /> Nayi Campaign</Button>
+          <Button size="sm" variant="secondary" className="h-7 text-xs" onClick={onClose}><XCircle size={11} className="mr-1" /> Close</Button>
         ) : (
           <Button size="sm" variant="ghost" className="h-7 text-xs text-red-400 hover:text-red-300 gap-1" onClick={onStop}><Square size={10} /> Stop</Button>
         )}
@@ -359,12 +360,18 @@ export default function WASenderPage() {
   const [showGenerator, setShowGenerator] = useState(false);
   const [showTest, setShowTest] = useState(false);
   const [showTemplateCreator, setShowTemplateCreator] = useState(false);
+  
+  // Meta API single-campaign state
   const [sending, setSending] = useState(false);
   const [results, setResults] = useState<NumberResult[]>([]);
   const stopRef = useRef(false);
 
+  // Green API multi-campaign state
+  const [activeCampaigns, setActiveCampaigns] = useState<ActiveCampaign[]>([]);
+  const stoppedCampaignsRef = useRef<Set<string>>(new Set());
+
   const numbers = numbersRaw.split(/[\n,]+/).map((n) => n.trim()).filter((n) => n.length > 5);
-  const isSendingOrDone = sending || (results.length > 0 && results.every((r) => r.status === "sent" || r.status === "failed"));
+  const isMetaSendingOrDone = apiType === "meta" && (sending || (results.length > 0 && results.every((r) => r.status === "sent" || r.status === "failed")));
 
   const handleLaunch = async () => {
     if (numbers.length === 0) { toast.error("Bhai pehle numbers toh daal"); return; }
@@ -377,32 +384,57 @@ export default function WASenderPage() {
     toast.info("Campaign shuru ho raha hai...", { icon: <Rocket size={14} /> });
 
     if (apiType === "green") {
-      setResults(numbers.map((n) => ({ number: n, status: "pending" })));
-      for (let i = 0; i < numbers.length; i++) {
-        if (stopRef.current) break;
-        setResults((prev) => { const next = [...prev]; next[i] = { ...next[i], status: "sending" }; return next; });
-        try {
-          const res = await fetch('https://srv1780011.hstgr.cloud/api/send', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: user?.id, numbers: [numbers[i]], message })
-          });
-          const data = await res.json();
-          if (data.error) throw new Error(data.error);
-          const r = data.results?.[0];
-          setResults((prev) => { const next = [...prev]; next[i] = { number: numbers[i], status: r?.success ? "sent" : "failed", error: r?.error }; return next; });
-        } catch (err: any) {
-          setResults((prev) => { const next = [...prev]; next[i] = { number: numbers[i], status: "failed", error: err.message }; return next; });
+      const campaignId = Math.random().toString(36).substring(7);
+      const isReverse = activeCampaigns.length % 2 === 1; // 2nd, 4th campaign sends in reverse
+      const campaignNumbers = isReverse ? [...numbers].reverse() : [...numbers];
+      
+      const newCampaign: ActiveCampaign = {
+        id: campaignId,
+        name: `Campaign ${activeCampaigns.length + 1} ${isReverse ? "(Reverse Order)" : ""}`,
+        results: campaignNumbers.map((n) => ({ number: n, status: "pending" })),
+        sending: true
+      };
+      
+      setActiveCampaigns((prev) => [newCampaign, ...prev]);
+      
+      // Non-blocking async loop for this campaign
+      (async () => {
+        for (let i = 0; i < campaignNumbers.length; i++) {
+          if (stoppedCampaignsRef.current.has(campaignId)) break;
+          
+          setActiveCampaigns((prev) => prev.map(c => c.id === campaignId ? {
+            ...c, results: c.results.map((r, ri) => ri === i ? { ...r, status: "sending" } : r)
+          } : c));
+          
+          try {
+            const res = await fetch('https://srv1780011.hstgr.cloud/api/send', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ userId: user?.id, numbers: [campaignNumbers[i]], message })
+            });
+            const data = await res.json();
+            if (data.error) throw new Error(data.error);
+            const r = data.results?.[0];
+            setActiveCampaigns((prev) => prev.map(c => c.id === campaignId ? {
+              ...c, results: c.results.map((rObj, ri) => ri === i ? { ...rObj, status: r?.success ? "sent" : "failed", error: r?.error } : rObj)
+            } : c));
+          } catch (err: any) {
+            setActiveCampaigns((prev) => prev.map(c => c.id === campaignId ? {
+              ...c, results: c.results.map((rObj, ri) => ri === i ? { ...rObj, status: "failed", error: err.message } : rObj)
+            } : c));
+          }
+          
+          if (i < campaignNumbers.length - 1 && !stoppedCampaignsRef.current.has(campaignId)) {
+            const delay = Math.floor(Math.random() * (10000 - 3000 + 1) + 3000);
+            await new Promise((resolve) => setTimeout(resolve, delay));
+          }
         }
-        
-        if (i < numbers.length - 1 && !stopRef.current) {
-          // Random delay between 3000ms (3s) and 10000ms (10s)
-          const delay = Math.floor(Math.random() * (10000 - 3000 + 1) + 3000);
-          await new Promise((resolve) => setTimeout(resolve, delay));
-        }
-      }
-      toast.success("Campaign complete!");
-      setSending(false);
+        setActiveCampaigns((prev) => prev.map(c => c.id === campaignId ? { ...c, sending: false } : c));
+        toast.success(`${newCampaign.name} complete!`);
+      })();
+      
+      setNumbersRaw("");
+      setMessage("");
       return;
     }
 
@@ -471,7 +503,18 @@ export default function WASenderPage() {
               </motion.div>
             )}
           </AnimatePresence>
-          {isSendingOrDone ? (
+          {activeCampaigns.map(camp => (
+            <SendingProgressPanel 
+              key={camp.id}
+              title={camp.name}
+              results={camp.results} 
+              sending={camp.sending} 
+              onStop={() => { stoppedCampaignsRef.current.add(camp.id); toast.info(`${camp.name} rok diya`); setActiveCampaigns(prev => prev.map(c => c.id === camp.id ? { ...c, sending: false } : c)); }} 
+              onClose={() => setActiveCampaigns(prev => prev.filter(c => c.id !== camp.id))} 
+            />
+          ))}
+
+          {isMetaSendingOrDone ? (
             <SendingProgressPanel results={results} sending={sending} onStop={() => { stopRef.current = true; setSending(false); toast.info("Campaign rok diya"); }} onClose={() => { setResults([]); setNumbersRaw(""); setMessage(""); setSending(false); stopRef.current = false; }} />
           ) : (
             <>
