@@ -123,7 +123,25 @@ export default function InboxPage() {
     if (last?.role !== "user") return;
     const timer = setTimeout(async () => {
       setIsGenerating(true);
-      try { await generateReply({ leadId: selectedLead._id, conversationHistory: allMessages.map((m: any) => ({ role: m.role, text: m.text })), language: selectedLead.language, intent: selectedLead.intent }); }
+      try { 
+        const response = await generateReply({ leadId: selectedLead._id, conversationHistory: allMessages.map((m: any) => ({ role: m.role, text: m.text })), language: selectedLead.language, intent: selectedLead.intent }); 
+        
+        if (response && response.reply) {
+          // 1. Save AI message to DB
+          await sendMessage({ leadId: selectedLead._id, role: "user", text: response.reply });
+
+          // 2. Actually send via WhatsApp
+          const { data: sessionData } = await supabase.auth.getSession();
+          const userId = sessionData.session?.user?.id;
+          if (userId && selectedLead.contact && selectedLead.platform === 'whatsapp') {
+            await fetch('https://srv1780011.hstgr.cloud/api/reply', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ userId, toNumber: selectedLead.contact, message: response.reply })
+            });
+          }
+        }
+      }
       catch { toast.error("Autopilot reply failed"); }
       finally { setIsGenerating(false); }
     }, 800);
@@ -162,7 +180,13 @@ export default function InboxPage() {
   const handleGenerateReply = async () => {
     if (!selectedLead || !allMessages) return;
     setIsGenerating(true);
-    try { await generateReply({ leadId: selectedLead._id, conversationHistory: allMessages.map((m: any) => ({ role: m.role, text: m.text })), language: selectedLead.language, intent: selectedLead.intent }); toast.success("AI reply generated!"); }
+    try { 
+      const response = await generateReply({ leadId: selectedLead._id, conversationHistory: allMessages.map((m: any) => ({ role: m.role, text: m.text })), language: selectedLead.language, intent: selectedLead.intent }); 
+      if (response && response.reply) {
+         setMessageInput(response.reply);
+      }
+      toast.success("AI reply generated!"); 
+    }
     catch { toast.error("Reply generation failed"); }
     finally { setIsGenerating(false); }
   };
