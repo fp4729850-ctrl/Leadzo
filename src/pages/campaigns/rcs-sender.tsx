@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs.tsx';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card.tsx';
-import { MessageSquareShare, Users, BookTemplate, Send, LayoutDashboard, Plus, Loader2, Upload, Search, CheckCircle2, Smartphone, Image as ImageIcon, PlusCircle, Trash2, Rocket, Inbox, UserCircle2 } from 'lucide-react';
+import { MessageSquareShare, Users, BookTemplate, Send, LayoutDashboard, Plus, Loader2, Upload, Search, CheckCircle2, Smartphone, Image as ImageIcon, PlusCircle, Trash2, Rocket, Inbox, UserCircle2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button.tsx';
 import { Input } from '@/components/ui/input.tsx';
 import { Badge } from '@/components/ui/badge.tsx';
@@ -48,6 +48,10 @@ export default function RcsSender() {
       suggestions: [] as any[]
     }
   });
+
+  // AI Generator State
+  const [aiUrl, setAiUrl] = useState('');
+  const [generatingAiTemplate, setGeneratingAiTemplate] = useState(false);
 
   // Campaign State
   const [campaigns, setCampaigns] = useState<any[]>([]);
@@ -178,6 +182,39 @@ export default function RcsSender() {
       toast.error(err.message || "Failed to save template");
     } finally {
       setSavingTemplate(false);
+    }
+  };
+
+  const handleGenerateAiTemplate = async () => {
+    if (!aiUrl.trim()) return toast.error("Please enter a valid website URL");
+    
+    setGeneratingAiTemplate(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('ai_template_generator', {
+        body: { url: aiUrl }
+      });
+      
+      if (error) throw error;
+      if (data && data.data) {
+         setNewTemplate({
+            name: 'AI Generated Campaign',
+            type: 'rich_card',
+            content: {
+               title: data.data.title || '',
+               description: data.data.description || '',
+               mediaUrl: '', // Could be scraped too, but leaving blank for safety
+               suggestions: data.data.suggestions || []
+            }
+         });
+         toast.success("AI successfully read the website and generated the template!");
+         setAiUrl('');
+      } else {
+         toast.error("AI couldn't generate a template from this URL.");
+      }
+    } catch (err: any) {
+       toast.error(err.message || "Failed to generate AI template");
+    } finally {
+       setGeneratingAiTemplate(false);
     }
   };
 
@@ -570,12 +607,39 @@ export default function RcsSender() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
             {/* Left: Template Builder Form */}
-            <Card className="bg-card border-border lg:col-span-2">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2"><BookTemplate size={18}/> Visual Template Composer</CardTitle>
-                <CardDescription>Design Rich Cards and Suggested Replies for your campaign.</CardDescription>
-              </CardHeader>
-              <form onSubmit={handleSaveTemplate}>
+            <div className="lg:col-span-2 space-y-6">
+               
+               {/* AI Generator Box */}
+               <Card className="bg-primary/5 border-primary/20 overflow-hidden relative">
+                 <div className="absolute top-0 right-0 p-4 opacity-10">
+                   <Sparkles size={64} className="text-primary" />
+                 </div>
+                 <CardHeader className="pb-3">
+                   <CardTitle className="text-base flex items-center gap-2 text-primary"><Sparkles size={18}/> Auto-Generate with AI</CardTitle>
+                   <CardDescription className="text-xs">Paste your website URL. Our AI Agent will read the site and instantly build a high-converting RCS Card for you.</CardDescription>
+                 </CardHeader>
+                 <CardContent>
+                    <div className="flex gap-2">
+                       <Input 
+                         placeholder="https://yourwebsite.com/product" 
+                         value={aiUrl} 
+                         onChange={e => setAiUrl(e.target.value)} 
+                         className="bg-background/80"
+                       />
+                       <Button onClick={handleGenerateAiTemplate} disabled={generatingAiTemplate || !aiUrl.trim()} className="whitespace-nowrap gap-2 bg-primary text-primary-foreground">
+                          {generatingAiTemplate ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+                          {generatingAiTemplate ? "AI is Thinking..." : "Generate Magic"}
+                       </Button>
+                    </div>
+                 </CardContent>
+               </Card>
+
+              <Card className="bg-card border-border">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><BookTemplate size={18}/> Visual Template Composer</CardTitle>
+                  <CardDescription>Design Rich Cards and Suggested Replies for your campaign manually.</CardDescription>
+                </CardHeader>
+                <form onSubmit={handleSaveTemplate}>
                 <CardContent className="space-y-6">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
@@ -677,6 +741,7 @@ export default function RcsSender() {
                 </CardFooter>
               </form>
             </Card>
+            </div>
 
             {/* Right: Live Mobile Preview */}
             <Card className="bg-card border-border lg:col-span-1 h-fit sticky top-6">
