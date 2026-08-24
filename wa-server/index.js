@@ -15,26 +15,79 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Store active sessions: userId -> { client, qrBase64, status: 'pending'|'connected'|'disconnected' }
+const fs = require('fs');
+const accountsFile = './accounts.json';
+let userAccounts = {};
+try {
+  if (fs.existsSync(accountsFile)) {
+    userAccounts = JSON.parse(fs.readFileSync(accountsFile, 'utf8'));
+  }
+} catch(e) { console.error('Error loading accounts:', e); }
+
+const saveAccounts = () => fs.writeFileSync(accountsFile, JSON.stringify(userAccounts, null, 2));
+
+// Store active whatsapp sessions
+// Key: `${userId}_${accountId}` -> Value: { client, qrBase64, status, token }
 const sessions = new Map();
 
+// Generate composite session ID
+const getSessionId = (userId, accountId) => `${userId}_${accountId || 'default'}`;
+
+// -- ACCOUNTS API --
+app.get('/api/accounts/:userId', (req, res) => {
+  res.json({ accounts: userAccounts[req.params.userId] || [] });
+});
+
+app.post('/api/accounts', (req, res) => {
+  const { userId, account } = req.body;
+  if (!userId || !account) return res.status(400).json({ error: 'Missing parameters' });
+  if (!userAccounts[userId]) userAccounts[userId] = [];
+  
+  // Don't add duplicate IDs
+  if (!userAccounts[userId].find(a => a.id === account.id)) {
+    userAccounts[userId].push(account);
+    saveAccounts();
+  }
+  res.json({ success: true, accounts: userAccounts[userId] });
+});
+
+app.delete('/api/accounts/:userId/:accountId', (req, res) => {
+  const { userId, accountId } = req.params;
+  if (userAccounts[userId]) {
+    userAccounts[userId] = userAccounts[userId].filter(a => a.id !== accountId);
+    saveAccounts();
+  }
+  
+  // Clean up running session if exists
+  const sessionId = getSessionId(userId, accountId);
+  if (sessions.has(sessionId)) {
+    try { sessions.get(sessionId).client.destroy(); } catch(e) {}
+    sessions.delete(sessionId);
+  }
+  
+  res.json({ success: true, accounts: userAccounts[userId] || [] });
+});
+// ------------------
+
 app.post('/api/connect', async (req, res) => {
-  const { userId } = req.body;
-  if (!userId) return res.status(400).json({ error: 'userId required' });
+  const { userId, accountId } = req.body;
+  if (!userId) return res.status(400).json({ error: 'Missing userId' });
+  
+  const sessionId = getSessionId(userId, accountId);
 
   // If already exists and connected or starting, return
-  if (sessions.has(userId)) {
-    const status = sessions.get(userId).status;
+  if (sessions.has(sessionId)) {
+    const status = sessions.get(sessionId).status;
     if (status === 'connected' || status === 'starting') {
       return res.json({ status });
     }
     // Destroy old client if it exists but is disconnected
-    const oldClient = sessions.get(userId).client;
+    const oldClient = sessions.get(sessionId).client;
     try { await oldClient.destroy(); } catch(e) {}
   }
 
   const client = new Client({
-    authStrategy: new LocalAuth({ clientId: userId }),
+    authStrategy: new LocalAuth({ clientId: sessionId }),
     puppeteer: {
       headless: true,
       args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-accelerated-2d-canvas', '--no-first-run', '--no-zygote', '--single-process', '--disable-gpu']
@@ -45,15 +98,15 @@ app.post('/api/connect', async (req, res) => {
     }
   });
 
-  sessions.set(userId, { client, qrBase64: null, status: 'starting', token: req.body.token });
+  sessions.set(sessionId, { client, qrBase64: null, status: 'starting', token: req.body.token });
 
   client.on('qr', async (qr) => {
-    console.log(`QR received for ${userId}`);
+    console.log(`QR received for ${sessionId}`);
     try {
       const qrBase64 = await qrcode.toDataURL(qr, { scale: 10, margin: 4 });
-      if (sessions.has(userId)) {
-        sessions.get(userId).qrBase64 = qrBase64;
-        sessions.get(userId).status = 'pending';
+      if (sessions.has(sessionId)) {
+        sessions.get(sessionId).qrBase64 = qrBase64;
+        sessions.get(sessionId).status = 'pending';
       }
     } catch (err) {
       console.error('QR generation error:', err);
@@ -61,7 +114,7 @@ app.post('/api/connect', async (req, res) => {
   });
 
   client.on('ready', async () => {
-    console.log(`Client is ready for ${userId}`);
+    console.log(`Client is ready for ${sessionId}`);
     
     // Inject LID fallback fix
     try {
@@ -83,9 +136,9 @@ app.post('/api/connect', async (req, res) => {
       console.log('Failed to inject LID patch', err);
     }
     
-    if (sessions.has(userId)) {
-      sessions.get(userId).status = 'connected';
-      sessions.get(userId).qrBase64 = null;
+    if (sessions.has(sessionId)) {
+      sessions.get(sessionId).status = 'connected';
+      sessions.get(sessionId).qrBase64 = null;
     }
   });
 
@@ -94,7 +147,7 @@ app.post('/api/connect', async (req, res) => {
       // Skip group messages
       if (msg.from.includes('@g.us')) return;
 
-      console.log(`New message received on ${userId}'s client from ${msg.from}:`, msg.body);
+      console.log(`New message received on ${sessionId}'s client from ${msg.from}:`, msg.body);
       
       // Get the actual phone number - remove @c.us suffix and non-numeric chars
       const rawNumber = msg.from.replace('@c.us', '').replace(/[^0-9]/g, '');
@@ -119,7 +172,7 @@ app.post('/api/connect', async (req, res) => {
         const response = await fetch(`${process.env.VITE_SUPABASE_URL}/functions/v1/whatsapp_local_webhook`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId, fromNumber, content, contactName })
+          body: JSON.stringify({ userId, accountId, fromNumber, content, contactName })
         });
         
         if (!response.ok) {
@@ -131,47 +184,49 @@ app.post('/api/connect', async (req, res) => {
         console.error("Webhook fetch error:", webhookErr);
       }
     } catch (err) {
-      console.error(`Error processing incoming message for ${userId}:`, err.message);
+      console.error(`Error processing incoming message for ${sessionId}:`, err.message);
     }
   });
 
   client.on('disconnected', (reason) => {
-    console.log(`Client disconnected for ${userId}:`, reason);
-    if (sessions.has(userId)) {
-      sessions.get(userId).status = 'disconnected';
+    console.log(`Client disconnected for ${sessionId}:`, reason);
+    if (sessions.has(sessionId)) {
+      sessions.get(sessionId).status = 'disconnected';
     }
   });
 
   try {
     client.initialize().catch(err => {
-      console.error(`Error in client.initialize for ${userId}:`, err);
+      console.error(`Error in client.initialize for ${sessionId}:`, err);
     });
     res.json({ status: 'starting' });
   } catch (err) {
-    console.error(`Error starting client for ${userId}:`, err);
+    console.error(`Error starting client for ${sessionId}:`, err);
     res.status(500).json({ error: 'Failed to start client' });
   }
 });
 
-app.get('/api/status/:userId', (req, res) => {
-  const { userId } = req.params;
-  if (!sessions.has(userId)) {
+app.get('/api/status/:userId/:accountId', (req, res) => {
+  const { userId, accountId } = req.params;
+  const sessionId = getSessionId(userId, accountId);
+  if (!sessions.has(sessionId)) {
     return res.json({ status: 'disconnected' });
   }
-  const session = sessions.get(userId);
+  const session = sessions.get(sessionId);
   res.json({ status: session.status, qrCode: session.qrBase64 });
 });
 
 
 app.post('/api/send', async (req, res) => {
-  const { userId, numbers, message } = req.body;
+  const { userId, accountId, numbers, message } = req.body;
   if (!userId || !numbers || !message) return res.status(400).json({ error: 'Missing parameters' });
 
-  if (!sessions.has(userId) || sessions.get(userId).status !== 'connected') {
+  const sessionId = getSessionId(userId, accountId);
+  if (!sessions.has(sessionId) || sessions.get(sessionId).status !== 'connected') {
     return res.status(401).json({ error: 'WhatsApp not connected' });
   }
 
-  const client = sessions.get(userId).client;
+  const client = sessions.get(sessionId).client;
   const results = [];
 
   for (let num of numbers) {
@@ -197,14 +252,15 @@ app.post('/api/send', async (req, res) => {
 
 // Send media (image/video) from URL
 app.post('/api/send-media', async (req, res) => {
-  const { userId, numbers, mediaUrl, caption } = req.body;
+  const { userId, accountId, numbers, mediaUrl, caption } = req.body;
   if (!userId || !numbers || !mediaUrl) return res.status(400).json({ error: 'Missing parameters' });
 
-  if (!sessions.has(userId) || sessions.get(userId).status !== 'connected') {
+  const sessionId = getSessionId(userId, accountId);
+  if (!sessions.has(sessionId) || sessions.get(sessionId).status !== 'connected') {
     return res.status(401).json({ error: 'WhatsApp not connected' });
   }
 
-  const client = sessions.get(userId).client;
+  const client = sessions.get(sessionId).client;
   const { MessageMedia } = require('whatsapp-web.js');
   const results = [];
 
@@ -232,19 +288,20 @@ app.post('/api/send-media', async (req, res) => {
 
 // Live Inbox reply — send to a single contact number
 app.post('/api/reply', async (req, res) => {
-  const { userId, toNumber, message } = req.body;
+  const { userId, accountId, toNumber, message } = req.body;
   if (!userId || !toNumber || !message) return res.status(400).json({ error: 'Missing parameters' });
 
-  if (!sessions.has(userId) || sessions.get(userId).status !== 'connected') {
+  const sessionId = getSessionId(userId, accountId);
+  if (!sessions.has(sessionId) || sessions.get(sessionId).status !== 'connected') {
     return res.status(401).json({ error: 'WhatsApp not connected. Please scan QR code first.' });
   }
 
-  const client = sessions.get(userId).client;
+  const client = sessions.get(sessionId).client;
   try {
     let cleanNum = toNumber.replace(/[^0-9]/g, '');
     if (!cleanNum.endsWith('@c.us')) cleanNum += '@c.us';
     await client.sendMessage(cleanNum, message);
-    console.log(`Reply sent to ${toNumber} for user ${userId}`);
+    console.log(`Reply sent to ${toNumber} for user ${userId} account ${accountId}`);
     res.json({ status: 'sent' });
   } catch (err) {
     console.error(`Failed to reply to ${toNumber}:`, err);

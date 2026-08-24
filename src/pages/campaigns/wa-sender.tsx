@@ -25,19 +25,65 @@ type SendStatus = "pending" | "sending" | "sent" | "failed";
 interface NumberResult { number: string; status: SendStatus; error?: string; }
 interface ActiveCampaign { id: string; name: string; results: NumberResult[]; sending: boolean; }
 
-function SetupPanel({ onTest }: { onTest: () => void }) {
+function SetupPanel({ onTest, selectedAccountId, onAccountSelect }: { onTest: () => void, selectedAccountId: string, onAccountSelect: (id: string) => void }) {
   const { user, signin } = useAuth();
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [status, setStatus] = useState<string>("disconnected");
   const [loading, setLoading] = useState(false);
+  const [accounts, setAccounts] = useState<{id: string, name: string}[]>([]);
+  const [newAccountName, setNewAccountName] = useState("");
+  const [isAdding, setIsAdding] = useState(false);
 
-  const checkStatus = async () => {
+  const fetchAccounts = async () => {
     if (!user) return;
     try {
-      const res = await fetch(`https://srv1780011.hstgr.cloud/api/status/${user.id}`);
+      const res = await fetch(`https://srv1780011.hstgr.cloud/api/accounts/${user.id}`);
+      const data = await res.json();
+      if (data.accounts) {
+        setAccounts(data.accounts);
+        if (data.accounts.length > 0 && !selectedAccountId) {
+          onAccountSelect(data.accounts[0].id);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to fetch accounts", e);
+    }
+  };
+
+  useEffect(() => {
+    fetchAccounts();
+  }, [user]);
+
+  const addAccount = async () => {
+    if (!user || !newAccountName.trim()) return;
+    const newId = newAccountName.trim().toLowerCase().replace(/[^a-z0-9]/g, '-');
+    try {
+      const res = await fetch(`https://srv1780011.hstgr.cloud/api/accounts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: user.id, account: { id: newId, name: newAccountName.trim() } })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAccounts(data.accounts);
+        onAccountSelect(newId);
+        setIsAdding(false);
+        setNewAccountName("");
+        toast.success("Account added!");
+      }
+    } catch (e) {
+      toast.error("Failed to add account");
+    }
+  };
+
+  const checkStatus = async () => {
+    if (!user || !selectedAccountId) return;
+    try {
+      const res = await fetch(`https://srv1780011.hstgr.cloud/api/status/${user.id}/${selectedAccountId}`);
       const data = await res.json();
       setStatus(data.status);
       if (data.qrCode) setQrCode(data.qrCode);
+      else if (data.status === 'connected') setQrCode(null);
     } catch (e) {
       console.error("Status check failed", e);
     }
@@ -47,12 +93,16 @@ function SetupPanel({ onTest }: { onTest: () => void }) {
     checkStatus();
     const interval = setInterval(checkStatus, 3000);
     return () => clearInterval(interval);
-  }, [user]);
+  }, [user, selectedAccountId]);
 
   const connect = async () => {
     if (!user) {
       toast.error("Bhai, pehle login karna padega WA Sender use karne ke liye!");
       signin();
+      return;
+    }
+    if (!selectedAccountId) {
+      toast.error("Pehle ek account select ya create karo!");
       return;
     }
     setLoading(true);
@@ -63,7 +113,7 @@ function SetupPanel({ onTest }: { onTest: () => void }) {
       await fetch(`https://srv1780011.hstgr.cloud/api/connect`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: user.id, token })
+        body: JSON.stringify({ userId: user.id, accountId: selectedAccountId, token })
       });
       toast.info("Generating QR Code...");
     } catch (e) {
@@ -75,14 +125,46 @@ function SetupPanel({ onTest }: { onTest: () => void }) {
 
   return (
     <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-4">
-      <div className="flex items-center gap-2">
-        <div className="h-2 w-2 rounded-full bg-[#25D366] animate-pulse" />
-        <p className="text-sm font-semibold">Free API (Own Server)</p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="h-2 w-2 rounded-full bg-[#25D366] animate-pulse" />
+          <p className="text-sm font-semibold">Free API (Own Server)</p>
+        </div>
       </div>
-      <p className="text-xs text-muted-foreground leading-relaxed">
-        Connect your phone directly to our local server.
-        Scan the QR code to link your WhatsApp and send messages for free.
-      </p>
+      
+      <div className="flex flex-col gap-3">
+        <Label className="text-xs text-muted-foreground">Select WhatsApp Account</Label>
+        {isAdding ? (
+          <div className="flex gap-2">
+            <Input 
+              placeholder="e.g. Project A Number" 
+              className="h-8 text-xs bg-background flex-1" 
+              value={newAccountName}
+              onChange={(e) => setNewAccountName(e.target.value)}
+              autoFocus
+            />
+            <Button size="sm" className="h-8 text-xs bg-[#25D366] hover:bg-[#20bc5a] text-white" onClick={addAccount}>Add</Button>
+            <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setIsAdding(false)}>Cancel</Button>
+          </div>
+        ) : (
+          <div className="flex gap-2">
+            <Select value={selectedAccountId} onValueChange={onAccountSelect}>
+              <SelectTrigger className="h-8 text-xs flex-1 bg-background">
+                <SelectValue placeholder="Select Account" />
+              </SelectTrigger>
+              <SelectContent>
+                {accounts.length === 0 && <SelectItem value="none" disabled>No accounts found</SelectItem>}
+                {accounts.map(acc => (
+                  <SelectItem key={acc.id} value={acc.id}>{acc.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button size="sm" variant="outline" className="h-8 text-xs gap-1" onClick={() => setIsAdding(true)}>
+              <Plus size={12} /> New
+            </Button>
+          </div>
+        )}
+      </div>
 
       <div className="flex flex-col items-center justify-center space-y-4 pt-2">
         {status === "connected" ? (
@@ -369,6 +451,7 @@ export default function WASenderPage() {
   // Green API multi-campaign state
   const [activeCampaigns, setActiveCampaigns] = useState<ActiveCampaign[]>([]);
   const stoppedCampaignsRef = useRef<Set<string>>(new Set());
+  const [selectedGreenAccountId, setSelectedGreenAccountId] = useState<string>("");
 
   const numbers = numbersRaw.split(/[\n,]+/).map((n) => n.trim()).filter((n) => n.length > 5);
   const isMetaSendingOrDone = apiType === "meta" && (sending || (results.length > 0 && results.every((r) => r.status === "sent" || r.status === "failed")));
@@ -410,7 +493,7 @@ export default function WASenderPage() {
             const res = await fetch('https://srv1780011.hstgr.cloud/api/send', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ userId: user?.id, numbers: [campaignNumbers[i]], message })
+              body: JSON.stringify({ userId: user?.id, accountId: selectedGreenAccountId, numbers: [campaignNumbers[i]], message })
             });
             const data = await res.json();
             if (data.error) throw new Error(data.error);
@@ -495,7 +578,11 @@ export default function WASenderPage() {
 
       <div className="max-w-2xl mx-auto space-y-6">
         <div className="space-y-4">
-          {apiType === "meta" ? <MetaSetupPanel onTest={() => setShowTest(true)} /> : <SetupPanel onTest={() => setShowTest(true)} />}
+          {apiType === "meta" ? (
+            <MetaSetupPanel onTest={() => setShowTest(true)} />
+          ) : (
+            <SetupPanel onTest={() => setShowTest(true)} selectedAccountId={selectedGreenAccountId} onAccountSelect={setSelectedGreenAccountId} />
+          )}
           <AnimatePresence>
             {showTest && (
               <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>
