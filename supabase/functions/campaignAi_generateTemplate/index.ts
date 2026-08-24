@@ -13,8 +13,8 @@ Deno.serve(async (req) => {
   try {
     const { prompt, language, tone, websiteUrl, count = 3 } = await req.json();
 
-    if (!prompt) {
-      throw new Error("Prompt is required");
+    if (!prompt && !websiteUrl) {
+      throw new Error("Either Prompt or Website URL is required");
     }
 
     let websiteContent = "";
@@ -41,7 +41,7 @@ Deno.serve(async (req) => {
 Language: ${language} (If hinglish, use a mix of Hindi and English words written in English alphabet)
 Tone: ${tone}
 
-The user's campaign goal is: "${prompt}"
+The user's campaign goal is: "${prompt || 'Analyze the provided website content and write a highly persuasive promotional message to attract customers and promote the business.'}"
 
 ${websiteContent ? `Here is the user's website content that you must use to understand their business and extract key offerings/benefits to include in the message:\n\n${websiteContent}\n\n` : ""}
 

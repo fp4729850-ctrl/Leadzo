@@ -249,7 +249,7 @@ function AiTemplatePanel({ campaignType, onSelect }: { campaignType: string; onS
   const [copied, setCopied] = useState<number | null>(null);
 
   const run = async () => {
-    if (!goal.trim()) { toast.error("Goal likhna zaroori hai"); return; }
+    if (!goal.trim() && !websiteUrl.trim()) { toast.error("Goal ya Website URL me se koi ek likhna zaroori hai"); return; }
     setLoading(true); setTemplates([]);
     try {
       const res = await generate({ type: campaignType, prompt: goal, language, tone, websiteUrl, count: 1 });
@@ -260,8 +260,8 @@ function AiTemplatePanel({ campaignType, onSelect }: { campaignType: string; onS
 
   return (
     <div className="space-y-3">
-      <Input placeholder="Website URL (Optional)... e.g. https://yoursite.com" className="text-xs h-8" value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} />
-      <Textarea placeholder="Campaign goal..." rows={2} className="text-xs resize-none" value={goal} onChange={(e) => setGoal(e.target.value)} />
+      <Input placeholder="Website URL... e.g. https://yoursite.com" className="text-xs h-8" value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} />
+      <Textarea placeholder="Campaign goal (Optional agar URL diya hai)..." rows={2} className="text-xs resize-none" value={goal} onChange={(e) => setGoal(e.target.value)} />
       <div className="flex gap-2">
         <Select value={language} onValueChange={setLanguage}>
           <SelectTrigger className="h-8 text-xs flex-1"><SelectValue /></SelectTrigger>
