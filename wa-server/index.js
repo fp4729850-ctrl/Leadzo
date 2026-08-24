@@ -60,8 +60,29 @@ app.post('/api/connect', async (req, res) => {
     }
   });
 
-  client.on('ready', () => {
+  client.on('ready', async () => {
     console.log(`Client is ready for ${userId}`);
+    
+    // Inject LID fallback fix
+    try {
+      await client.pupPage.evaluate(() => {
+        if (window.require) {
+          try {
+            const gating = window.require('WAWebLid1X1MigrationGating');
+            if (gating) {
+              gating.shouldHaveAccountLid = () => false;
+            }
+            const Lid1X1MigrationUtils = window.require('WAWebLid1X1MigrationGating').Lid1X1MigrationUtils;
+            if (Lid1X1MigrationUtils) {
+              Lid1X1MigrationUtils.isLidMigrated = () => false;
+            }
+          } catch(e) {}
+        }
+      });
+    } catch(err) {
+      console.log('Failed to inject LID patch', err);
+    }
+    
     if (sessions.has(userId)) {
       sessions.get(userId).status = 'connected';
       sessions.get(userId).qrBase64 = null;
