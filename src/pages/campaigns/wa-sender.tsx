@@ -377,25 +377,32 @@ export default function WASenderPage() {
     toast.info("Campaign shuru ho raha hai...", { icon: <Rocket size={14} /> });
 
     if (apiType === "green") {
-      try {
-        const res = await fetch('https://srv1780011.hstgr.cloud/api/send', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: user?.id, numbers, message })
-        });
-        const data = await res.json();
-        if (data.error) throw new Error(data.error);
-        setResults(data.results.map((r: any) => ({
-          number: r.number,
-          status: r.success ? "sent" : "failed",
-          error: r.error
-        })));
-        toast.success("Sabko message bhej diye!");
-      } catch (err: any) {
-        toast.error(`Error: ${err.message}`);
-      } finally {
-        setSending(false);
+      setResults(numbers.map((n) => ({ number: n, status: "pending" })));
+      for (let i = 0; i < numbers.length; i++) {
+        if (stopRef.current) break;
+        setResults((prev) => { const next = [...prev]; next[i] = { ...next[i], status: "sending" }; return next; });
+        try {
+          const res = await fetch('https://srv1780011.hstgr.cloud/api/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: user?.id, numbers: [numbers[i]], message })
+          });
+          const data = await res.json();
+          if (data.error) throw new Error(data.error);
+          const r = data.results?.[0];
+          setResults((prev) => { const next = [...prev]; next[i] = { number: numbers[i], status: r?.success ? "sent" : "failed", error: r?.error }; return next; });
+        } catch (err: any) {
+          setResults((prev) => { const next = [...prev]; next[i] = { number: numbers[i], status: "failed", error: err.message }; return next; });
+        }
+        
+        if (i < numbers.length - 1 && !stopRef.current) {
+          // Random delay between 3000ms (3s) and 10000ms (10s)
+          const delay = Math.floor(Math.random() * (10000 - 3000 + 1) + 3000);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        }
       }
+      toast.success("Campaign complete!");
+      setSending(false);
       return;
     }
 
