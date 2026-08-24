@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs.tsx';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card.tsx';
-import { MessageSquareShare, Users, BookTemplate, Send, LayoutDashboard, Plus, Loader2, Upload, Search, CheckCircle2, Smartphone, Image as ImageIcon, PlusCircle, Trash2, Rocket } from 'lucide-react';
+import { MessageSquareShare, Users, BookTemplate, Send, LayoutDashboard, Plus, Loader2, Upload, Search, CheckCircle2, Smartphone, Image as ImageIcon, PlusCircle, Trash2, Rocket, Inbox, UserCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button.tsx';
 import { Input } from '@/components/ui/input.tsx';
 import { Badge } from '@/components/ui/badge.tsx';
@@ -55,12 +55,20 @@ export default function RcsSender() {
   const [launchingCampaign, setLaunchingCampaign] = useState(false);
   const [newCampaign, setNewCampaign] = useState({ name: '', template_id: '' });
 
+  // Inbox State
+  const [inboxMessages, setInboxMessages] = useState<any[]>([]);
+  const [loadingInbox, setLoadingInbox] = useState(true);
+  const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState('');
+  const [sendingReply, setSendingReply] = useState(false);
+
   useEffect(() => {
     if (user) {
       fetchAgents();
       fetchContacts();
       fetchTemplates();
       fetchCampaigns();
+      fetchInbox();
     }
   }, [user]);
 
@@ -90,6 +98,14 @@ export default function RcsSender() {
     const { data, error } = await supabase.from('rcs_campaigns').select('*, rcs_templates(name)').eq('user_id', user?.id).order('created_at', { ascending: false });
     if (!error && data) setCampaigns(data);
     setLoadingCampaigns(false);
+  };
+
+  const fetchInbox = async () => {
+    setLoadingInbox(true);
+    // Fetch all messages for user, including contact details
+    const { data, error } = await supabase.from('rcs_messages').select('*, rcs_contacts(name, phone_number)').eq('user_id', user?.id).order('created_at', { ascending: true });
+    if (!error && data) setInboxMessages(data);
+    setLoadingInbox(false);
   };
 
   const handleLaunchCampaign = async (e: React.FormEvent) => {
@@ -163,6 +179,29 @@ export default function RcsSender() {
     } finally {
       setSavingTemplate(false);
     }
+  };
+
+  const handleSendReply = async () => {
+     if (!replyText.trim() || !selectedContactId || agents.length === 0) return;
+     setSendingReply(true);
+     try {
+        const { error } = await supabase.from('rcs_messages').insert({
+           user_id: user?.id,
+           contact_id: selectedContactId,
+           agent_id: agents[0].id,
+           text_content: replyText,
+           direction: 'outbound',
+           status: 'DELIVERED', // Simulate direct send
+           provider_message_id: 'REPLY_' + Date.now()
+        });
+        if (error) throw error;
+        setReplyText('');
+        fetchInbox();
+     } catch (err: any) {
+        toast.error("Failed to send reply");
+     } finally {
+        setSendingReply(false);
+     }
   };
 
   const handleCreateAgent = async (e: React.FormEvent) => {
@@ -331,7 +370,10 @@ export default function RcsSender() {
             <BookTemplate className="h-4 w-4 mr-2" /> Templates
           </TabsTrigger>
           <TabsTrigger value="campaigns" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
-            <Send className="h-4 w-4 mr-2" /> Campaigns
+            <Send size={16} className="mr-2" /> Launcher
+          </TabsTrigger>
+          <TabsTrigger value="inbox" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
+            <Inbox size={16} className="mr-2" /> Live Inbox
           </TabsTrigger>
         </TabsList>
 
@@ -825,6 +867,99 @@ export default function RcsSender() {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="inbox">
+          <Card className="bg-card border-border h-[700px] flex overflow-hidden">
+             {/* Left: Chat List */}
+             <div className="w-1/3 border-r border-border flex flex-col">
+                <div className="p-4 border-b border-border bg-background/50">
+                   <h3 className="font-semibold flex items-center gap-2"><Inbox size={18}/> RCS Inbox</h3>
+                </div>
+                <div className="flex-1 overflow-y-auto">
+                   {loadingInbox ? (
+                     <div className="flex justify-center p-8"><Loader2 className="animate-spin text-muted-foreground" /></div>
+                   ) : contacts.map(c => {
+                      const cMsgs = inboxMessages.filter(m => m.contact_id === c.id);
+                      if (cMsgs.length === 0) return null; // Only show contacts with message history
+                      const lastMsg = cMsgs[cMsgs.length - 1];
+                      return (
+                         <div 
+                           key={c.id} 
+                           className={`p-4 border-b border-border/50 cursor-pointer hover:bg-background transition-colors ${selectedContactId === c.id ? 'bg-primary/5' : ''}`}
+                           onClick={() => setSelectedContactId(c.id)}
+                         >
+                            <div className="flex justify-between items-center mb-1">
+                               <p className="font-semibold text-sm">{c.name || c.phone_number}</p>
+                               <span className="text-[10px] text-muted-foreground">
+                                 {new Date(lastMsg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                               </span>
+                            </div>
+                            <p className="text-xs text-muted-foreground truncate">
+                               {lastMsg.text_content || (lastMsg.direction === 'outbound' ? 'Sent Template' : 'Message...')}
+                            </p>
+                         </div>
+                      );
+                   })}
+                </div>
+             </div>
+             
+             {/* Right: Chat Window */}
+             <div className="flex-1 flex flex-col bg-background/30">
+                {selectedContactId ? (
+                   <>
+                      <div className="p-4 border-b border-border bg-background/50 flex items-center gap-3 shadow-sm z-10">
+                         <UserCircle2 size={32} className="text-muted-foreground" />
+                         <div>
+                            <p className="font-semibold">{contacts.find(c => c.id === selectedContactId)?.name || 'Unknown Contact'}</p>
+                            <p className="text-xs text-muted-foreground">{contacts.find(c => c.id === selectedContactId)?.phone_number}</p>
+                         </div>
+                      </div>
+                      
+                      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                         {inboxMessages.filter(m => m.contact_id === selectedContactId).map(m => (
+                            <div key={m.id} className={`flex ${m.direction === 'inbound' ? 'justify-start' : 'justify-end'}`}>
+                               <div className={`max-w-[70%] rounded-2xl p-3 ${m.direction === 'inbound' ? 'bg-zinc-800 text-zinc-100 rounded-tl-sm' : 'bg-primary text-primary-foreground rounded-tr-sm'}`}>
+                                  {m.text_content ? (
+                                     <p className="text-sm">{m.text_content}</p>
+                                  ) : (
+                                     <p className="text-sm italic opacity-80">RCS Card Delivered</p>
+                                  )}
+                                  <div className="flex justify-end items-center gap-1 mt-1">
+                                     <span className="text-[9px] opacity-70">
+                                        {new Date(m.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                     </span>
+                                     {m.direction === 'outbound' && m.status === 'READ' && <CheckCircle2 size={10} className="text-blue-300" />}
+                                     {m.direction === 'outbound' && m.status === 'DELIVERED' && <CheckCircle2 size={10} className="text-muted-foreground/50" />}
+                                  </div>
+                               </div>
+                            </div>
+                         ))}
+                      </div>
+                      
+                      <div className="p-4 border-t border-border bg-background/50">
+                         <div className="flex gap-2">
+                            <Input 
+                              placeholder="Type an RCS reply..." 
+                              value={replyText}
+                              onChange={e => setReplyText(e.target.value)}
+                              onKeyDown={e => { if (e.key === 'Enter') handleSendReply(); }}
+                            />
+                            <Button onClick={handleSendReply} disabled={sendingReply || !replyText.trim()} className="gap-2">
+                               {sendingReply ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                               Send
+                            </Button>
+                         </div>
+                      </div>
+                   </>
+                ) : (
+                   <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground">
+                      <MessageSquareShare size={48} className="mb-4 opacity-20" />
+                      <p>Select a contact to view RCS conversation</p>
+                   </div>
+                )}
+             </div>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
