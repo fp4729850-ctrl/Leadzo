@@ -298,6 +298,29 @@ function SetupPanel({ onTest, selectedAccountId, onAccountSelect }: { onTest: ()
         <Button variant="link" size="sm" className="h-auto p-0 text-[10px]" onClick={onTest}>Test Connection</Button>
       </div>
 
+      {accounts.filter(a => a.aiPrompt).length > 0 && (
+        <div className="pt-4 mt-2 border-t border-primary/10 space-y-3">
+          <p className="text-xs font-semibold text-purple-700 flex items-center gap-1.5">
+            <Bot size={14} /> Active AI Agents
+          </p>
+          <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+            {accounts.filter(a => a.aiPrompt).map(acc => (
+              <div key={acc.id} className="p-3 bg-background border border-purple-100 rounded-lg space-y-1.5 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-foreground">{acc.name}</span>
+                  <span className={cn("text-[9px] px-1.5 py-0.5 rounded-full font-medium", acc.isAiActive ? "bg-green-100 text-green-700" : "bg-muted text-muted-foreground")}>
+                    {acc.isAiActive ? "AI Active" : "AI Inactive"}
+                  </span>
+                </div>
+                <p className="text-[10px] text-muted-foreground whitespace-pre-wrap leading-relaxed line-clamp-4">
+                  {acc.aiPrompt}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <Dialog open={isAiModalOpen} onOpenChange={setIsAiModalOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
