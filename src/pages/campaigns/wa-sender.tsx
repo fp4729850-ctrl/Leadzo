@@ -7,12 +7,14 @@ import { supabase } from "@/lib/supabase.ts";
 import {
   Send, Upload, MessageSquare, Loader2, Sparkles, Copy, Check,
   CheckCircle2, XCircle, AlertCircle, Settings, Play, Square,
-  RefreshCw, Zap, Plus, Rocket
+  RefreshCw, Zap, Plus, Rocket, Bot, Trash2
 } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
 import { Textarea } from "@/components/ui/textarea.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Label } from "@/components/ui/label.tsx";
+import { Checkbox } from "@/components/ui/checkbox.tsx";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog.tsx";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select.tsx";
@@ -30,9 +32,13 @@ function SetupPanel({ onTest, selectedAccountId, onAccountSelect }: { onTest: ()
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [status, setStatus] = useState<string>("disconnected");
   const [loading, setLoading] = useState(false);
-  const [accounts, setAccounts] = useState<{id: string, name: string}[]>([]);
+  const [accounts, setAccounts] = useState<{id: string, name: string, aiPrompt?: string, isAiActive?: boolean}[]>([]);
   const [newAccountName, setNewAccountName] = useState("");
   const [isAdding, setIsAdding] = useState(false);
+
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+  const [aiPromptDraft, setAiPromptDraft] = useState("");
+  const [isAiActiveDraft, setIsAiActiveDraft] = useState(false);
 
   const fetchAccounts = async () => {
     if (!user) return;
@@ -73,6 +79,45 @@ function SetupPanel({ onTest, selectedAccountId, onAccountSelect }: { onTest: ()
       }
     } catch (e) {
       toast.error("Failed to add account");
+    }
+  };
+
+  const openAiSettings = () => {
+    const selectedAccount = accounts.find(a => a.id === selectedAccountId);
+    if (selectedAccount) {
+      setAiPromptDraft(selectedAccount.aiPrompt || "");
+      setIsAiActiveDraft(selectedAccount.isAiActive || false);
+      setIsAiModalOpen(true);
+    }
+  };
+
+  const saveAiSettings = async () => {
+    if (!user || !selectedAccountId) return;
+    const selectedAccount = accounts.find(a => a.id === selectedAccountId);
+    if (!selectedAccount) return;
+    
+    try {
+      const res = await fetch(`https://srv1780011.hstgr.cloud/api/accounts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          userId: user.id, 
+          account: { 
+            id: selectedAccountId, 
+            name: selectedAccount.name,
+            aiPrompt: aiPromptDraft,
+            isAiActive: isAiActiveDraft
+          } 
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAccounts(data.accounts);
+        setIsAiModalOpen(false);
+        toast.success("AI Settings saved!");
+      }
+    } catch (e) {
+      toast.error("Failed to save AI settings");
     }
   };
 
@@ -162,6 +207,16 @@ function SetupPanel({ onTest, selectedAccountId, onAccountSelect }: { onTest: ()
             <Button size="sm" variant="outline" className="h-8 text-xs gap-1" onClick={() => setIsAdding(true)}>
               <Plus size={12} /> New
             </Button>
+            {selectedAccountId && selectedAccountId !== "none" && (
+              <>
+                <Button size="sm" variant="outline" className="h-8 text-xs gap-1 text-purple-600 border-purple-200 bg-purple-50 hover:bg-purple-100 hover:text-purple-700" onClick={openAiSettings}>
+                  <Bot size={12} /> AI Agent
+                </Button>
+                <Button size="sm" variant="outline" className="h-8 w-8 p-0 text-red-500 border-red-200 bg-red-50 hover:bg-red-100 hover:text-red-700" onClick={deleteSelectedAccount} title="Delete Account">
+                  <Trash2 size={14} />
+                </Button>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -190,6 +245,52 @@ function SetupPanel({ onTest, selectedAccountId, onAccountSelect }: { onTest: ()
         <p className="text-[10px] font-mono text-muted-foreground">Server: Connected (Proxied)</p>
         <Button variant="link" size="sm" className="h-auto p-0 text-[10px]" onClick={onTest}>Test Connection</Button>
       </div>
+
+      <Dialog open={isAiModalOpen} onOpenChange={setIsAiModalOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Bot className="w-5 h-5 text-purple-600" />
+              AI Sales Agent Settings
+            </DialogTitle>
+            <DialogDescription>
+              Configure how the AI should reply to incoming messages on this account.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="flex flex-col gap-4 py-4">
+            <div className="flex items-center space-x-2">
+              <Checkbox 
+                id="ai-active" 
+                checked={isAiActiveDraft} 
+                onCheckedChange={(checked) => setIsAiActiveDraft(checked === true)}
+              />
+              <Label htmlFor="ai-active" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                Enable Auto-Reply AI for this WhatsApp Account
+              </Label>
+            </div>
+            
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="ai-prompt">Project Knowledge & Instructions</Label>
+              <Textarea
+                id="ai-prompt"
+                placeholder="E.g., Tum Leadzo AI ke sales agent ho. Humara software lead generation ke kaam aata hai. Price $49/mo hai. Customer agar price pooche to batana..."
+                value={aiPromptDraft}
+                onChange={(e) => setAiPromptDraft(e.target.value)}
+                className="h-48 resize-none text-sm"
+              />
+              <p className="text-xs text-muted-foreground">
+                The AI will use these instructions to reply contextually to customers.
+              </p>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAiModalOpen(false)}>Cancel</Button>
+            <Button onClick={saveAiSettings} className="bg-purple-600 hover:bg-purple-700 text-white">Save Settings</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -482,38 +583,25 @@ export default function WASenderPage() {
       
       // Non-blocking async loop for this campaign
       (async () => {
-        for (let i = 0; i < campaignNumbers.length; i++) {
-          if (stoppedCampaignsRef.current.has(campaignId)) break;
+        try {
+          const res = await fetch('https://srv1780011.hstgr.cloud/api/bulk-send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: user?.id, accountId: selectedGreenAccountId, numbers: campaignNumbers, message })
+          });
+          const data = await res.json();
+          if (data.error) throw new Error(data.error);
           
           setActiveCampaigns((prev) => prev.map(c => c.id === campaignId ? {
-            ...c, results: c.results.map((r, ri) => ri === i ? { ...r, status: "sending" } : r)
+            ...c, sending: false, results: c.results.map(r => ({ ...r, status: "sent" }))
           } : c));
-          
-          try {
-            const res = await fetch('https://srv1780011.hstgr.cloud/api/send', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ userId: user?.id, accountId: selectedGreenAccountId, numbers: [campaignNumbers[i]], message })
-            });
-            const data = await res.json();
-            if (data.error) throw new Error(data.error);
-            const r = data.results?.[0];
-            setActiveCampaigns((prev) => prev.map(c => c.id === campaignId ? {
-              ...c, results: c.results.map((rObj, ri) => ri === i ? { ...rObj, status: r?.success ? "sent" : "failed", error: r?.error } : rObj)
-            } : c));
-          } catch (err: any) {
-            setActiveCampaigns((prev) => prev.map(c => c.id === campaignId ? {
-              ...c, results: c.results.map((rObj, ri) => ri === i ? { ...rObj, status: "failed", error: err.message } : rObj)
-            } : c));
-          }
-          
-          if (i < campaignNumbers.length - 1 && !stoppedCampaignsRef.current.has(campaignId)) {
-            const delay = Math.floor(Math.random() * (10000 - 3000 + 1) + 3000);
-            await new Promise((resolve) => setTimeout(resolve, delay));
-          }
+          toast.success(`${newCampaign.name} is running in the background! You can safely close this page.`);
+        } catch (err: any) {
+          setActiveCampaigns((prev) => prev.map(c => c.id === campaignId ? {
+            ...c, sending: false, results: c.results.map(r => ({ ...r, status: "failed", error: err.message }))
+          } : c));
+          toast.error(`Failed to queue ${newCampaign.name}`);
         }
-        setActiveCampaigns((prev) => prev.map(c => c.id === campaignId ? { ...c, sending: false } : c));
-        toast.success(`${newCampaign.name} complete!`);
       })();
       
       setNumbersRaw("");
@@ -522,20 +610,18 @@ export default function WASenderPage() {
     }
 
     // Meta Logic
-    setResults(numbers.map((n) => ({ number: n, status: "pending" })));
+    setResults(numbers.map((n) => ({ number: n, status: "sending" })));
     try { await createCampaign({ type: "whatsapp", prompt: message, totalRecipients: numbers.length }); } catch { /* ignore */ }
-    for (let i = 0; i < numbers.length; i++) {
-      if (stopRef.current) break;
-      setResults((prev) => { const next = [...prev]; next[i] = { ...next[i], status: "sending" }; return next; });
-      try {
-        const payload = { numbers: [numbers[i]], templateName, apiType: "meta", delayMs: 0, billingMode };
-        const res = await sendBulk(payload);
-        const r = res.results[0];
-        setResults((prev) => { const next = [...prev]; next[i] = { number: numbers[i], status: r?.success ? "sent" : "failed", error: r?.error }; return next; });
-      } catch (e) {
-        setResults((prev) => { const next = [...prev]; next[i] = { number: numbers[i], status: "failed", error: e instanceof Error ? e.message : "Error" }; return next; });
-      }
-      if (i < numbers.length - 1 && !stopRef.current) await new Promise((resolve) => setTimeout(resolve, 1500));
+    
+    try {
+      const payload = { numbers: numbers, templateName, apiType: "meta", delayMs: 0, billingMode };
+      const res = await sendBulk(payload);
+      
+      setResults(numbers.map((n) => ({ number: n, status: "sent" })));
+      toast.success("Campaign queued successfully and running in background!");
+    } catch (e: any) {
+      setResults(numbers.map((n) => ({ number: n, status: "failed", error: e.message })));
+      toast.error(`Meta API Error: ${e.message}`);
     }
     setSending(false);
   };
