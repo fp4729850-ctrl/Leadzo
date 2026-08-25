@@ -85,6 +85,7 @@ export default function SeoAgentPage() {
   const [globalDashboardData, setGlobalDashboardData] = useState<GlobalDashboardItem[]>([]);
   const [globalDashboardLoading, setGlobalDashboardLoading] = useState(false);
   const [newTopics, setNewTopics] = useState<Record<string, string>>({});
+  const [selectedBlog, setSelectedBlog] = useState<any>(null);
 
   const handleAddGlobalTopic = async (settingsId: string, currentPlan: any[]) => {
     const topicText = newTopics[settingsId]?.trim();
@@ -762,8 +763,13 @@ ${contentData.content}
                               {data.recentBlogs.length > 0 ? (
                                 data.recentBlogs.map((b, i) => (
                                   <div key={i} className="p-3 rounded-lg border border-border bg-background/50 flex flex-col gap-1">
-                                    <p className="text-sm font-medium text-foreground line-clamp-1">{b.title}</p>
-                                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                    <div className="flex items-start justify-between gap-2">
+                                      <p className="text-sm font-medium text-foreground line-clamp-1 flex-1" title={b.title}>{b.title}</p>
+                                      <button onClick={() => setSelectedBlog(b)} className="text-muted-foreground hover:text-chart-2 transition-colors flex-shrink-0" title="View Full Blog">
+                                        <Eye size={16} />
+                                      </button>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
                                       <CheckCircle2 size={12} className="text-chart-2" />
                                       <span>{new Date(b.created_at).toLocaleDateString()}</span>
                                     </div>
@@ -807,6 +813,21 @@ ${contentData.content}
                 ) : (
                   <div className="text-center py-8 text-muted-foreground">No websites found. Please complete the SEO pipeline for a website first.</div>
                 )}
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={!!selectedBlog} onOpenChange={(open) => !open && setSelectedBlog(null)}>
+            <DialogContent className="max-w-4xl bg-card border-border max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-xl font-bold">
+                  <FileText className="text-chart-2" /> {selectedBlog?.title}
+                </DialogTitle>
+              </DialogHeader>
+              <div className="py-4">
+                <div className="whitespace-pre-wrap text-sm text-foreground bg-background/50 p-6 rounded-xl border border-border/50">
+                  {selectedBlog?.content || selectedBlog?.html_content || "No content available."}
+                </div>
               </div>
             </DialogContent>
           </Dialog>
