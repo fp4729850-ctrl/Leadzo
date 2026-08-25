@@ -121,6 +121,29 @@ function SetupPanel({ onTest, selectedAccountId, onAccountSelect }: { onTest: ()
     }
   };
 
+  const deleteSelectedAccount = async () => {
+    if (!selectedAccountId || selectedAccountId === "none") return;
+    if (!confirm("Are you sure you want to delete this account? This will also disconnect WhatsApp.")) return;
+    
+    try {
+      const res = await fetch(`https://srv1780011.hstgr.cloud/api/accounts/${user?.id}/${selectedAccountId}`, {
+        method: "DELETE"
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAccounts(data.accounts || []);
+        if (data.accounts && data.accounts.length > 0) {
+          onAccountSelect(data.accounts[0].id);
+        } else {
+          onAccountSelect("none");
+        }
+        toast.success("Account deleted successfully!");
+      }
+    } catch (e) {
+      toast.error("Failed to delete account");
+    }
+  };
+
   const checkStatus = async () => {
     if (!user || !selectedAccountId) return;
     try {
