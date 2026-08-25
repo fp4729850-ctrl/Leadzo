@@ -14,13 +14,18 @@ import LeadListItem from "./_components/lead-list-item.tsx";
 import ChatBubble from "./_components/chat-bubble.tsx";
 import LeadHeader from "./_components/lead-header.tsx";
 import { cn } from "@/lib/utils.ts";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select.tsx";
+import { useAuth } from "@/hooks/use-auth.ts";
 
 type Lead = Doc<"leads">;
 
 export default function InboxPage() {
+  const { user } = useAuth();
   const leads = useQuery(api.leads.list, {});
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [search, setSearch] = useState("");
+  const [accounts, setAccounts] = useState<{id: string, name: string}[]>([]);
+  const [selectedAccountId, setSelectedAccountId] = useState<string>("all");
   const [autopilotLeads, setAutopilotLeads] = useState<Set<string>>(new Set());
   const [messageInput, setMessageInput] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -44,6 +49,17 @@ export default function InboxPage() {
 
   useEffect(() => { if (allMessages) { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); } }, [allMessages]);
   useEffect(() => { if (selectedLead) { setTimeout(() => inputRef.current?.focus(), 100); } }, [selectedLead?._id]);
+
+  // Fetch accounts for the dropdown filter
+  useEffect(() => {
+    if (!user) return;
+    fetch(`https://srv1780011.hstgr.cloud/api/accounts/${user.id}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.accounts) setAccounts(data.accounts);
+      })
+      .catch(e => console.error("Failed to fetch accounts", e));
+  }, [user]);
 
   // 🔴 Real-time subscription for new leads and messages
   useEffect(() => {
@@ -148,7 +164,11 @@ export default function InboxPage() {
     return () => clearTimeout(timer);
   }, [allMessages?.length]);
 
-  const filteredLeads = allLeads?.filter((l) => `${l.name} ${l.contact} ${l.platform}`.toLowerCase().includes(search.toLowerCase())) ?? [];
+  const filteredLeads = allLeads?.filter((l: any) => {
+    const matchesSearch = `${l.name} ${l.contact} ${l.platform}`.toLowerCase().includes(search.toLowerCase());
+    const matchesAccount = selectedAccountId === "all" || l.account_id === selectedAccountId;
+    return matchesSearch && matchesAccount;
+  }) ?? [];
 
   const handleSendUserMessage = async () => {
     if (!selectedLead || !messageInput.trim()) return;
@@ -218,9 +238,24 @@ export default function InboxPage() {
             <span className="font-bold text-sm">Live Inbox</span>
             <span className="ml-auto text-xs text-muted-foreground">{allLeads ? `${allLeads.length} leads` : "..."}</span>
           </div>
-          <div className="relative">
-            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input placeholder="Search leads..." className="pl-8 h-8 text-xs" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input placeholder="Search leads..." className="pl-8 h-8 text-xs" value={search} onChange={(e) => setSearch(e.target.value)} />
+            </div>
+            {accounts.length > 0 && (
+              <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
+                <SelectTrigger className="w-[120px] h-8 text-xs bg-background">
+                  <SelectValue placeholder="All Projects" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Projects</SelectItem>
+                  {accounts.map(acc => (
+                    <SelectItem key={acc.id} value={acc.id}>{acc.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
         </div>
         <div className="flex-1 overflow-y-auto">
