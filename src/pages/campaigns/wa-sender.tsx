@@ -39,6 +39,8 @@ function SetupPanel({ onTest, selectedAccountId, onAccountSelect }: { onTest: ()
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   const [aiPromptDraft, setAiPromptDraft] = useState("");
   const [isAiActiveDraft, setIsAiActiveDraft] = useState(false);
+  const [scrapeUrl, setScrapeUrl] = useState("");
+  const [isScraping, setIsScraping] = useState(false);
 
   const fetchAccounts = async () => {
     if (!user) return;
@@ -141,6 +143,33 @@ function SetupPanel({ onTest, selectedAccountId, onAccountSelect }: { onTest: ()
       }
     } catch (e) {
       toast.error("Failed to delete account");
+    }
+  };
+
+  const handleScrapeWebsite = async () => {
+    if (!scrapeUrl) { toast.error("Please enter a website URL"); return; }
+    let url = scrapeUrl;
+    if (!url.startsWith('http')) url = 'https://' + url;
+    
+    setIsScraping(true);
+    toast.info("Scraping website, please wait...");
+    try {
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai_scrape_website`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url })
+      });
+      const data = await res.json();
+      if (data.prompt) {
+        setAiPromptDraft(data.prompt);
+        toast.success("Website knowledge loaded successfully!");
+      } else {
+        toast.error(data.error || "Failed to scrape website");
+      }
+    } catch (e) {
+      toast.error("Error scraping website");
+    } finally {
+      setIsScraping(false);
     }
   };
 
@@ -291,6 +320,28 @@ function SetupPanel({ onTest, selectedAccountId, onAccountSelect }: { onTest: ()
               <Label htmlFor="ai-active" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                 Enable Auto-Reply AI for this WhatsApp Account
               </Label>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="scrape-url">Auto-fill from Website (Optional)</Label>
+              <div className="flex gap-2">
+                <Input 
+                  id="scrape-url" 
+                  placeholder="https://example.com" 
+                  value={scrapeUrl} 
+                  onChange={(e) => setScrapeUrl(e.target.value)} 
+                  className="h-8 text-xs flex-1"
+                />
+                <Button 
+                  size="sm" 
+                  className="h-8 text-xs bg-purple-600 hover:bg-purple-700 text-white gap-1"
+                  onClick={handleScrapeWebsite}
+                  disabled={isScraping}
+                >
+                  {isScraping ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                  Scrape
+                </Button>
+              </div>
             </div>
             
             <div className="flex flex-col gap-2">
