@@ -258,13 +258,16 @@ Respond ONLY with a JSON object in this format:
         const finalSlug = `${cleanSlug}-${Math.random().toString(36).substring(2, 7)}`;
 
         // 4. Save to blogs table
+        const actualContent = contentData.html_content || contentData.content || contentData.body || contentData.text;
+        const fallbackContent = `<p>Error: AI models failed to generate full content. Please check if your API keys (Gemini/Morph) are valid and have quota. Fallback generated for title: ${safeTitle}</p>`;
+        
         const { error: insertErr } = await supabase
           .from("blogs")
           .insert({
             title: safeTitle,
             slug: finalSlug,
-            html_content: contentData.html_content || `<p>Content optimization for ${safeTitle}</p>`,
-            seo_description: contentData.seo_description || `Highly optimized local content for ${safeTitle}`,
+            html_content: actualContent || fallbackContent,
+            seo_description: contentData.seo_description || contentData.metaDescription || `Highly optimized content for ${safeTitle}`,
             author: "Leadzo AI Autopilot",
             published: true,
             user_id: setting.user_id,
@@ -300,7 +303,7 @@ description: "${contentData.seo_description || contentData.metaDescription || `H
 date: "${new Date().toISOString()}"
 ---
 
-${contentData.html_content || `<p>Content optimization for ${safeTitle}</p>`}`;
+${actualContent || fallbackContent}`;
             
             // Deno's btoa takes string, but we need to encode properly for unicode
             const encodedContent = btoa(unescape(encodeURIComponent(fileContent)));

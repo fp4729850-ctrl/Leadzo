@@ -7,7 +7,7 @@ import { supabase } from "@/lib/supabase.ts";
 import {
   Send, Upload, MessageSquare, Loader2, Sparkles, Copy, Check,
   CheckCircle2, XCircle, AlertCircle, Settings, Play, Square,
-  RefreshCw, Zap, Plus, Rocket, Bot, Trash2
+  RefreshCw, Zap, Plus, Rocket, Bot, Trash2, ImagePlus, X
 } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
 import { Textarea } from "@/components/ui/textarea.tsx";
@@ -650,6 +650,43 @@ export default function WASenderPage() {
   const [activeCampaigns, setActiveCampaigns] = useState<ActiveCampaign[]>([]);
   const stoppedCampaignsRef = useRef<Set<string>>(new Set());
   const [selectedGreenAccountId, setSelectedGreenAccountId] = useState<string>("");
+  
+  // Media upload state
+  const [mediaFile, setMediaFile] = useState<File | null>(null);
+  const [mediaUrl, setMediaUrl] = useState<string>("");
+  const [mediaType, setMediaType] = useState<"image" | "video" | "">("");
+  const [isUploadingMedia, setIsUploadingMedia] = useState(false);
+
+  const handleMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const isVideo = file.type.startsWith("video/");
+    const isImage = file.type.startsWith("image/");
+    if (!isVideo && !isImage) { toast.error("Only images and videos are supported"); return; }
+    
+    if (file.size > 16 * 1024 * 1024) { toast.error("File size must be less than 16MB"); return; }
+    
+    setIsUploadingMedia(true);
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
+    
+    try {
+      const { error } = await supabase.storage.from("campaign-media").upload(fileName, file, { upsert: true });
+      if (error) throw error;
+      
+      const { data: urlData } = supabase.storage.from("campaign-media").getPublicUrl(fileName);
+      setMediaUrl(urlData.publicUrl);
+      setMediaType(isVideo ? "video" : "image");
+      setMediaFile(file);
+      toast.success(`${isVideo ? "Video" : "Image"} attached successfully!`);
+    } catch (err: any) {
+      toast.error(`Failed to upload media: ${err.message}`);
+    } finally {
+      setIsUploadingMedia(false);
+      e.target.value = "";
+    }
+  };
 
   const numbers = numbersRaw.split(/[\n,]+/).map((n) => n.trim()).filter((n) => n.length > 5);
   const isMetaSendingOrDone = apiType === "meta" && (sending || (results.length > 0 && results.every((r) => r.status === "sent" || r.status === "failed")));
@@ -684,7 +721,7 @@ export default function WASenderPage() {
           const res = await fetch('https://srv1780011.hstgr.cloud/api/bulk-send', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: user?.id, accountId: selectedGreenAccountId, numbers: campaignNumbers, message })
+            body: JSON.stringify({ userId: user?.id, accountId: selectedGreenAccountId, numbers: campaignNumbers, message, mediaUrl, mediaType })
           });
           const data = await res.json();
           if (data.error) throw new Error(data.error);
@@ -703,6 +740,9 @@ export default function WASenderPage() {
       
       setNumbersRaw("");
       setMessage("");
+      setMediaUrl("");
+      setMediaType("");
+      setMediaFile(null);
       return;
     }
 
@@ -803,9 +843,16 @@ export default function WASenderPage() {
                 <div className="flex items-center justify-between">
                   <Label className="text-sm font-semibold">{apiType === "meta" ? "Template Name" : "Message"}</Label>
                   {apiType === "green" && (
-                    <button onClick={() => setShowGenerator(!showGenerator)} className="text-[10px] text-primary font-semibold cursor-pointer hover:underline">
-                      {showGenerator ? "Hide" : "✶ AI Generate"}
-                    </button>
+                    <div className="flex items-center gap-3">
+                      <label className="text-[10px] text-primary font-semibold cursor-pointer hover:underline flex items-center gap-1">
+                        {isUploadingMedia ? <Loader2 size={10} className="animate-spin" /> : <ImagePlus size={10} />}
+                        {isUploadingMedia ? "Uploading..." : "Add Media"}
+                        <input type="file" accept="image/*,video/*" className="hidden" onChange={handleMediaUpload} disabled={isUploadingMedia} />
+                      </label>
+                      <button onClick={() => setShowGenerator(!showGenerator)} className="text-[10px] text-primary font-semibold cursor-pointer hover:underline">
+                        {showGenerator ? "Hide" : "✶ AI Generate"}
+                      </button>
+                    </div>
                   )}
                 </div>
                 {showGenerator && apiType === "green" && (
@@ -848,7 +895,24 @@ export default function WASenderPage() {
                     </p>
                   </div>
                 ) : (
-                  <Textarea placeholder="Bhai, aaj USDT ke best rates hain!" rows={5} className="text-sm resize-none" value={message} onChange={(e) => setMessage(e.target.value)} />
+                  <div className="space-y-2">
+                    {mediaUrl && (
+                      <div className="relative inline-block border border-border rounded-lg overflow-hidden bg-muted/20">
+                        <button onClick={() => { setMediaUrl(""); setMediaType(""); setMediaFile(null); }} className="absolute top-1 right-1 bg-black/50 text-white rounded-full p-1 hover:bg-black/70 cursor-pointer z-10">
+                          <X size={12} />
+                        </button>
+                        {mediaType === "video" ? (
+                          <video src={mediaUrl} className="h-24 object-cover" controls={false} />
+                        ) : (
+                          <img src={mediaUrl} className="h-24 object-cover" alt="attachment" />
+                        )}
+                        <div className="absolute bottom-0 inset-x-0 bg-black/50 text-white text-[9px] px-2 py-0.5 truncate">
+                          {mediaFile?.name || "Media"}
+                        </div>
+                      </div>
+                    )}
+                    <Textarea placeholder="Bhai, aaj USDT ke best rates hain!" rows={5} className="text-sm resize-none" value={message} onChange={(e) => setMessage(e.target.value)} />
+                  </div>
                 )}
               </div>
               {!showTemplateCreator && (
