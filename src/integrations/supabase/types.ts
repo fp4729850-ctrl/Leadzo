@@ -163,6 +163,39 @@ export type Database = {
         }
         Relationships: []
       }
+      business_knowledge: {
+        Row: {
+          business_details: string
+          company_name: string
+          created_at: string
+          id: string
+          is_active: boolean | null
+          updated_at: string
+          user_id: string
+          website_url: string | null
+        }
+        Insert: {
+          business_details: string
+          company_name: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          updated_at?: string
+          user_id: string
+          website_url?: string | null
+        }
+        Update: {
+          business_details?: string
+          company_name?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          updated_at?: string
+          user_id?: string
+          website_url?: string | null
+        }
+        Relationships: []
+      }
       call_reminders: {
         Row: {
           amount_or_context: string | null
@@ -450,6 +483,36 @@ export type Database = {
           },
         ]
       }
+      customer_memory: {
+        Row: {
+          channel: string
+          content: string
+          created_at: string
+          customer_id: string
+          id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          channel: string
+          content: string
+          created_at?: string
+          customer_id: string
+          id?: string
+          role: string
+          user_id: string
+        }
+        Update: {
+          channel?: string
+          content?: string
+          created_at?: string
+          customer_id?: string
+          id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       gsc_tokens: {
         Row: {
           connected: boolean | null
@@ -560,6 +623,7 @@ export type Database = {
       }
       leads: {
         Row: {
+          account_id: string | null
           autopilot: boolean | null
           contact: Json | null
           created_at: string
@@ -580,6 +644,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          account_id?: string | null
           autopilot?: boolean | null
           contact?: Json | null
           created_at?: string
@@ -600,6 +665,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          account_id?: string | null
           autopilot?: boolean | null
           contact?: Json | null
           created_at?: string
@@ -1177,12 +1243,14 @@ export type Database = {
           contact_id: string | null
           created_at: string | null
           delivered_at: string | null
+          direction: string | null
           error_message: string | null
           id: string
           provider_message_id: string | null
           read_at: string | null
           sent_at: string | null
           status: string
+          text_content: string | null
           user_id: string | null
         }
         Insert: {
@@ -1190,12 +1258,14 @@ export type Database = {
           contact_id?: string | null
           created_at?: string | null
           delivered_at?: string | null
+          direction?: string | null
           error_message?: string | null
           id?: string
           provider_message_id?: string | null
           read_at?: string | null
           sent_at?: string | null
           status?: string
+          text_content?: string | null
           user_id?: string | null
         }
         Update: {
@@ -1203,12 +1273,14 @@ export type Database = {
           contact_id?: string | null
           created_at?: string | null
           delivered_at?: string | null
+          direction?: string | null
           error_message?: string | null
           id?: string
           provider_message_id?: string | null
           read_at?: string | null
           sent_at?: string | null
           status?: string
+          text_content?: string | null
           user_id?: string | null
         }
         Relationships: [
