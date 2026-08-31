@@ -40,7 +40,36 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Fetch Centralized AI Brain Knowledge
+    let brainContext = "";
+    try {
+      const authHeader = req.headers.get('Authorization');
+      if (authHeader) {
+        const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2.38.4");
+        const supabase = createClient(
+          Deno.env.get('SUPABASE_URL') ?? '',
+          Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+          { global: { headers: { Authorization: authHeader } } }
+        );
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.id) {
+          const { data: brainData } = await supabase
+            .from('business_knowledge')
+            .select('company_name, business_details')
+            .eq('user_id', user.id)
+            .single();
+          if (brainData) {
+            brainContext = `Company Name: ${brainData.company_name}\nBusiness Details & Policies:\n${brainData.business_details}\n\n`;
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch brain context", err);
+    }
+
     const systemPrompt = `You are an expert marketing copywriter. Write ${count} highly engaging WhatsApp promotional message templates.
+    
+${brainContext ? `CENTRAL AI BRAIN KNOWLEDGE (Use this to understand the business):\n${brainContext}` : ""}
     
 Language: ${language} (If hinglish, use a mix of Hindi and English words written in English alphabet)
 Tone: ${tone}

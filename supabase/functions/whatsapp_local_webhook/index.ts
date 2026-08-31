@@ -84,9 +84,24 @@ serve(async (req) => {
           
           const chatHistory = previousMessages?.reverse() || [];
           
+          // Fetch Single Brain Knowledge
+          let brainContext = "";
+          const { data: brainData } = await supabase
+            .from('business_knowledge')
+            .select('company_name, business_details')
+            .eq('user_id', userId)
+            .single();
+            
+          if (brainData) {
+             brainContext = `Company Name: ${brainData.company_name}\nBusiness Details & Policies:\n${brainData.business_details}\n\n`;
+          }
+
+          const systemInstruction = (aiPrompt ? `Account Specific Instructions:\n${aiPrompt}\n\n` : "") + 
+                                    (brainContext ? `Central AI Brain Knowledge (Use this to answer customer queries):\n${brainContext}` : "You are a helpful AI assistant.");
+          
           // Format for OpenAI
           const messages = [
-            { role: 'system', content: aiPrompt || 'You are a helpful AI assistant.' }
+            { role: 'system', content: systemInstruction }
           ];
           
           for (const msg of chatHistory) {

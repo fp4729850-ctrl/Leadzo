@@ -345,40 +345,24 @@ function SetupPanel({ onTest, selectedAccountId, onAccountSelect }: { onTest: ()
               </Label>
             </div>
 
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="scrape-url">Auto-fill from Website (Optional)</Label>
-              <div className="flex gap-2">
-                <Input 
-                  id="scrape-url" 
-                  placeholder="https://example.com" 
-                  value={scrapeUrl} 
-                  onChange={(e) => setScrapeUrl(e.target.value)} 
-                  className="h-8 text-xs flex-1"
-                />
-                <Button 
-                  size="sm" 
-                  className="h-8 text-xs bg-purple-600 hover:bg-purple-700 text-white gap-1"
-                  onClick={handleScrapeWebsite}
-                  disabled={isScraping}
-                >
-                  {isScraping ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-                  Scrape
-                </Button>
+            <div className="flex flex-col gap-4 items-center justify-center p-6 bg-purple-50/50 border border-purple-100 rounded-xl mt-2">
+              <Bot className="w-10 h-10 text-purple-400 mb-2" />
+              <div className="text-center space-y-1">
+                <p className="font-semibold text-sm text-foreground">Project Knowledge is Managed Centrally</p>
+                <p className="text-xs text-muted-foreground max-w-sm">
+                  The AI Agent will now use your central <b>AI Brain 🧠</b> to reply to customers. Any details you add there will be automatically applied here.
+                </p>
               </div>
-            </div>
-            
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="ai-prompt">Project Knowledge & Instructions</Label>
-              <Textarea
-                id="ai-prompt"
-                placeholder="E.g., Tum Leadzo AI ke sales agent ho. Humara software lead generation ke kaam aata hai. Price $49/mo hai. Customer agar price pooche to batana..."
-                value={aiPromptDraft}
-                onChange={(e) => setAiPromptDraft(e.target.value)}
-                className="h-48 resize-none text-sm"
-              />
-              <p className="text-xs text-muted-foreground">
-                The AI will use these instructions to reply contextually to customers.
-              </p>
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="mt-2 gap-2 text-purple-600 border-purple-200 hover:bg-purple-50 cursor-pointer"
+                onClick={() => {
+                  window.location.href = '/ai-brain';
+                }}
+              >
+                <Sparkles size={14} /> Go to AI Brain
+              </Button>
             </div>
           </div>
           
