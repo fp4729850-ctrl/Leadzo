@@ -1,86 +1,70 @@
 import { useState, useEffect } from "react";
 import { OfficeMap } from "@/components/virtual-office/OfficeMap";
 import { AgentAvatar } from "@/components/virtual-office/AgentAvatar";
-import type { AgentRole } from "@/components/virtual-office/AgentAvatar";
+import { DataPacket } from "@/components/virtual-office/DataPacket";
 
-// Initial desk positions (in percentages for the 16:9 container)
+// Exact coordinates mapped to the characters in the uploaded image (percentages)
 const POSITIONS = {
-  boss: { x: 50, y: 38 },       // Boss cabin in the back
-  support: { x: 22, y: 68 },    // Left desk
-  analyst: { x: 50, y: 72 },    // Center front desk
-  marketing: { x: 78, y: 68 },  // Right desk
+  boss: { x: 45, y: 35 },       // Boss in cabin
+  support: { x: 18, y: 55 },    // Left guy (Support)
+  marketing: { x: 75, y: 70 },  // Bottom right woman (Marketing)
+  analyst: { x: 50, y: 75 },    // Bottom center guy (Analyst)
 };
 
+type Packet = { id: string; from: {x:number, y:number}; color: string; message: string };
+
 export default function VirtualOfficePage() {
-  const [supportPos, setSupportPos] = useState(POSITIONS.support);
-  const [marketingPos, setMarketingPos] = useState(POSITIONS.marketing);
-  const [analystPos, setAnalystPos] = useState(POSITIONS.analyst);
-  
   const [supportMsg, setSupportMsg] = useState("");
   const [marketingMsg, setMarketingMsg] = useState("");
   const [analystMsg, setAnalystMsg] = useState("");
+  const [bossMsg, setBossMsg] = useState("");
 
-  const [isSupportMoving, setIsSupportMoving] = useState(false);
-  const [isMarketingMoving, setIsMarketingMoving] = useState(false);
-  const [isAnalystMoving, setIsAnalystMoving] = useState(false);
+  const [activeSenders, setActiveSenders] = useState<Record<string, boolean>>({});
+  const [packets, setPackets] = useState<Packet[]>([]);
+
+  const spawnPacket = (role: string, pos: {x:number, y:number}, color: string, finalMessage: string) => {
+    setActiveSenders(prev => ({ ...prev, [role]: true }));
+    
+    // Simulate thinking/working for 1.5s before sending
+    setTimeout(() => {
+      const packetId = Math.random().toString();
+      setPackets(prev => [...prev, { id: packetId, from: pos, color, message: finalMessage }]);
+    }, 1500);
+  };
+
+  const handlePacketComplete = (packetId: string, role: string, message: string) => {
+    // Remove packet
+    setPackets(prev => prev.filter(p => p.id !== packetId));
+    setActiveSenders(prev => ({ ...prev, [role]: false }));
+    
+    // Show message over Boss
+    setBossMsg(`Received: ${message}`);
+    
+    // Clear boss message after a while
+    setTimeout(() => {
+      setBossMsg("");
+    }, 4000);
+  };
 
   // Mock Event Loop for Demonstration
   useEffect(() => {
-    // 1. Marketing Agent walks to boss and reports
+    // 1. Marketing Agent sends report
     const timer1 = setTimeout(() => {
-      setIsMarketingMoving(true);
-      // Move to outside the boss cabin
-      setMarketingPos({ x: POSITIONS.boss.x + 8, y: POSITIONS.boss.y + 15 });
-      
-      setTimeout(() => {
-        setIsMarketingMoving(false);
-        setMarketingMsg("Boss, sent 100 WhatsApp templates!");
-        
-        // Go back
-        setTimeout(() => {
-          setIsMarketingMoving(true);
-          setMarketingPos(POSITIONS.marketing);
-          setTimeout(() => setIsMarketingMoving(false), 1500);
-        }, 4000);
-      }, 1500);
+      setMarketingMsg("Sending Insta Ads Report...");
+      spawnPacket("marketing", POSITIONS.marketing, "bg-emerald-500", "100 Leads Generated!");
     }, 2000);
 
-    // 2. Support Agent walks to boss
+    // 2. Support Agent sends report
     const timer2 = setTimeout(() => {
-      setIsSupportMoving(true);
-      // Move to outside the boss cabin
-      setSupportPos({ x: POSITIONS.boss.x - 8, y: POSITIONS.boss.y + 15 });
-      
-      setTimeout(() => {
-        setIsSupportMoving(false);
-        setSupportMsg("Resolved 5 customer queries!");
-        
-        // Go back
-        setTimeout(() => {
-          setIsSupportMoving(true);
-          setSupportPos(POSITIONS.support);
-          setTimeout(() => setIsSupportMoving(false), 1500);
-        }, 4000);
-      }, 1500);
-    }, 12000);
+      setSupportMsg("Sending Ticket Summary...");
+      spawnPacket("support", POSITIONS.support, "bg-blue-500", "5 Tickets Resolved.");
+    }, 10000);
 
-    // 3. Analyst Agent walks to boss
+    // 3. Analyst Agent sends report
     const timer3 = setTimeout(() => {
-      setIsAnalystMoving(true);
-      setAnalystPos({ x: POSITIONS.boss.x, y: POSITIONS.boss.y + 18 });
-      
-      setTimeout(() => {
-        setIsAnalystMoving(false);
-        setAnalystMsg("Lead pipeline is up 20% today!");
-        
-        // Go back
-        setTimeout(() => {
-          setIsAnalystMoving(true);
-          setAnalystPos(POSITIONS.analyst);
-          setTimeout(() => setIsAnalystMoving(false), 1500);
-        }, 4000);
-      }, 1500);
-    }, 22000);
+      setAnalystMsg("Sending Data Pipeline update...");
+      spawnPacket("analyst", POSITIONS.analyst, "bg-purple-500", "Pipeline speed +20%");
+    }, 18000);
 
     return () => {
       clearTimeout(timer1);
@@ -103,41 +87,55 @@ export default function VirtualOfficePage() {
       {/* The Office Map Container */}
       <div className="w-full max-w-6xl mx-auto flex-1 flex flex-col justify-center">
         <OfficeMap>
+          {/* Boss */}
           <AgentAvatar
             id="agent-boss"
-            name="You (The Boss)"
+            name="You (Boss)"
             role="boss"
-            imageUrl="https://i.pravatar.cc/150?img=11"
             position={POSITIONS.boss}
-            statusMessage="Reviewing Analytics..."
+            statusMessage={bossMsg || "Reviewing Analytics..."}
           />
+          
+          {/* Support */}
           <AgentAvatar
             id="agent-support"
             name="Support Bot"
             role="support"
-            imageUrl="https://i.pravatar.cc/150?img=32"
-            position={supportPos}
+            position={POSITIONS.support}
             statusMessage={supportMsg}
-            isMoving={isSupportMoving}
+            isSending={activeSenders["support"]}
           />
+          
+          {/* Analyst */}
           <AgentAvatar
             id="agent-analyst"
             name="Data Analyst"
             role="analyst"
-            imageUrl="https://i.pravatar.cc/150?img=68"
-            position={analystPos}
+            position={POSITIONS.analyst}
             statusMessage={analystMsg}
-            isMoving={isAnalystMoving}
+            isSending={activeSenders["analyst"]}
           />
+          
+          {/* Marketing */}
           <AgentAvatar
             id="agent-marketing"
             name="Marketing Bot"
             role="marketing"
-            imageUrl="https://i.pravatar.cc/150?img=47"
-            position={marketingPos}
+            position={POSITIONS.marketing}
             statusMessage={marketingMsg}
-            isMoving={isMarketingMoving}
+            isSending={activeSenders["marketing"]}
           />
+
+          {/* Flying Data Packets */}
+          {packets.map(p => (
+            <DataPacket 
+              key={p.id}
+              startPos={p.from}
+              endPos={POSITIONS.boss}
+              color={p.color}
+              onComplete={() => handlePacketComplete(p.id, Object.keys(POSITIONS).find(k => POSITIONS[k as keyof typeof POSITIONS] === p.from) || "", p.message)}
+            />
+          ))}
         </OfficeMap>
       </div>
     </div>
