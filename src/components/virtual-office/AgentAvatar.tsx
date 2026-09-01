@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { Bot, MessageSquare, Briefcase, Database, User } from "lucide-react";
 
 export type AgentRole = "support" | "marketing" | "analyst" | "boss";
 
@@ -7,13 +6,14 @@ interface AgentAvatarProps {
   id: string;
   name: string;
   role: AgentRole;
+  imageUrl?: string;
   // position in percentages (0-100) relative to the map
   position: { x: number; y: number }; 
   statusMessage?: string;
   isMoving?: boolean;
 }
 
-export function AgentAvatar({ name, role, position, statusMessage, isMoving }: AgentAvatarProps) {
+export function AgentAvatar({ name, role, position, statusMessage, isMoving, imageUrl }: AgentAvatarProps) {
   const [messageVisible, setMessageVisible] = useState(false);
 
   useEffect(() => {
@@ -24,33 +24,18 @@ export function AgentAvatar({ name, role, position, statusMessage, isMoving }: A
     }
   }, [statusMessage]);
 
-  const getRoleIcon = () => {
-    switch (role) {
-      case "support":
-        return <MessageSquare className="w-5 h-5 text-white" />;
-      case "marketing":
-        return <Briefcase className="w-5 h-5 text-white" />;
-      case "analyst":
-        return <Database className="w-5 h-5 text-white" />;
-      case "boss":
-        return <User className="w-6 h-6 text-white" />;
-      default:
-        return <Bot className="w-5 h-5 text-white" />;
-    }
-  };
-
   const getRoleColors = () => {
     switch (role) {
       case "support":
-        return "bg-gradient-to-br from-blue-400 to-blue-600 border-blue-200 shadow-blue-500/50";
+        return "border-blue-400 shadow-blue-500/50 ring-blue-400/30";
       case "marketing":
-        return "bg-gradient-to-br from-emerald-400 to-emerald-600 border-emerald-200 shadow-emerald-500/50";
+        return "border-emerald-400 shadow-emerald-500/50 ring-emerald-400/30";
       case "analyst":
-        return "bg-gradient-to-br from-purple-400 to-purple-600 border-purple-200 shadow-purple-500/50";
+        return "border-purple-400 shadow-purple-500/50 ring-purple-400/30";
       case "boss":
-        return "bg-gradient-to-br from-amber-500 to-orange-600 border-amber-200 shadow-orange-500/50 border-2";
+        return "border-amber-500 shadow-orange-500/50 ring-amber-500/30 border-4";
       default:
-        return "bg-gradient-to-br from-slate-400 to-slate-600 border-slate-200 shadow-slate-500/50";
+        return "border-slate-400 shadow-slate-500/50 ring-slate-400/30";
     }
   };
 
@@ -71,16 +56,20 @@ export function AgentAvatar({ name, role, position, statusMessage, isMoving }: A
         </div>
       )}
 
-      {/* Avatar Body */}
+      {/* Avatar Body - Realistic Human Image */}
       <div className="relative group flex flex-col items-center">
         <div
-          className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center border-2 shadow-lg ${getRoleColors()} ${isMoving ? "animate-pulse" : ""} ring-4 ring-white/20`}
+          className={`w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center border-2 shadow-lg ${getRoleColors()} ${isMoving ? "animate-pulse" : ""} ring-4 overflow-hidden bg-white`}
         >
-          {getRoleIcon()}
+          {imageUrl ? (
+            <img src={imageUrl} alt={name} className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full bg-slate-200"></div>
+          )}
         </div>
         
         {/* Shadow on the floor */}
-        <div className="w-10 sm:w-12 h-2 bg-black/40 rounded-[100%] blur-[3px] mt-1"></div>
+        <div className="w-12 sm:w-14 h-2 bg-black/40 rounded-[100%] blur-[3px] mt-1"></div>
 
         {/* Name Tag */}
         <div className="mt-1.5 bg-slate-900/90 backdrop-blur-sm text-white text-[11px] sm:text-xs font-bold px-2.5 py-1 rounded-md shadow-lg border border-slate-700/50">

@@ -107,6 +107,7 @@ export default function VirtualOfficePage() {
             id="agent-boss"
             name="You (The Boss)"
             role="boss"
+            imageUrl="https://i.pravatar.cc/150?img=11"
             position={POSITIONS.boss}
             statusMessage="Reviewing Analytics..."
           />
@@ -114,6 +115,7 @@ export default function VirtualOfficePage() {
             id="agent-support"
             name="Support Bot"
             role="support"
+            imageUrl="https://i.pravatar.cc/150?img=32"
             position={supportPos}
             statusMessage={supportMsg}
             isMoving={isSupportMoving}
@@ -122,6 +124,7 @@ export default function VirtualOfficePage() {
             id="agent-analyst"
             name="Data Analyst"
             role="analyst"
+            imageUrl="https://i.pravatar.cc/150?img=68"
             position={analystPos}
             statusMessage={analystMsg}
             isMoving={isAnalystMoving}
@@ -130,6 +133,7 @@ export default function VirtualOfficePage() {
             id="agent-marketing"
             name="Marketing Bot"
             role="marketing"
+            imageUrl="https://i.pravatar.cc/150?img=47"
             position={marketingPos}
             statusMessage={marketingMsg}
             isMoving={isMarketingMoving}
