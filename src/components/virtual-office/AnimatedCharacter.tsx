@@ -19,7 +19,7 @@ export const AnimatedCharacter: React.FC<AnimatedCharacterProps> = ({ role, isMo
   const avatarUrl = `https://api.dicebear.com/7.x/micah/svg?seed=${seed}&backgroundColor=transparent`;
 
   return (
-    <div className={`animated-character-container ${isMoving ? 'moving' : ''}`}>
+    <div className={`animated-character-container ${isMoving ? 'moving' : ''}`} data-role={role}>
       <div className="character-body">
         <div className="arm arm-left"></div>
         <div className="arm arm-right"></div>
