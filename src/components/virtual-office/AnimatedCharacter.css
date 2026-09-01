@@ -1,0 +1,74 @@
+.animated-character-container {
+  position: relative;
+  width: 60px;
+  height: 80px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  transform-origin: bottom center;
+}
+
+.animated-character-container:not(.moving) {
+  animation: idleRocking 4s ease-in-out infinite;
+}
+
+.character-head {
+  width: 50px;
+  height: 50px;
+  position: absolute;
+  top: 0;
+  z-index: 10;
+  animation: headBob 2s ease-in-out infinite;
+}
+
+.character-body {
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, #4f46e5, #3b82f6);
+  border-radius: 20px 20px 5px 5px;
+  position: relative;
+  z-index: 5;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.arm {
+  width: 12px;
+  height: 25px;
+  background: #3b82f6;
+  position: absolute;
+  top: 10px;
+  border-radius: 6px;
+  transform-origin: top center;
+}
+
+.arm-left {
+  left: -5px;
+  animation: typingLeft 0.3s ease-in-out infinite alternate;
+}
+
+.arm-right {
+  right: -5px;
+  animation: typingRight 0.35s ease-in-out infinite alternate;
+}
+
+/* Animations */
+@keyframes idleRocking {
+  0%, 100% { transform: rotate(-2deg); }
+  50% { transform: rotate(2deg); }
+}
+
+@keyframes headBob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+@keyframes typingLeft {
+  0% { transform: rotate(15deg) translateY(0); }
+  100% { transform: rotate(35deg) translateY(-2px); }
+}
+
+@keyframes typingRight {
+  0% { transform: rotate(-25deg) translateY(-1px); }
+  100% { transform: rotate(-10deg) translateY(2px); }
+}
