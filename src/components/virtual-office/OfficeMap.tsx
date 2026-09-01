@@ -7,11 +7,14 @@ interface OfficeMapProps {
 export function OfficeMap({ children }: OfficeMapProps) {
   return (
     <div className="relative w-full aspect-video rounded-xl overflow-hidden shadow-2xl border-4 border-slate-300 bg-white">
-      {/* Realistic Background Image */}
-      <img 
-        src="/virtual_office_bg.jpg" 
-        alt="Virtual Office" 
-        className="absolute inset-0 w-full h-full object-cover pointer-events-none select-none" 
+      {/* Realistic Background Video */}
+      <video
+        src="/virtual_office_bg.mp4"
+        autoPlay
+        loop
+        muted
+        playsInline
+        className="absolute inset-0 w-full h-full object-cover pointer-events-none select-none"
       />
       
       {/* Dimming overlay to make agents pop more if needed (optional) */}
