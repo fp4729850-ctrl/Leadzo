@@ -37,6 +37,7 @@ import PrivacyPage from "./pages/legal/privacy.tsx";
 import TermsPage from "./pages/legal/terms.tsx";
 import RefundsPage from "./pages/legal/refunds.tsx";
 import AiBrainPage from "./pages/ai-brain/page.tsx";
+import VirtualOfficePage from "./pages/virtual-office/page.tsx";
 
 import { useServiceWorker } from "@/hooks/use-service-worker.ts";
 
@@ -62,6 +63,7 @@ export default function App() {
           <Route path="/pricing" element={<PricingPage />} />
           <Route element={<AppLayout />}>
             <Route path="/ai-brain" element={<AiBrainPage />} />
+            <Route path="/virtual-office" element={<VirtualOfficePage />} />
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/pipeline" element={<PipelinePage />} />
             <Route path="/inbox" element={<InboxPage />} />

@@ -2,7 +2,7 @@ import { Outlet, NavLink, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import {
   Trophy, Layers, MessageSquareCode, BarChart4, Settings2,
-  Send, Mail, Camera, Search, Zap, LayoutDashboard, BarChart3, Wand2, Rocket, SlidersHorizontal, Users, Settings, Brain, Phone, TrendingUp, LogIn, LogOut, MessageCircle, CreditCard, MessageSquareShare, BrainCircuit, Bot
+  Send, Mail, Camera, Search, Zap, LayoutDashboard, BarChart3, Wand2, Rocket, SlidersHorizontal, Users, Settings, Brain, Phone, TrendingUp, LogIn, LogOut, MessageCircle, CreditCard, MessageSquareShare, BrainCircuit, Bot, Building2
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth.ts";
 import { Button } from "@/components/ui/button.tsx";
@@ -17,6 +17,7 @@ const NAV_ITEMS = [
   { path: "/bulk-calling", label: "Bulk Calling", icon: Phone },
   { path: "/bulk-email", label: "Bulk Email", icon: Mail, isNew: true },
   { path: "/ai-brain", label: "AI Brain 🧠", icon: BrainCircuit, isNew: true },
+  { path: "/virtual-office", label: "Virtual Office", icon: Building2, isNew: true },
   { path: "/ai-reminders", label: "AI Reminders", icon: Bot },
   { path: "/seo-agent", label: "SEO Agent", icon: Search },
   { path: "/ai-ranking-os", label: "AI Ranking OS", icon: Search },
@@ -38,7 +39,7 @@ const NAV_ITEMS = [
   { path: "/settings", label: "Settings", icon: Settings },
 ] as const;
 
-const LIVE_PATHS = ["/ai-brain", "/dashboard", "/pipeline", "/inbox", "/analytics", "/ceo-dashboard", "/market-intelligence", "/creative-generation", "/campaign-launch", "/optimization", "/learning-agent", "/crm", "/wa-sender", "/rcs-sender", "/email-campaign", "/insta-campaign", "/bulk-calling", "/ai-reminders", "/seo-agent", "/ai-ranking-os", "/reddit-agent", "/gsc-dashboard", "/pricing", "/settings"];
+const LIVE_PATHS = ["/ai-brain", "/virtual-office", "/dashboard", "/pipeline", "/inbox", "/analytics", "/ceo-dashboard", "/market-intelligence", "/creative-generation", "/campaign-launch", "/optimization", "/learning-agent", "/crm", "/wa-sender", "/rcs-sender", "/email-campaign", "/insta-campaign", "/bulk-calling", "/ai-reminders", "/seo-agent", "/ai-ranking-os", "/reddit-agent", "/gsc-dashboard", "/pricing", "/settings"];
 
 import InstallBanner from "@/components/install-banner.tsx";
 

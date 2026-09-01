@@ -53,11 +53,17 @@ Deno.serve(async (req) => {
         );
         const { data: { user } } = await supabase.auth.getUser();
         if (user?.id) {
-          const { data: brainData } = await supabase
-            .from('business_knowledge')
-            .select('company_name, business_details')
-            .eq('user_id', user.id)
-            .single();
+          const { data: brainData, error: brainError } = await supabase
+            .from("business_knowledge")
+            .select("company_name, business_details")
+            .eq("user_id", user.id)
+            .eq("is_active", true)
+            .maybeSingle();
+
+          if (brainError) {
+            console.error("Error fetching AI Brain:", brainError);
+          }
+
           if (brainData) {
             brainContext = `Company Name: ${brainData.company_name}\nBusiness Details & Policies:\n${brainData.business_details}\n\n`;
           }

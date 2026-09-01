@@ -86,11 +86,12 @@ serve(async (req) => {
           
           // Fetch Single Brain Knowledge
           let brainContext = "";
-          const { data: brainData } = await supabase
+          const { data: brainData, error: brainError } = await supabase
             .from('business_knowledge')
             .select('company_name, business_details')
             .eq('user_id', userId)
-            .single();
+            .eq('is_active', true)
+            .maybeSingle();
             
           if (brainData) {
              brainContext = `Company Name: ${brainData.company_name}\nBusiness Details & Policies:\n${brainData.business_details}\n\n`;
