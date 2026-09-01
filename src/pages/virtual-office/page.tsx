@@ -3,12 +3,12 @@ import { OfficeMap } from "@/components/virtual-office/OfficeMap";
 import { AgentAvatar } from "@/components/virtual-office/AgentAvatar";
 import { DataPacket } from "@/components/virtual-office/DataPacket";
 
-// Exact coordinates mapped to the characters in the uploaded image (percentages)
+// Exact coordinates mapped to the characters in the generated 3D image (percentages)
 const POSITIONS = {
-  boss: { x: 45, y: 35 },       // Boss in cabin
-  support: { x: 18, y: 55 },    // Left guy (Support)
-  marketing: { x: 75, y: 70 },  // Bottom right woman (Marketing)
-  analyst: { x: 50, y: 75 },    // Bottom center guy (Analyst)
+  boss: { x: 50, y: 15 },       // Boss in cabin
+  support: { x: 23, y: 55 },    // Left guy (Support)
+  marketing: { x: 80, y: 55 },  // Right woman (Marketing)
+  analyst: { x: 50, y: 80 },    // Bottom center guy (Analyst)
 };
 
 type Packet = { id: string; from: {x:number, y:number}; color: string; message: string };
