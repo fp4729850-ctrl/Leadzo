@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { OfficeMap } from "@/components/virtual-office/OfficeMap";
 import { AgentAvatar } from "@/components/virtual-office/AgentAvatar";
 import { DataPacket } from "@/components/virtual-office/DataPacket";
+import { ManagerCallModal } from "@/components/virtual-office/ManagerCallModal";
 import { PhoneCall } from "lucide-react";
 
 // Exact coordinates mapped to the characters in the generated 3D image (percentages)
@@ -24,6 +25,7 @@ export default function VirtualOfficePage() {
   const [packets, setPackets] = useState<Packet[]>([]);
   
   const [isCalling, setIsCalling] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const spawnPacket = (role: string, pos: {x:number, y:number}, color: string, finalMessage: string) => {
     setActiveSenders(prev => ({ ...prev, [role]: true }));
@@ -80,15 +82,23 @@ export default function VirtualOfficePage() {
     setIsCalling(true);
     setBossMsg("Receiving incoming call...");
     
-    // The video is 14s, so we reset after 14 seconds
+    // Wait for 3 seconds for the manager in the video to pick up the phone
+    // Then open the live Vapi AI call modal
     setTimeout(() => {
-      setIsCalling(false);
-      setBossMsg("");
-    }, 14000);
+      setIsModalOpen(true);
+    }, 3000);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setIsCalling(false);
+    setBossMsg("");
   };
 
   return (
     <div className="flex flex-col w-full h-full animate-in fade-in zoom-in duration-500">
+      <ManagerCallModal isOpen={isModalOpen} onClose={handleCloseModal} />
+
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-slate-900">
