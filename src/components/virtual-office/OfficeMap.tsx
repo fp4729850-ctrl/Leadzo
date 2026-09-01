@@ -3,6 +3,7 @@ import { Code, Terminal } from "lucide-react";
 
 interface OfficeMapProps {
   children: ReactNode;
+  isCalling?: boolean;
 }
 
 const ScreenOverlay = ({ x, y, rotate = 0, type = "code" }: { x: number; y: number; rotate?: number, type?: "code" | "terminal" }) => (
@@ -33,12 +34,13 @@ const ScreenOverlay = ({ x, y, rotate = 0, type = "code" }: { x: number; y: numb
   </div>
 );
 
-export function OfficeMap({ children }: OfficeMapProps) {
+export function OfficeMap({ children, isCalling = false }: OfficeMapProps) {
   return (
     <div className="relative w-full aspect-video rounded-xl overflow-hidden shadow-2xl border-4 border-slate-300 bg-white">
       {/* Realistic Background Video */}
       <video
-        src="/virtual_office_bg_14s.mp4?v=1"
+        key={isCalling ? "calling" : "idle"}
+        src={isCalling ? "/virtual_office_bg_14s.mp4?v=1" : "/virtual_office_bg.mp4?v=1"}
         autoPlay
         loop
         muted
