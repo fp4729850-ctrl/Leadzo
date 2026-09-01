@@ -9,7 +9,7 @@ export function OfficeMap({ children }: OfficeMapProps) {
     <div className="relative w-full aspect-video rounded-xl overflow-hidden shadow-2xl border-4 border-slate-300 bg-white">
       {/* Realistic Background Video */}
       <video
-        src="/virtual_office_bg.mp4"
+        src="/virtual_office_bg.mp4?v=2"
         autoPlay
         loop
         muted
