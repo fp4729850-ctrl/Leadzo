@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import type { ReactNode } from "react";
 
 interface OfficeMapProps {
@@ -5,15 +6,32 @@ interface OfficeMapProps {
 }
 
 export function OfficeMap({ children }: OfficeMapProps) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  const handleTimeUpdate = () => {
+    if (videoRef.current && videoRef.current.currentTime >= 0.68) {
+      videoRef.current.currentTime = 0.3;
+    }
+  };
+
+  const handleEnded = () => {
+    if (videoRef.current) {
+      videoRef.current.currentTime = 0.3;
+      videoRef.current.play().catch(console.error);
+    }
+  };
+
   return (
     <div className="relative w-full aspect-video rounded-xl overflow-hidden shadow-2xl border-4 border-slate-300 bg-white">
       {/* Realistic Background Video */}
       <video
-        src="/virtual_office_bg.mp4?v=2"
+        ref={videoRef}
+        src="/virtual_office_bg.mp4?v=3"
         autoPlay
-        loop
         muted
         playsInline
+        onTimeUpdate={handleTimeUpdate}
+        onEnded={handleEnded}
         className="absolute inset-0 w-full h-full object-cover pointer-events-none select-none"
       />
       
