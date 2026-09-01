@@ -129,3 +129,49 @@
     @apply bg-background text-foreground;
   }
 }
+
+@layer utilities {
+  .animate-rock-chair {
+    animation: rock-chair 3s ease-in-out infinite;
+  }
+  .animate-head-bob {
+    animation: head-bob 2s ease-in-out infinite;
+  }
+  .animate-type-left {
+    animation: type-left 0.4s ease-in-out infinite alternate;
+  }
+  .animate-type-right {
+    animation: type-right 0.5s ease-in-out infinite alternate;
+  }
+  .animate-bounce-slight {
+    animation: bounce-slight 2s ease-in-out infinite;
+  }
+  
+  @keyframes rock-chair {
+    0%, 100% { transform: rotate(-2deg); }
+    50% { transform: rotate(2deg); }
+  }
+  @keyframes head-bob {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
+  }
+  @keyframes type-left {
+    0% { transform: rotate(-45deg) translateY(0); }
+    100% { transform: rotate(-35deg) translateY(2px); }
+  }
+  @keyframes type-right {
+    0% { transform: rotate(45deg) translateY(0); }
+    100% { transform: rotate(35deg) translateY(2px); }
+  }
+  @keyframes bounce-slight {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-5px); }
+  }
+  .animate-scan {
+    animation: scan 2s linear infinite;
+  }
+  @keyframes scan {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(100px); }
+  }
+}
