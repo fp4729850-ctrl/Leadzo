@@ -81,7 +81,7 @@ Use the above data to provide accurate, real-time answers about marketing, data 
               type: "function",
               function: {
                 name: "get_revenue_data",
-                description: "Fetch real-time Stripe revenue and sales data.",
+                description: "Fetch real-time Razorpay revenue and sales data.",
                 parameters: { type: "object", properties: {} }
               }
             },

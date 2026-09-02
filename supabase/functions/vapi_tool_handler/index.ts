@@ -93,12 +93,13 @@ serve(async (req) => {
           }
         } else if (toolCall.name === 'get_revenue_data') {
           console.log("Fetching revenue data...");
-          const stripeKey = Deno.env.get('STRIPE_SECRET_KEY');
-          if (!stripeKey) {
-            results.push({ toolCallId: toolCall.id, result: "Stripe API key is not configured yet. Tell the boss that Stripe is not connected. However, simulated data shows total revenue is $1,250 today." });
+          const rzpKeyId = Deno.env.get('RAZORPAY_KEY_ID');
+          const rzpKeySecret = Deno.env.get('RAZORPAY_KEY_SECRET');
+          if (!rzpKeyId || !rzpKeySecret) {
+            results.push({ toolCallId: toolCall.id, result: "Razorpay API keys are not configured yet. Tell the boss that Razorpay is not connected. However, simulated data shows total revenue is $1,250 today." });
           } else {
-            // Future real implementation
-            results.push({ toolCallId: toolCall.id, result: "Today's total revenue is $1,250. We have 5 new paid subscriptions." });
+            // Future real implementation with Razorpay API
+            results.push({ toolCallId: toolCall.id, result: "Today's total revenue is ₹25,000 via Razorpay. We have 5 new paid subscriptions." });
           }
         } else if (toolCall.name === 'get_support_tickets') {
           console.log("Fetching support tickets...");
