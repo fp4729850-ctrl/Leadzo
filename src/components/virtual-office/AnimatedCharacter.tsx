@@ -1,4 +1,4 @@
-import { AgentRole } from "./AgentAvatar";
+import type { AgentRole } from "./AgentAvatar";
 import { motion } from "framer-motion";
 
 interface AnimatedCharacterProps {
