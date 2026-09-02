@@ -16,6 +16,7 @@ type Brain = {
   website_url: string;
   business_details: string;
   is_active: boolean;
+  internal_api_key?: string;
 };
 
 export default function AIBrainPage() {
@@ -31,6 +32,11 @@ export default function AIBrainPage() {
   const [businessDetails, setBusinessDetails] = useState("");
   const [saving, setSaving] = useState(false);
   const [isScraping, setIsScraping] = useState(false);
+  
+  // API Integration States
+  const [internalApiEnabled, setInternalApiEnabled] = useState(false);
+  const [customApiKey, setCustomApiKey] = useState("");
+  const [isFetchingApi, setIsFetchingApi] = useState(false);
 
   useEffect(() => {
     if (user) loadBrains();
@@ -58,6 +64,8 @@ export default function AIBrainPage() {
     setCompanyName("");
     setWebsiteUrl("");
     setBusinessDetails("");
+    setInternalApiEnabled(true); // default ON for new
+    setCustomApiKey("");
     setView('edit');
   };
 
@@ -66,6 +74,8 @@ export default function AIBrainPage() {
     setCompanyName(brain.company_name);
     setWebsiteUrl(brain.website_url || "");
     setBusinessDetails(brain.business_details);
+    setInternalApiEnabled(!!brain.internal_api_key);
+    setCustomApiKey("");
     setView('edit');
   };
 
@@ -164,6 +174,44 @@ export default function AIBrainPage() {
       toast.error("Error scraping website");
     } finally {
       setIsScraping(false);
+    }
+  };
+
+  const handleFetchCustomApi = async () => {
+    if (!websiteUrl || !customApiKey) {
+      toast.error("Please enter both Website URL (Endpoint) and API Key");
+      return;
+    }
+    
+    setIsFetchingApi(true);
+    toast.info("Fetching data from your Custom API...");
+    
+    try {
+      // Simulate API fetch (in reality, you'd call a backend function to avoid CORS)
+      // We will try to fetch directly first.
+      const res = await fetch(websiteUrl, {
+        headers: { 'Authorization': `Bearer ${customApiKey}` }
+      });
+      const data = await res.json();
+      
+      const formattedData = JSON.stringify(data, null, 2);
+      setBusinessDetails((prev) => prev ? prev + "\n\n--- API Data ---\n" + formattedData : formattedData);
+      
+      toast.success("API Data fetched and added to AI Brain!");
+      
+      // Save to custom integrations if we are editing an existing brain
+      if (editingId) {
+        await supabase.from('custom_integrations').insert({
+          user_id: user?.id,
+          api_name: "Website API",
+          api_key: customApiKey,
+          business_id: editingId
+        });
+      }
+    } catch (e) {
+      toast.error("Error fetching from custom API. Make sure the URL is correct.");
+    } finally {
+      setIsFetchingApi(false);
     }
   };
 
@@ -298,6 +346,58 @@ export default function AIBrainPage() {
             <p className="text-xs text-muted-foreground">
               Aapki website scrape karne par jo bhi text aayega, wo is box mein add ho jayega. Aap use manually edit bhi kar sakte hain.
             </p>
+          </div>
+
+          <div className="pt-6 border-t border-border space-y-6">
+            <h3 className="text-lg font-semibold flex items-center gap-2">
+              <Sparkles className="text-blue-500" size={20} />
+              Advanced API Connections
+            </h3>
+            
+            {/* Leadzo Internal API Toggle */}
+            <div className="bg-[#1e293b] rounded-xl p-5 border border-gray-800 flex items-center justify-between text-white">
+              <div>
+                <h4 className="font-medium text-[15px]">Connect Leadzo Data to AI Manager</h4>
+                <p className="text-gray-400 text-xs mt-1">Allows AI to read campaign stats and leads automatically.</p>
+              </div>
+              <button
+                onClick={() => setInternalApiEnabled(!internalApiEnabled)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  internalApiEnabled ? 'bg-blue-600' : 'bg-gray-600'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    internalApiEnabled ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Custom API Fetcher */}
+            <div className="bg-card rounded-xl p-5 border border-border space-y-4 shadow-sm">
+              <div>
+                <h4 className="font-medium text-[15px] mb-1">Connect Your Website's API</h4>
+                <p className="text-muted-foreground text-xs">Enter your API Key to let the AI automatically fetch your latest data (using the Website URL above as the endpoint).</p>
+              </div>
+              <div className="flex gap-3">
+                <Input 
+                  placeholder="Enter your API Key / Secret Token" 
+                  value={customApiKey} 
+                  onChange={(e) => setCustomApiKey(e.target.value)} 
+                  className="flex-1"
+                />
+                <Button 
+                  variant="outline" 
+                  className="gap-2 shrink-0 border-blue-200 text-blue-600 hover:bg-blue-50" 
+                  onClick={handleFetchCustomApi} 
+                  disabled={isFetchingApi}
+                >
+                  {isFetchingApi ? <Loader2 size={16} className="animate-spin" /> : <Globe size={16} />}
+                  Fetch & Train AI
+                </Button>
+              </div>
+            </div>
           </div>
 
           <div className="flex justify-end pt-4 border-t border-border">
