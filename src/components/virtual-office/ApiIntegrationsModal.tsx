@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { CheckCircle2, Link2, KeyRound, Save } from "lucide-react";
+import { CheckCircle2, Link2, KeyRound, Save, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { useMutation } from "@/lib/convex-supabase-adapter";
+import { api } from "@/convex/_generated/api.js";
 
 const SYSTEM_APIS = [
   { id: "vapi", name: "Vapi Voice AI", status: "Connected", description: "Voice AI capabilities provided by Leadzo SaaS." },
@@ -19,11 +21,30 @@ const CUSTOM_APIS = [
 
 export function ApiIntegrationsModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const [keys, setKeys] = useState<Record<string, string>>({});
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const saveCredentials = useMutation(api.users.saveApiCredentials);
   
-  const handleSave = (id: string) => {
+  const handleSave = async (id: string) => {
     if (!keys[id]) return;
-    toast.success(`${id.toUpperCase()} API connected successfully!`);
-    // Note: In a full implementation, this key would be saved to Convex DB
+    setSavingId(id);
+    
+    // Map custom api id to the camelCase column name for the adapter
+    const columnMap: Record<string, string> = {
+      facebook: "metaAdsApiKey",
+      razorpay: "razorpayApiKey",
+      google: "gscApiKey",
+      whatsapp: "whatsappApiToken",
+      zendesk: "zendeskApiKey"
+    };
+
+    try {
+      await saveCredentials({ [columnMap[id]]: keys[id] });
+      toast.success(`${id.toUpperCase()} API connected successfully!`);
+    } catch (e) {
+      toast.error(`Failed to connect ${id} API.`);
+    } finally {
+      setSavingId(null);
+    }
   };
 
   return (
@@ -82,10 +103,10 @@ export function ApiIntegrationsModal({ isOpen, onClose }: { isOpen: boolean; onC
                     </div>
                     <button 
                       onClick={() => handleSave(api.id)}
-                      disabled={!keys[api.id]}
+                      disabled={!keys[api.id] || savingId === api.id}
                       className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >
-                      <Save size={16} />
+                      {savingId === api.id ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
                       Connect
                     </button>
                   </div>
