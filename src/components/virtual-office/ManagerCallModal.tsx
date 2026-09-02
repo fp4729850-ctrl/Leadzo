@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import Vapi from "@vapi-ai/web";
 import { Mic, PhoneOff, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api.js";
 
 // Provide dummy keys for now. The user will need to update these in .env later.
 const VAPI_PUBLIC_KEY = import.meta.env.VITE_VAPI_PUBLIC_KEY || "dummy-public-key"; 
@@ -18,6 +20,9 @@ interface ManagerCallModalProps {
 export function ManagerCallModal({ isOpen, onClose }: ManagerCallModalProps) {
   const [callStatus, setCallStatus] = useState<"idle" | "loading" | "active" | "error">("idle");
   const [volumeLevel, setVolumeLevel] = useState(0);
+  
+  // Fetch real data from Convex
+  const metrics = useQuery(api.adCampaigns.getDashboardMetrics);
 
   useEffect(() => {
     // Vapi Event Listeners
@@ -49,6 +54,14 @@ export function ManagerCallModal({ isOpen, onClose }: ManagerCallModalProps) {
   useEffect(() => {
     if (isOpen && callStatus === "idle") {
       setCallStatus("loading");
+      const systemPrompt = `You are the manager of Leadzo AI. You are taking a call from your boss (the user). 
+You must discuss company data analysis, marketing metrics, and whatever the marketing team has reported. Always respond professionally and wait for the boss to ask before giving detailed reports.
+
+REAL-TIME COMPANY DATA:
+${JSON.stringify(metrics || {}, null, 2)}
+
+Use the above data to provide accurate, real-time answers about marketing, data analysis, and support when your boss asks.`;
+
       // Use an inline assistant configuration
       vapi.start(ASSISTANT_ID, {
         firstMessage: "Hello Boss! I have the latest updates from the marketing team and data analysis. What would you like to discuss?",
@@ -58,7 +71,7 @@ export function ManagerCallModal({ isOpen, onClose }: ManagerCallModalProps) {
           messages: [
             {
               role: "system",
-              content: "You are the manager of Leadzo AI. You are taking a call from your boss (the user). You must discuss company data analysis, marketing metrics, and whatever the marketing team has reported. Always respond professionally and wait for the boss to ask before giving detailed reports."
+              content: systemPrompt
             }
           ]
         }
