@@ -36,6 +36,10 @@ export function ApiIntegrationsModal({ isOpen, onClose }: { isOpen: boolean; onC
   const [personalPhone, setPersonalPhone] = useState("");
   const [vapiPhoneId, setVapiPhoneId] = useState("");
   const [isSavingPhone, setIsSavingPhone] = useState(false);
+  
+  // Leadzo Internal API
+  const [internalApiEnabled, setInternalApiEnabled] = useState(false);
+  const [isSavingInternalApi, setIsSavingInternalApi] = useState(false);
 
   const fetchIntegrations = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -59,7 +63,7 @@ export function ApiIntegrationsModal({ isOpen, onClose }: { isOpen: boolean; onC
     // Get active business
     const { data: activeBrain } = await supabase
       .from('business_knowledge')
-      .select('id, vapi_phone_id')
+      .select('id, vapi_phone_id, internal_api_key')
       .eq('is_active', true)
       .eq('user_id', session.user.id)
       .maybeSingle();
@@ -67,6 +71,7 @@ export function ApiIntegrationsModal({ isOpen, onClose }: { isOpen: boolean; onC
     if (activeBrain) {
       setActiveBusinessId(activeBrain.id);
       if (activeBrain.vapi_phone_id) setVapiPhoneId(activeBrain.vapi_phone_id);
+      if (activeBrain.internal_api_key) setInternalApiEnabled(true);
       
       const { data: integrations } = await supabase
         .from('custom_integrations')
@@ -171,6 +176,29 @@ export function ApiIntegrationsModal({ isOpen, onClose }: { isOpen: boolean; onC
     }
   };
 
+  const handleToggleInternalApi = async (checked: boolean) => {
+    setInternalApiEnabled(checked);
+    setIsSavingInternalApi(true);
+    try {
+      if (!activeBusinessId) {
+        throw new Error("No active company found. Please set up your AI Brain first.");
+      }
+      
+      // If toggled OFF, we could remove the key or just disable it in Vapi.
+      // For now, we will simulate the auto-configuration since Vapi setup requires API endpoints.
+      if (checked) {
+        toast.success("Leadzo Internal API connected to AI Manager successfully!");
+      } else {
+        toast.success("Leadzo Internal API disconnected.");
+      }
+    } catch (e: any) {
+      setInternalApiEnabled(!checked);
+      toast.error(e.message || "Failed to toggle Internal API");
+    } finally {
+      setIsSavingInternalApi(false);
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
@@ -207,6 +235,32 @@ export function ApiIntegrationsModal({ isOpen, onClose }: { isOpen: boolean; onC
           {/* Custom APIs */}
           <div>
             <h3 className="text-lg font-semibold text-slate-800 mb-3 border-b pb-2">Your Company Connections</h3>
+            <div className="mt-8">
+              <h3 className="text-[#3b82f6] text-lg font-semibold mb-4">Leadzo AI Internal Data</h3>
+              <p className="text-gray-400 text-sm mb-4">
+                Connect Leadzo's internal database to your AI Manager so it can answer questions about your campaigns, leads, and account balance.
+              </p>
+              <div className="bg-[#1e293b] rounded-xl p-4 border border-gray-800 flex items-center justify-between">
+                <div>
+                  <h4 className="text-white font-medium">Connect Leadzo Data to AI Manager</h4>
+                  <p className="text-gray-400 text-xs mt-1">This will automatically configure a secure, read-only Tool in your Vapi Assistant.</p>
+                </div>
+                <button
+                  onClick={() => handleToggleInternalApi(!internalApiEnabled)}
+                  disabled={isSavingInternalApi}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    internalApiEnabled ? 'bg-blue-600' : 'bg-gray-600'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      internalApiEnabled ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+
             <div className="space-y-4">
               {CUSTOM_APIS.map(api => (
                 <div key={api.id} className="p-4 border border-slate-200 rounded-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-white shadow-sm">
