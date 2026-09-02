@@ -31,20 +31,29 @@ export function ApiIntegrationsModal({ isOpen, onClose }: { isOpen: boolean; onC
   const [customIntegrations, setCustomIntegrations] = useState<any[]>([]);
   const [activeBusinessId, setActiveBusinessId] = useState<string | null>(null);
 
+  // Phone config
+  const [personalPhone, setPersonalPhone] = useState("");
+  const [vapiPhoneId, setVapiPhoneId] = useState("");
+  const [isSavingPhone, setIsSavingPhone] = useState(false);
+
   const fetchIntegrations = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user) return;
     
+    const { data: userData } = await supabase.from('users').select('phone').eq('id', session.user.id).single();
+    if (userData?.phone) setPersonalPhone(userData.phone);
+    
     // Get active business
     const { data: activeBrain } = await supabase
       .from('business_knowledge')
-      .select('id')
+      .select('id, vapi_phone_id')
       .eq('is_active', true)
       .eq('user_id', session.user.id)
       .single();
       
     if (activeBrain) {
       setActiveBusinessId(activeBrain.id);
+      if (activeBrain.vapi_phone_id) setVapiPhoneId(activeBrain.vapi_phone_id);
       
       const { data: integrations } = await supabase
         .from('custom_integrations')
@@ -122,6 +131,26 @@ export function ApiIntegrationsModal({ isOpen, onClose }: { isOpen: boolean; onC
       fetchIntegrations();
     } catch (e) {
       toast.error("Failed to remove API");
+    }
+  };
+
+  const handleSavePhoneConfig = async () => {
+    setIsSavingPhone(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) throw new Error("No user");
+
+      await supabase.from('users').update({ phone: personalPhone }).eq('id', session.user.id);
+      
+      if (activeBusinessId) {
+        await supabase.from('business_knowledge').update({ vapi_phone_id: vapiPhoneId }).eq('id', activeBusinessId);
+      }
+      
+      toast.success("Phone configuration saved!");
+    } catch (e) {
+      toast.error("Failed to save phone config.");
+    } finally {
+      setIsSavingPhone(false);
     }
   };
 
@@ -239,6 +268,45 @@ export function ApiIntegrationsModal({ isOpen, onClose }: { isOpen: boolean; onC
               ))}
             </div>
           </div>
+          
+          {/* Phone Configuration */}
+          <div>
+            <h3 className="text-lg font-semibold text-slate-800 mb-3 border-b pb-2">Phone Configuration</h3>
+            <p className="text-sm text-slate-500 mb-4">
+              Configure your virtual AI Manager's phone number and your personal number for direct physical calls.
+            </p>
+            <div className="space-y-4 bg-slate-50 p-4 border border-slate-200 rounded-xl">
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Your Personal Phone Number</label>
+                <input 
+                  type="text" 
+                  placeholder="+1234567890"
+                  value={personalPhone}
+                  onChange={(e) => setPersonalPhone(e.target.value)}
+                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Manager's Vapi Phone ID</label>
+                <input 
+                  type="text" 
+                  placeholder="e.g. 5f4e3d2c..."
+                  value={vapiPhoneId}
+                  onChange={(e) => setVapiPhoneId(e.target.value)}
+                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                />
+              </div>
+              <button 
+                onClick={handleSavePhoneConfig}
+                disabled={isSavingPhone}
+                className="w-full px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isSavingPhone ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                Save Phone Config
+              </button>
+            </div>
+          </div>
+          
         </div>
       </DialogContent>
     </Dialog>

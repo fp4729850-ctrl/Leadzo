@@ -4,7 +4,9 @@ import { AgentAvatar } from "@/components/virtual-office/AgentAvatar";
 import { DataPacket } from "@/components/virtual-office/DataPacket";
 import { ManagerCallModal } from "@/components/virtual-office/ManagerCallModal";
 import { ApiIntegrationsModal } from "@/components/virtual-office/ApiIntegrationsModal";
-import { PhoneCall } from "lucide-react";
+import { PhoneCall, PhoneForwarded } from "lucide-react";
+import { toast } from "sonner";
+import { supabase } from "@/lib/supabase";
 
 // Exact coordinates mapped to the characters in the generated 3D image (percentages)
 const POSITIONS = {
@@ -26,6 +28,7 @@ export default function VirtualOfficePage() {
   const [packets, setPackets] = useState<Packet[]>([]);
   
   const [isCalling, setIsCalling] = useState(false);
+  const [isRingingPhone, setIsRingingPhone] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isApiModalOpen, setIsApiModalOpen] = useState(false);
 
@@ -97,6 +100,24 @@ export default function VirtualOfficePage() {
     setBossMsg("");
   };
 
+  const handleRingPhone = async () => {
+    setIsRingingPhone(true);
+    setBossMsg("Ringing my physical phone...");
+    
+    // Simulate some logic in UI then call Edge function
+    try {
+      const { data, error } = await supabase.functions.invoke('vapi_outbound_call');
+      if (error) throw error;
+      toast.success("Manager is calling your phone now!");
+    } catch (e: any) {
+      toast.error(e.message || "Failed to initiate outbound call");
+      setBossMsg("Call failed.");
+    } finally {
+      setIsRingingPhone(false);
+      setTimeout(() => setBossMsg(""), 3000);
+    }
+  };
+
   return (
     <div className="flex flex-col w-full h-full animate-in fade-in zoom-in duration-500">
       <ManagerCallModal isOpen={isModalOpen} onClose={handleCloseModal} />
@@ -118,6 +139,18 @@ export default function VirtualOfficePage() {
           >
             Manage APIs
           </button>
+          
+          <button 
+            onClick={handleRingPhone}
+            disabled={isRingingPhone}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-white transition-all shadow-md ${
+              isRingingPhone ? 'bg-indigo-400' : 'bg-indigo-600 hover:bg-indigo-700'
+            }`}
+          >
+            <PhoneForwarded size={18} className={isRingingPhone ? 'animate-pulse' : ''} />
+            {isRingingPhone ? "Connecting..." : "Ring my Phone"}
+          </button>
+
           <button 
             onClick={handleCallManager}
             disabled={isCalling}
