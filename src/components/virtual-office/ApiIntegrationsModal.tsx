@@ -41,7 +41,7 @@ export function ApiIntegrationsModal({ isOpen, onClose }: { isOpen: boolean; onC
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user) return;
     
-    const { data: userData } = await supabase.from('users').select('phone').eq('id', session.user.id).single();
+    const { data: userData } = await supabase.from('users').select('phone').eq('id', session.user.id).maybeSingle();
     if (userData?.phone) {
       if (userData.phone.startsWith('+')) {
         const match = userData.phone.match(/^(\+\d{1,3})(\d+)$/);
@@ -62,7 +62,7 @@ export function ApiIntegrationsModal({ isOpen, onClose }: { isOpen: boolean; onC
       .select('id, vapi_phone_id')
       .eq('is_active', true)
       .eq('user_id', session.user.id)
-      .single();
+      .maybeSingle();
       
     if (activeBrain) {
       setActiveBusinessId(activeBrain.id);
@@ -153,15 +153,19 @@ export function ApiIntegrationsModal({ isOpen, onClose }: { isOpen: boolean; onC
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) throw new Error("No user");
 
-      await supabase.from('users').update({ phone: `${countryCode}${personalPhone}` }).eq('id', session.user.id);
+      const { error: userError } = await supabase.from('users').upsert({ id: session.user.id, phone: `${countryCode}${personalPhone}` });
+      if (userError) throw userError;
       
       if (activeBusinessId) {
-        await supabase.from('business_knowledge').update({ vapi_phone_id: vapiPhoneId }).eq('id', activeBusinessId);
+        const { error: bizError } = await supabase.from('business_knowledge').update({ vapi_phone_id: vapiPhoneId }).eq('id', activeBusinessId);
+        if (bizError) throw bizError;
+      } else {
+        throw new Error("No active company found. Please set up your AI Brain first.");
       }
       
       toast.success("Phone configuration saved!");
-    } catch (e) {
-      toast.error("Failed to save phone config.");
+    } catch (e: any) {
+      toast.error(e.message || "Failed to save phone config.");
     } finally {
       setIsSavingPhone(false);
     }
