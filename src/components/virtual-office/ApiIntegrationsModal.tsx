@@ -32,6 +32,7 @@ export function ApiIntegrationsModal({ isOpen, onClose }: { isOpen: boolean; onC
   const [activeBusinessId, setActiveBusinessId] = useState<string | null>(null);
 
   // Phone config
+  const [countryCode, setCountryCode] = useState("+91");
   const [personalPhone, setPersonalPhone] = useState("");
   const [vapiPhoneId, setVapiPhoneId] = useState("");
   const [isSavingPhone, setIsSavingPhone] = useState(false);
@@ -41,7 +42,19 @@ export function ApiIntegrationsModal({ isOpen, onClose }: { isOpen: boolean; onC
     if (!session?.user) return;
     
     const { data: userData } = await supabase.from('users').select('phone').eq('id', session.user.id).single();
-    if (userData?.phone) setPersonalPhone(userData.phone);
+    if (userData?.phone) {
+      if (userData.phone.startsWith('+')) {
+        const match = userData.phone.match(/^(\+\d{1,3})(\d+)$/);
+        if (match) {
+          setCountryCode(match[1]);
+          setPersonalPhone(match[2]);
+        } else {
+          setPersonalPhone(userData.phone);
+        }
+      } else {
+        setPersonalPhone(userData.phone);
+      }
+    }
     
     // Get active business
     const { data: activeBrain } = await supabase
@@ -140,7 +153,7 @@ export function ApiIntegrationsModal({ isOpen, onClose }: { isOpen: boolean; onC
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) throw new Error("No user");
 
-      await supabase.from('users').update({ phone: personalPhone }).eq('id', session.user.id);
+      await supabase.from('users').update({ phone: `${countryCode}${personalPhone}` }).eq('id', session.user.id);
       
       if (activeBusinessId) {
         await supabase.from('business_knowledge').update({ vapi_phone_id: vapiPhoneId }).eq('id', activeBusinessId);
@@ -278,13 +291,26 @@ export function ApiIntegrationsModal({ isOpen, onClose }: { isOpen: boolean; onC
             <div className="space-y-4 bg-slate-50 p-4 border border-slate-200 rounded-xl">
               <div>
                 <label className="block text-xs font-medium text-slate-700 mb-1">Your Personal Phone Number</label>
-                <input 
-                  type="text" 
-                  placeholder="+1234567890"
-                  value={personalPhone}
-                  onChange={(e) => setPersonalPhone(e.target.value)}
-                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                />
+                <div className="flex gap-2">
+                  <select 
+                    value={countryCode}
+                    onChange={(e) => setCountryCode(e.target.value)}
+                    className="px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-slate-900 bg-white"
+                  >
+                    <option value="+1">+1 (US)</option>
+                    <option value="+44">+44 (UK)</option>
+                    <option value="+91">+91 (IN)</option>
+                    <option value="+61">+61 (AU)</option>
+                    <option value="+971">+971 (AE)</option>
+                  </select>
+                  <input 
+                    type="text" 
+                    placeholder="9876543210"
+                    value={personalPhone}
+                    onChange={(e) => setPersonalPhone(e.target.value)}
+                    className="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-slate-900 bg-white"
+                  />
+                </div>
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-700 mb-1">Manager's Vapi Phone ID</label>
@@ -293,7 +319,7 @@ export function ApiIntegrationsModal({ isOpen, onClose }: { isOpen: boolean; onC
                   placeholder="e.g. 5f4e3d2c..."
                   value={vapiPhoneId}
                   onChange={(e) => setVapiPhoneId(e.target.value)}
-                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-slate-900 bg-white"
                 />
               </div>
               <button 
