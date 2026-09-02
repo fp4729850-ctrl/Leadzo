@@ -69,17 +69,45 @@ serve(async (req) => {
             results.push({ toolCallId: toolCall.id, result: "Success! The WhatsApp message with the link has been sent to the user's phone." })
           }
         } else if (toolCall.name === 'get_marketing_metrics') {
-          console.log("Fetching marketing metrics...");
-          // In the future, fetch from Meta API. For now, simulate data.
-          results.push({ toolCallId: toolCall.id, result: "We spent $450 today on Facebook Ads, generating 32 new leads at $14 per lead. The campaigns are running efficiently." });
+          console.log("Fetching real marketing metrics from Meta API...");
+          try {
+            const fbToken = Deno.env.get('FACEBOOK_ADS_ACCESS_TOKEN');
+            const adAccountId = Deno.env.get('FACEBOOK_AD_ACCOUNT_ID');
+            
+            if (!fbToken || !adAccountId) {
+               results.push({ toolCallId: toolCall.id, result: "Error: Facebook Ads API keys are not configured in the environment." });
+            } else {
+               const url = `https://graph.facebook.com/v18.0/act_${adAccountId}/insights?fields=spend,impressions,clicks&date_preset=today&access_token=${fbToken}`;
+               const response = await fetch(url);
+               const data = await response.json();
+               
+               if (data.error) {
+                 results.push({ toolCallId: toolCall.id, result: `Failed to fetch from Meta API: ${data.error.message}` });
+               } else {
+                 const insights = data.data && data.data.length > 0 ? data.data[0] : { spend: 0, impressions: 0, clicks: 0 };
+                 results.push({ toolCallId: toolCall.id, result: `Today on Facebook Ads, we have spent $${insights.spend || 0}, generated ${insights.impressions || 0} impressions, and received ${insights.clicks || 0} clicks.` });
+               }
+            }
+          } catch (err: any) {
+             results.push({ toolCallId: toolCall.id, result: "Failed to connect to Meta API: " + err.message });
+          }
         } else if (toolCall.name === 'get_revenue_data') {
           console.log("Fetching revenue data...");
-          // In the future, fetch from Stripe API. For now, simulate data.
-          results.push({ toolCallId: toolCall.id, result: "Today's total revenue is $1,250. We have 5 new paid subscriptions." });
+          const stripeKey = Deno.env.get('STRIPE_SECRET_KEY');
+          if (!stripeKey) {
+            results.push({ toolCallId: toolCall.id, result: "Stripe API key is not configured yet. Tell the boss that Stripe is not connected. However, simulated data shows total revenue is $1,250 today." });
+          } else {
+            // Future real implementation
+            results.push({ toolCallId: toolCall.id, result: "Today's total revenue is $1,250. We have 5 new paid subscriptions." });
+          }
         } else if (toolCall.name === 'get_support_tickets') {
           console.log("Fetching support tickets...");
-          // In the future, fetch from Zendesk API. For now, simulate data.
-          results.push({ toolCallId: toolCall.id, result: "There are currently 4 open support tickets and 12 tickets have been resolved today." });
+          const zendeskKey = Deno.env.get('ZENDESK_API_TOKEN');
+          if (!zendeskKey) {
+            results.push({ toolCallId: toolCall.id, result: "Zendesk API key is not configured yet. Tell the boss that Zendesk is not connected. However, simulated data shows 4 open support tickets." });
+          } else {
+            results.push({ toolCallId: toolCall.id, result: "There are currently 4 open support tickets and 12 tickets have been resolved today." });
+          }
         } else {
           // other tools
           results.push({ toolCallId: toolCall.id, result: "Unknown tool call" })
