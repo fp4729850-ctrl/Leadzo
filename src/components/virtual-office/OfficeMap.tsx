@@ -40,7 +40,7 @@ export function OfficeMap({ children, isCalling = false }: OfficeMapProps) {
       {/* Realistic Background Video */}
       <video
         key={isCalling ? "calling" : "idle"}
-        src={isCalling ? "/virtual_office_bg_14s.mp4?v=1" : "/virtual_office_bg.mp4?v=1"}
+        src={isCalling ? "/virtual_office_bg_14s.mp4?v=1" : "/virtual_office_bg_new.mp4?v=1"}
         autoPlay
         loop
         muted
