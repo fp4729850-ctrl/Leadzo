@@ -77,6 +77,12 @@ const TABLE_MAPPINGS: Record<string, string> = {
   'users.getCurrentUser': 'users',
   'users.saveApiCredentials': 'users',
   'users.updateCurrentUser': 'users',
+  
+  // customIntegrations
+  'customIntegrations': 'custom_integrations',
+  'customIntegrations.list': 'custom_integrations',
+  'customIntegrations.add': 'custom_integrations',
+  'customIntegrations.remove': 'custom_integrations',
 };
 
 // Helper to aggregate and calculate leads metrics dynamically
@@ -386,7 +392,7 @@ export function useMutation(apiEndpoint: any) {
     });
 
     // Auto-inject user_id for user-owned tables on insert/update
-    const userOwnedTables = ['leads', 'messages', 'campaigns', 'launched_campaigns', 'creatives', 'market_analyses', 'crm_contacts', 'sequences', 'sequence_enrollments', 'learning_agent_data', 'reminders'];
+    const userOwnedTables = ['leads', 'messages', 'campaigns', 'launched_campaigns', 'creatives', 'market_analyses', 'crm_contacts', 'sequences', 'sequence_enrollments', 'learning_agent_data', 'reminders', 'custom_integrations'];
     if (userOwnedTables.includes(tableName) && user && !isDelete) {
       cleanArgs.user_id = user.id;
     }

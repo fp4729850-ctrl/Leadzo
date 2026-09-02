@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { CheckCircle2, Link2, KeyRound, Save, Loader2 } from "lucide-react";
+import { CheckCircle2, Link2, KeyRound, Save, Loader2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { useMutation } from "@/lib/convex-supabase-adapter";
+import { useMutation, useQuery } from "@/lib/convex-supabase-adapter";
 import { api } from "@/convex/_generated/api.js";
+import { supabase } from "@/lib/supabase";
 
 const SYSTEM_APIS = [
   { id: "vapi", name: "Vapi Voice AI", status: "Connected", description: "Voice AI capabilities provided by Leadzo SaaS." },
@@ -23,6 +24,13 @@ export function ApiIntegrationsModal({ isOpen, onClose }: { isOpen: boolean; onC
   const [keys, setKeys] = useState<Record<string, string>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
   const saveCredentials = useMutation(api.users.saveApiCredentials);
+  
+  const [customApiName, setCustomApiName] = useState("");
+  const [customApiKey, setCustomApiKey] = useState("");
+  const [isAddingCustom, setIsAddingCustom] = useState(false);
+  
+  // Use React Query via the adapter for custom integrations
+  const customIntegrations = useQuery(api.customIntegrations.list, {}) || [];
   
   const handleSave = async (id: string) => {
     if (!keys[id]) return;
@@ -44,6 +52,40 @@ export function ApiIntegrationsModal({ isOpen, onClose }: { isOpen: boolean; onC
       toast.error(`Failed to connect ${id} API.`);
     } finally {
       setSavingId(null);
+    }
+  };
+
+  const handleAddCustom = async () => {
+    if (!customApiName || !customApiKey) return;
+    setIsAddingCustom(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) throw new Error("No user");
+      
+      const { error } = await supabase.from('custom_integrations').insert({
+        user_id: session.user.id,
+        api_name: customApiName,
+        api_key: customApiKey
+      });
+      
+      if (error) throw error;
+      toast.success(`${customApiName} API added!`);
+      setCustomApiName("");
+      setCustomApiKey("");
+      // Force refresh of query could be handled here or just assume it updates.
+    } catch (e) {
+      toast.error("Failed to add custom API");
+    } finally {
+      setIsAddingCustom(false);
+    }
+  };
+
+  const handleDeleteCustom = async (id: string) => {
+    try {
+      await supabase.from('custom_integrations').delete().eq('id', id);
+      toast.success("API removed");
+    } catch (e) {
+      toast.error("Failed to remove API");
     }
   };
 
@@ -110,6 +152,53 @@ export function ApiIntegrationsModal({ isOpen, onClose }: { isOpen: boolean; onC
                       Connect
                     </button>
                   </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Universal Custom APIs */}
+          <div>
+            <h3 className="text-lg font-semibold text-slate-800 mb-3 border-b pb-2">Add Any Custom API</h3>
+            <p className="text-sm text-slate-500 mb-4">
+              Connect your own SaaS tools (Shopify, Mailchimp, Twitter, etc.). Your AI Manager will automatically learn to fetch data from them!
+            </p>
+            
+            <div className="flex flex-col md:flex-row gap-3 mb-4">
+              <input 
+                type="text" 
+                placeholder="API Name (e.g. Shopify)"
+                value={customApiName}
+                onChange={(e) => setCustomApiName(e.target.value)}
+                className="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              />
+              <input 
+                type="password" 
+                placeholder="Paste API Key here..."
+                value={customApiKey}
+                onChange={(e) => setCustomApiKey(e.target.value)}
+                className="flex-[2] px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              />
+              <button 
+                onClick={handleAddCustom}
+                disabled={!customApiName || !customApiKey || isAddingCustom}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {isAddingCustom ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+                Add API
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              {customIntegrations.map((ci: any) => (
+                <div key={ci.id} className="p-3 border border-slate-100 rounded-lg flex items-center justify-between bg-slate-50">
+                  <div className="flex items-center gap-2">
+                    <Link2 size={16} className="text-blue-500" />
+                    <span className="font-medium text-slate-800">{ci.api_name}</span>
+                  </div>
+                  <button onClick={() => handleDeleteCustom(ci.id)} className="text-red-500 hover:bg-red-50 p-1.5 rounded-md transition-colors">
+                    <Trash2 size={14} />
+                  </button>
                 </div>
               ))}
             </div>
