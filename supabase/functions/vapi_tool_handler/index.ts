@@ -139,10 +139,10 @@ serve(async (req) => {
             results.push({ toolCallId: toolCall.id, result: "Missing arguments" });
             continue;
           }
-          const { user_id, api_name, endpoint_url } = args;
+          const { user_id, business_id, api_name, endpoint_url } = args;
           
-          if (!user_id || !api_name || !endpoint_url) {
-            results.push({ toolCallId: toolCall.id, result: "Missing user_id, api_name, or endpoint_url" });
+          if (!user_id || !business_id || !api_name || !endpoint_url) {
+            results.push({ toolCallId: toolCall.id, result: "Missing user_id, business_id, api_name, or endpoint_url" });
             continue;
           }
 
@@ -151,11 +151,12 @@ serve(async (req) => {
             Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
           );
 
-          // Get the API key
+          // Get the API key for the specific business
           const { data: customIntegration } = await supabaseAdmin
             .from('custom_integrations')
             .select('api_key')
             .eq('user_id', user_id)
+            .eq('business_id', business_id)
             .ilike('api_name', api_name)
             .single();
 

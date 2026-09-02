@@ -4,6 +4,7 @@ import { Mic, PhoneOff, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useQuery } from "@/lib/convex-supabase-adapter";
 import { api } from "@/convex/_generated/api.js";
+import { supabase } from "@/lib/supabase";
 
 // Provide dummy keys for now. The user will need to update these in .env later.
 const VAPI_PUBLIC_KEY = import.meta.env.VITE_VAPI_PUBLIC_KEY || "dummy-public-key"; 
@@ -24,7 +25,33 @@ export function ManagerCallModal({ isOpen, onClose }: ManagerCallModalProps) {
   // Fetch real data from Convex
   const user = useQuery(api.users.getCurrentUser, {});
   const metrics = useQuery(api.adCampaigns.getDashboardMetrics);
-  const customIntegrations = useQuery(api.customIntegrations.list, {}) || [];
+  
+  const [customIntegrations, setCustomIntegrations] = useState<any[]>([]);
+  const [activeBusinessId, setActiveBusinessId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchIntegrations = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return;
+      
+      const { data: activeBrain } = await supabase
+        .from('business_knowledge')
+        .select('id')
+        .eq('is_active', true)
+        .eq('user_id', session.user.id)
+        .single();
+        
+      if (activeBrain) {
+        setActiveBusinessId(activeBrain.id);
+        const { data: integrations } = await supabase
+          .from('custom_integrations')
+          .select('*')
+          .eq('business_id', activeBrain.id);
+        setCustomIntegrations(integrations || []);
+      }
+    };
+    if (isOpen) fetchIntegrations();
+  }, [isOpen]);
 
   useEffect(() => {
     // Vapi Event Listeners
@@ -63,9 +90,10 @@ export function ManagerCallModal({ isOpen, onClose }: ManagerCallModalProps) {
 You must discuss company data analysis, marketing metrics, and whatever the marketing team has reported. Always respond professionally and wait for the boss to ask before giving detailed reports.
 
 USER CUSTOM APIS:
-The user has connected the following custom APIs: [${customApiNames}]. 
+The user has connected the following custom APIs for the currently active company: [${customApiNames}]. 
 Your secure internal user_id is: ${user?.id}.
-If the user asks about data from these services, you must use the 'execute_custom_api_request' tool to fetch it on their behalf. You will need to construct the HTTP request to the API's public endpoint. You MUST pass the user_id exactly.
+Your active business_id is: ${activeBusinessId}.
+If the user asks about data from these services, you must use the 'execute_custom_api_request' tool to fetch it on their behalf. You will need to construct the HTTP request to the API's public endpoint. You MUST pass the user_id and business_id exactly.
 
 REAL-TIME COMPANY DATA:
 ${JSON.stringify(metrics || {}, null, 2)}
@@ -131,15 +159,16 @@ Use the above data to provide accurate, real-time answers about marketing, data 
               type: "function",
               function: {
                 name: "execute_custom_api_request",
-                description: "Execute an HTTP GET request to a custom API connected by the user (e.g. Shopify, Mailchimp). You must provide the api_name to authorize the request, the public endpoint_url to fetch from, and your user_id.",
+                description: "Execute an HTTP GET request to a custom API connected by the user (e.g. Shopify, Mailchimp). You must provide the api_name to authorize the request, the public endpoint_url to fetch from, and your user_id and business_id.",
                 parameters: { 
                   type: "object", 
                   properties: {
                     user_id: { type: "string" },
+                    business_id: { type: "string" },
                     api_name: { type: "string", description: "The exact name of the custom API as listed in USER CUSTOM APIS." },
                     endpoint_url: { type: "string", description: "The full public URL of the API endpoint to fetch data from." }
                   },
-                  required: ["user_id", "api_name", "endpoint_url"]
+                  required: ["user_id", "business_id", "api_name", "endpoint_url"]
                 }
               }
             }

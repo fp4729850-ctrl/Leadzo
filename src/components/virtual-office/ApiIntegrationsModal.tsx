@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { CheckCircle2, Link2, KeyRound, Save, Loader2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { useMutation, useQuery } from "@/lib/convex-supabase-adapter";
+import { useMutation } from "@/lib/convex-supabase-adapter";
 import { api } from "@/convex/_generated/api.js";
 import { supabase } from "@/lib/supabase";
 
@@ -28,9 +28,38 @@ export function ApiIntegrationsModal({ isOpen, onClose }: { isOpen: boolean; onC
   const [customApiName, setCustomApiName] = useState("");
   const [customApiKey, setCustomApiKey] = useState("");
   const [isAddingCustom, setIsAddingCustom] = useState(false);
-  
-  // Use React Query via the adapter for custom integrations
-  const customIntegrations = useQuery(api.customIntegrations.list, {}) || [];
+  const [customIntegrations, setCustomIntegrations] = useState<any[]>([]);
+  const [activeBusinessId, setActiveBusinessId] = useState<string | null>(null);
+
+  const fetchIntegrations = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) return;
+    
+    // Get active business
+    const { data: activeBrain } = await supabase
+      .from('business_knowledge')
+      .select('id')
+      .eq('is_active', true)
+      .eq('user_id', session.user.id)
+      .single();
+      
+    if (activeBrain) {
+      setActiveBusinessId(activeBrain.id);
+      
+      const { data: integrations } = await supabase
+        .from('custom_integrations')
+        .select('*')
+        .eq('business_id', activeBrain.id);
+        
+      setCustomIntegrations(integrations || []);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchIntegrations();
+    }
+  }, [isOpen]);
   
   const handleSave = async (id: string) => {
     if (!keys[id]) return;
@@ -57,6 +86,11 @@ export function ApiIntegrationsModal({ isOpen, onClose }: { isOpen: boolean; onC
 
   const handleAddCustom = async () => {
     if (!customApiName || !customApiKey) return;
+    if (!activeBusinessId) {
+      toast.error("No active company/brain found to link this API to.");
+      return;
+    }
+    
     setIsAddingCustom(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -64,6 +98,7 @@ export function ApiIntegrationsModal({ isOpen, onClose }: { isOpen: boolean; onC
       
       const { error } = await supabase.from('custom_integrations').insert({
         user_id: session.user.id,
+        business_id: activeBusinessId,
         api_name: customApiName,
         api_key: customApiKey
       });
@@ -72,7 +107,7 @@ export function ApiIntegrationsModal({ isOpen, onClose }: { isOpen: boolean; onC
       toast.success(`${customApiName} API added!`);
       setCustomApiName("");
       setCustomApiKey("");
-      // Force refresh of query could be handled here or just assume it updates.
+      fetchIntegrations();
     } catch (e) {
       toast.error("Failed to add custom API");
     } finally {
@@ -84,6 +119,7 @@ export function ApiIntegrationsModal({ isOpen, onClose }: { isOpen: boolean; onC
     try {
       await supabase.from('custom_integrations').delete().eq('id', id);
       toast.success("API removed");
+      fetchIntegrations();
     } catch (e) {
       toast.error("Failed to remove API");
     }
