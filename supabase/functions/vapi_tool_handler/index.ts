@@ -68,6 +68,18 @@ serve(async (req) => {
             console.log(`Successfully queued WhatsApp message to ${customerNumber}`)
             results.push({ toolCallId: toolCall.id, result: "Success! The WhatsApp message with the link has been sent to the user's phone." })
           }
+        } else if (toolCall.name === 'get_marketing_metrics') {
+          console.log("Fetching marketing metrics...");
+          // In the future, fetch from Meta API. For now, simulate data.
+          results.push({ toolCallId: toolCall.id, result: "We spent $450 today on Facebook Ads, generating 32 new leads at $14 per lead. The campaigns are running efficiently." });
+        } else if (toolCall.name === 'get_revenue_data') {
+          console.log("Fetching revenue data...");
+          // In the future, fetch from Stripe API. For now, simulate data.
+          results.push({ toolCallId: toolCall.id, result: "Today's total revenue is $1,250. We have 5 new paid subscriptions." });
+        } else if (toolCall.name === 'get_support_tickets') {
+          console.log("Fetching support tickets...");
+          // In the future, fetch from Zendesk API. For now, simulate data.
+          results.push({ toolCallId: toolCall.id, result: "There are currently 4 open support tickets and 12 tickets have been resolved today." });
         } else {
           // other tools
           results.push({ toolCallId: toolCall.id, result: "Unknown tool call" })

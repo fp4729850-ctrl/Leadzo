@@ -68,6 +68,32 @@ Use the above data to provide accurate, real-time answers about marketing, data 
         model: {
           provider: "openai",
           model: "gpt-4-turbo",
+          tools: [
+            {
+              type: "function",
+              function: {
+                name: "get_marketing_metrics",
+                description: "Fetch real-time Facebook/Meta Ads campaign metrics.",
+                parameters: { type: "object", properties: {} }
+              }
+            },
+            {
+              type: "function",
+              function: {
+                name: "get_revenue_data",
+                description: "Fetch real-time Stripe revenue and sales data.",
+                parameters: { type: "object", properties: {} }
+              }
+            },
+            {
+              type: "function",
+              function: {
+                name: "get_support_tickets",
+                description: "Fetch the number of open and resolved customer support tickets.",
+                parameters: { type: "object", properties: {} }
+              }
+            }
+          ],
           messages: [
             {
               role: "system",
