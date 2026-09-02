@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import Vapi from "@vapi-ai/web";
 import { Mic, PhoneOff, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { useQuery } from "convex/react";
+import { useQuery } from "@/lib/convex-supabase-adapter";
 import { api } from "@/convex/_generated/api.js";
 
 // Provide dummy keys for now. The user will need to update these in .env later.
