@@ -3,6 +3,7 @@ import { OfficeMap } from "@/components/virtual-office/OfficeMap";
 import { AgentAvatar } from "@/components/virtual-office/AgentAvatar";
 import { DataPacket } from "@/components/virtual-office/DataPacket";
 import { ManagerCallModal } from "@/components/virtual-office/ManagerCallModal";
+import { ApiIntegrationsModal } from "@/components/virtual-office/ApiIntegrationsModal";
 import { PhoneCall } from "lucide-react";
 
 // Exact coordinates mapped to the characters in the generated 3D image (percentages)
@@ -26,6 +27,7 @@ export default function VirtualOfficePage() {
   
   const [isCalling, setIsCalling] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isApiModalOpen, setIsApiModalOpen] = useState(false);
 
   const spawnPacket = (role: string, pos: {x:number, y:number}, color: string, finalMessage: string) => {
     setActiveSenders(prev => ({ ...prev, [role]: true }));
@@ -98,6 +100,7 @@ export default function VirtualOfficePage() {
   return (
     <div className="flex flex-col w-full h-full animate-in fade-in zoom-in duration-500">
       <ManagerCallModal isOpen={isModalOpen} onClose={handleCloseModal} />
+      <ApiIntegrationsModal isOpen={isApiModalOpen} onClose={() => setIsApiModalOpen(false)} />
 
       <div className="mb-4 flex items-center justify-between">
         <div>
@@ -108,16 +111,24 @@ export default function VirtualOfficePage() {
             Watch your AI agents work in your realistic startup office.
           </p>
         </div>
-        <button 
-          onClick={handleCallManager}
-          disabled={isCalling}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-white transition-all shadow-md ${
-            isCalling ? 'bg-red-500 animate-pulse' : 'bg-slate-900 hover:bg-slate-800'
-          }`}
-        >
-          <PhoneCall size={18} className={isCalling ? 'animate-bounce' : ''} />
-          {isCalling ? "Calling..." : "Call Manager"}
-        </button>
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => setIsApiModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 transition-all shadow-sm"
+          >
+            Manage APIs
+          </button>
+          <button 
+            onClick={handleCallManager}
+            disabled={isCalling}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-white transition-all shadow-md ${
+              isCalling ? 'bg-red-500 animate-pulse' : 'bg-slate-900 hover:bg-slate-800'
+            }`}
+          >
+            <PhoneCall size={18} className={isCalling ? 'animate-bounce' : ''} />
+            {isCalling ? "Calling..." : "Call Manager"}
+          </button>
+        </div>
       </div>
 
       {/* The Office Map Container */}
