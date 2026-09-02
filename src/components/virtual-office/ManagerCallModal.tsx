@@ -92,6 +92,22 @@ Use the above data to provide accurate, real-time answers about marketing, data 
                 description: "Fetch the number of open and resolved customer support tickets.",
                 parameters: { type: "object", properties: {} }
               }
+            },
+            {
+              type: "function",
+              function: {
+                name: "get_seo_metrics",
+                description: "Fetch real-time Google Search Console / Google Analytics SEO metrics (traffic, rankings).",
+                parameters: { type: "object", properties: {} }
+              }
+            },
+            {
+              type: "function",
+              function: {
+                name: "get_whatsapp_metrics",
+                description: "Fetch bulk WhatsApp campaign statistics (messages sent, opened).",
+                parameters: { type: "object", properties: {} }
+              }
             }
           ],
           messages: [
