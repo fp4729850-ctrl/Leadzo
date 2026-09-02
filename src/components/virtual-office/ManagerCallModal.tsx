@@ -50,7 +50,19 @@ export function ManagerCallModal({ isOpen, onClose }: ManagerCallModalProps) {
     if (isOpen && callStatus === "idle") {
       setCallStatus("loading");
       // Use an inline assistant configuration
-      vapi.start(ASSISTANT_ID).catch((e) => {
+      vapi.start(ASSISTANT_ID, {
+        firstMessage: "Hello Boss! I have the latest updates from the marketing team and data analysis. What would you like to discuss?",
+        model: {
+          provider: "openai",
+          model: "gpt-4-turbo",
+          messages: [
+            {
+              role: "system",
+              content: "You are the manager of Leadzo AI. You are taking a call from your boss (the user). You must discuss company data analysis, marketing metrics, and whatever the marketing team has reported. Always respond professionally and wait for the boss to ask before giving detailed reports."
+            }
+          ]
+        }
+      }).catch((e) => {
         console.error("Failed to start vapi", e);
         setCallStatus("error");
       });
