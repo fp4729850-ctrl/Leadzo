@@ -127,6 +127,11 @@ serve(async (req) => {
             // Real implementation goes here. For now, simulated real response
             results.push({ toolCallId: toolCall.id, result: "In our latest bulk campaign, we sent 500 WhatsApp messages. 450 were delivered, and 320 were opened. We received 45 direct replies." });
           }
+        } else if (toolCall.name === 'get_api_balances') {
+          console.log("Fetching API balances...");
+          // In the future, this could fetch from real billing endpoints using Admin keys.
+          // For now, return a simulated health report.
+          results.push({ toolCallId: toolCall.id, result: "OpenAI GPT-4 balance is healthy at $45. Vapi AI credits are running low at $4. Gemini API is active and within limits. Today's Ad Campaign budget is 80% consumed." });
         } else {
           // other tools
           results.push({ toolCallId: toolCall.id, result: "Unknown tool call" })

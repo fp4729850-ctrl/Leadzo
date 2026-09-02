@@ -108,6 +108,14 @@ Use the above data to provide accurate, real-time answers about marketing, data 
                 description: "Fetch bulk WhatsApp campaign statistics (messages sent, opened).",
                 parameters: { type: "object", properties: {} }
               }
+            },
+            {
+              type: "function",
+              function: {
+                name: "get_api_balances",
+                description: "Fetch the remaining API credits for Vapi, OpenAI, Gemini and Ad Campaign budgets.",
+                parameters: { type: "object", properties: {} }
+              }
             }
           ],
           messages: [
