@@ -22,7 +22,9 @@ export function ManagerCallModal({ isOpen, onClose }: ManagerCallModalProps) {
   const [volumeLevel, setVolumeLevel] = useState(0);
   
   // Fetch real data from Convex
+  const user = useQuery(api.users.getCurrentUser, {});
   const metrics = useQuery(api.adCampaigns.getDashboardMetrics);
+  const customIntegrations = useQuery(api.customIntegrations.list, {}) || [];
 
   useEffect(() => {
     // Vapi Event Listeners
@@ -54,8 +56,16 @@ export function ManagerCallModal({ isOpen, onClose }: ManagerCallModalProps) {
   useEffect(() => {
     if (isOpen && callStatus === "idle") {
       setCallStatus("loading");
+      
+      const customApiNames = customIntegrations.map((ci: any) => ci.api_name).join(", ") || "None";
+      
       const systemPrompt = `You are the manager of Leadzo AI. You are taking a call from your boss (the user). 
 You must discuss company data analysis, marketing metrics, and whatever the marketing team has reported. Always respond professionally and wait for the boss to ask before giving detailed reports.
+
+USER CUSTOM APIS:
+The user has connected the following custom APIs: [${customApiNames}]. 
+Your secure internal user_id is: ${user?.id}.
+If the user asks about data from these services, you must use the 'execute_custom_api_request' tool to fetch it on their behalf. You will need to construct the HTTP request to the API's public endpoint. You MUST pass the user_id exactly.
 
 REAL-TIME COMPANY DATA:
 ${JSON.stringify(metrics || {}, null, 2)}
@@ -115,6 +125,22 @@ Use the above data to provide accurate, real-time answers about marketing, data 
                 name: "get_api_balances",
                 description: "Fetch the remaining API credits for Vapi, OpenAI, Gemini and Ad Campaign budgets.",
                 parameters: { type: "object", properties: {} }
+              }
+            },
+            {
+              type: "function",
+              function: {
+                name: "execute_custom_api_request",
+                description: "Execute an HTTP GET request to a custom API connected by the user (e.g. Shopify, Mailchimp). You must provide the api_name to authorize the request, the public endpoint_url to fetch from, and your user_id.",
+                parameters: { 
+                  type: "object", 
+                  properties: {
+                    user_id: { type: "string" },
+                    api_name: { type: "string", description: "The exact name of the custom API as listed in USER CUSTOM APIS." },
+                    endpoint_url: { type: "string", description: "The full public URL of the API endpoint to fetch data from." }
+                  },
+                  required: ["user_id", "api_name", "endpoint_url"]
+                }
               }
             }
           ],

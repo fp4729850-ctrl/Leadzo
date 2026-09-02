@@ -132,6 +132,57 @@ serve(async (req) => {
           // In the future, this could fetch from real billing endpoints using Admin keys.
           // For now, return a simulated health report.
           results.push({ toolCallId: toolCall.id, result: "OpenAI GPT-4 balance is healthy at $45. Vapi AI credits are running low at $4. Gemini API is active and within limits. Today's Ad Campaign budget is 80% consumed." });
+        } else if (toolCall.name === 'execute_custom_api_request') {
+          console.log("Executing custom API request...");
+          const args = toolCall.function?.arguments;
+          if (!args) {
+            results.push({ toolCallId: toolCall.id, result: "Missing arguments" });
+            continue;
+          }
+          const { user_id, api_name, endpoint_url } = args;
+          
+          if (!user_id || !api_name || !endpoint_url) {
+            results.push({ toolCallId: toolCall.id, result: "Missing user_id, api_name, or endpoint_url" });
+            continue;
+          }
+
+          const supabaseAdmin = createClient(
+            Deno.env.get('SUPABASE_URL') ?? '',
+            Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+          );
+
+          // Get the API key
+          const { data: customIntegration } = await supabaseAdmin
+            .from('custom_integrations')
+            .select('api_key')
+            .eq('user_id', user_id)
+            .ilike('api_name', api_name)
+            .single();
+
+          if (!customIntegration?.api_key) {
+            results.push({ toolCallId: toolCall.id, result: `Could not find an API key for ${api_name} for this user. Tell the user to connect it first.` });
+            continue;
+          }
+
+          try {
+            console.log(`Fetching from ${endpoint_url} with ${api_name} API key...`);
+            const response = await fetch(endpoint_url, {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${customIntegration.api_key}`,
+                'Content-Type': 'application/json',
+                // some apis use x-api-key, but standard is bearer. AI might not know which, so we pass standard.
+                'x-api-key': customIntegration.api_key
+              }
+            });
+            const textResponse = await response.text();
+            // Truncate to avoid blowing up context window
+            const truncated = textResponse.substring(0, 1000); 
+            results.push({ toolCallId: toolCall.id, result: truncated });
+          } catch (e: any) {
+             results.push({ toolCallId: toolCall.id, result: `Request failed: ${e.message}` });
+          }
+
         } else {
           // other tools
           results.push({ toolCallId: toolCall.id, result: "Unknown tool call" })
