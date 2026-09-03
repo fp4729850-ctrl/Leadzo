@@ -80,7 +80,12 @@ export function LiveAvatarModal({ isOpen, onClose, roleName = "AI Manager" }: Li
         const player = vapiAudioPlayerRef.current || vapi.getAudioPlayer();
         if (player) {
           console.log("Attaching Vapi audio to Simli (after Simli init)");
-          simliClientRef.current.listenToAudioElement(player);
+          const stream = player.srcObject as MediaStream;
+          if (stream && stream.getAudioTracks().length > 0) {
+            simliClientRef.current.listenToMediastreamTrack(stream.getAudioTracks()[0]);
+          } else {
+            simliClientRef.current.listenToAudioElement(player);
+          }
         }
         
       } catch (e) {
@@ -113,7 +118,12 @@ export function LiveAvatarModal({ isOpen, onClose, roleName = "AI Manager" }: Li
       vapiAudioPlayerRef.current = player;
       if (simliClientRef.current) {
         console.log("Attaching Vapi audio to Simli (on event)");
-        simliClientRef.current.listenToAudioElement(player);
+        const stream = player.srcObject as MediaStream;
+        if (stream && stream.getAudioTracks().length > 0) {
+          simliClientRef.current.listenToMediastreamTrack(stream.getAudioTracks()[0]);
+        } else {
+          simliClientRef.current.listenToAudioElement(player);
+        }
       }
     };
 
