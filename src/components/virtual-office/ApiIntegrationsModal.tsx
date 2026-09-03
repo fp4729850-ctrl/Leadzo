@@ -47,17 +47,19 @@ export function ApiIntegrationsModal({ isOpen, onClose }: { isOpen: boolean; onC
     
     const { data: userData } = await supabase.from('users').select('phone').eq('id', session.user.id).maybeSingle();
     if (userData?.phone) {
-      if (userData.phone.startsWith('+')) {
-        const match = userData.phone.match(/^(\+\d{1,3})(\d+)$/);
-        if (match) {
-          setCountryCode(match[1]);
-          setPersonalPhone(match[2]);
-        } else {
-          setPersonalPhone(userData.phone);
+      const validCodes = ['+1', '+44', '+91', '+61', '+971'];
+      let matchedCode = '+91'; // default
+      let phoneWithoutCode = userData.phone;
+      
+      for (const code of validCodes) {
+        if (userData.phone.startsWith(code)) {
+          matchedCode = code;
+          phoneWithoutCode = userData.phone.substring(code.length);
+          break;
         }
-      } else {
-        setPersonalPhone(userData.phone);
       }
+      setCountryCode(matchedCode);
+      setPersonalPhone(phoneWithoutCode);
     }
     
     // Get active business
@@ -158,7 +160,7 @@ export function ApiIntegrationsModal({ isOpen, onClose }: { isOpen: boolean; onC
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) throw new Error("No user");
 
-      const { error: userError } = await supabase.from('users').upsert({ id: session.user.id, phone: `${countryCode}${personalPhone}` });
+      const { error: userError } = await supabase.from('users').update({ phone: `${countryCode}${personalPhone}` }).eq('id', session.user.id);
       if (userError) throw userError;
       
       if (activeBusinessId) {
