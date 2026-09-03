@@ -3,6 +3,7 @@ import { OfficeMap } from "@/components/virtual-office/OfficeMap";
 import { AgentAvatar } from "@/components/virtual-office/AgentAvatar";
 import { DataPacket } from "@/components/virtual-office/DataPacket";
 import { ManagerCallModal } from "@/components/virtual-office/ManagerCallModal";
+import { OutboundCallModal } from "@/components/virtual-office/OutboundCallModal";
 import { ApiIntegrationsModal } from "@/components/virtual-office/ApiIntegrationsModal";
 import { PhoneCall, PhoneForwarded } from "lucide-react";
 import { toast } from "sonner";
@@ -174,15 +175,23 @@ export default function VirtualOfficePage() {
     } catch (e: any) {
       toast.error(e.message || "Failed to initiate outbound call", { duration: 8000 });
       setManagerMsg("Call failed.");
-    } finally {
       setIsRingingPhone(false);
-      setTimeout(() => setManagerMsg(""), 3000);
+    } finally {
+      setTimeout(() => {
+        setIsRingingPhone(false);
+        setManagerMsg("");
+      }, 5000);
     }
   };
 
   return (
     <div className="flex flex-col w-full h-full animate-in fade-in zoom-in duration-500">
       <ManagerCallModal isOpen={isModalOpen} onClose={handleCloseModal} />
+      <OutboundCallModal 
+        isOpen={isRingingPhone} 
+        onClose={() => setIsRingingPhone(false)} 
+        status={managerMsg === "Call failed." ? "error" : managerMsg.includes("Ringing") ? "loading" : "active"} 
+      />
       <ApiIntegrationsModal isOpen={isApiModalOpen} onClose={() => setIsApiModalOpen(false)} />
 
       <div className="mb-4 flex items-center justify-between">
