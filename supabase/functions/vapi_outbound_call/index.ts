@@ -30,10 +30,10 @@ serve(async (req) => {
       throw new Error("No personal phone number configured for this user. Please configure it in API settings.");
     }
 
-    // Fetch active business vapi phone id
+    // Fetch active business data (phone ID and AI brain context)
     const { data: businessData } = await supabaseClient
       .from('business_knowledge')
-      .select('vapi_phone_id')
+      .select('vapi_phone_id, company_name, business_details')
       .eq('user_id', user.id)
       .eq('is_active', true)
       .single();
@@ -59,7 +59,17 @@ serve(async (req) => {
         customer: {
           number: userData.phone
         },
-        assistantId: assistantId
+        assistantId: assistantId,
+        assistantOverrides: {
+          model: {
+            messages: [
+              {
+                role: "system",
+                content: `You are an AI Manager for ${businessData.company_name || 'a company'}. Here is your knowledge base and instructions:\n\n${businessData.business_details || 'Be helpful and polite.'}`
+              }
+            ]
+          }
+        }
       })
     });
 
