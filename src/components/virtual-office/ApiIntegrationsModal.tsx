@@ -46,6 +46,11 @@ export function ApiIntegrationsModal({ isOpen, onClose }: { isOpen: boolean; onC
   const [isLoadingVapiNumbers, setIsLoadingVapiNumbers] = useState(false);
   const [isBuyingNumber, setIsBuyingNumber] = useState(false);
 
+  // Twilio Phone Numbers
+  const [availableTwilioNumbers, setAvailableTwilioNumbers] = useState<any[]>([]);
+  const [isLoadingTwilioNumbers, setIsLoadingTwilioNumbers] = useState(false);
+  const [buyingTwilioNumber, setBuyingTwilioNumber] = useState<string | null>(null);
+
   const fetchIntegrations = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user) return;
@@ -257,6 +262,58 @@ export function ApiIntegrationsModal({ isOpen, onClose }: { isOpen: boolean; onC
     }
   };
 
+  const handleFetchTwilioNumbers = async () => {
+    try {
+      setIsLoadingTwilioNumbers(true);
+      const { data, error } = await supabase.functions.invoke('twilio_phone_numbers', {
+        method: 'GET'
+      });
+      if (error) throw error;
+      if (data?.numbers) {
+        setAvailableTwilioNumbers(data.numbers);
+        toast.success("Fetched available Twilio numbers.");
+      }
+    } catch (e: any) {
+      let msg = e.message;
+      try {
+        if (e.context && typeof e.context.json === 'function') {
+           const body = await e.context.json();
+           if (body && body.error) msg = body.error;
+        }
+      } catch(_) {}
+      toast.error(msg || "Failed to fetch numbers from Twilio.");
+    } finally {
+      setIsLoadingTwilioNumbers(false);
+    }
+  };
+
+  const handleBuyTwilioNumber = async (phoneNumber: string) => {
+    try {
+      setBuyingTwilioNumber(phoneNumber);
+      const { data, error } = await supabase.functions.invoke('twilio_phone_numbers', {
+        method: 'POST',
+        body: { phoneNumber }
+      });
+      if (error) throw error;
+      if (data?.vapiPhone?.id) {
+        setVapiPhoneId(data.vapiPhone.id);
+        toast.success(`Successfully bought & imported: ${phoneNumber}`);
+        setAvailableTwilioNumbers([]);
+      }
+    } catch (e: any) {
+      let msg = e.message;
+      try {
+        if (e.context && typeof e.context.json === 'function') {
+           const body = await e.context.json();
+           if (body && body.error) msg = body.error;
+        }
+      } catch(_) {}
+      toast.error(msg || "Failed to buy number from Twilio.");
+    } finally {
+      setBuyingTwilioNumber(null);
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
@@ -438,9 +495,17 @@ export function ApiIntegrationsModal({ isOpen, onClose }: { isOpen: boolean; onC
                   className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-slate-900 bg-white"
                 />
                 
-                {/* Vapi Numbers Fetch/Buy UI */}
+                {/* Vapi/Twilio Numbers Fetch/Buy UI */}
                 <div className="mt-4 pt-4 border-t border-slate-200">
                   <div className="flex gap-2 mb-3">
+                    <button 
+                      onClick={handleFetchTwilioNumbers}
+                      disabled={isLoadingTwilioNumbers}
+                      className="flex-1 px-3 py-1.5 bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100 rounded-md text-xs font-semibold transition-colors flex items-center justify-center gap-1"
+                    >
+                      {isLoadingTwilioNumbers && <Loader2 size={12} className="animate-spin" />}
+                      Browse Twilio Numbers
+                    </button>
                     <button 
                       onClick={handleFetchVapiNumbers}
                       disabled={isLoadingVapiNumbers}
@@ -449,18 +514,33 @@ export function ApiIntegrationsModal({ isOpen, onClose }: { isOpen: boolean; onC
                       {isLoadingVapiNumbers && <Loader2 size={12} className="animate-spin" />}
                       Fetch My Vapi Numbers
                     </button>
-                    <button 
-                      onClick={handleBuyVapiNumber}
-                      disabled={isBuyingNumber}
-                      className="flex-1 px-3 py-1.5 bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100 rounded-md text-xs font-semibold transition-colors flex items-center justify-center gap-1"
-                    >
-                      {isBuyingNumber && <Loader2 size={12} className="animate-spin" />}
-                      Buy New Vapi Number
-                    </button>
                   </div>
                   
-                  {availableVapiNumbers.length > 0 && (
+                  {availableTwilioNumbers.length > 0 && (
                     <div className="space-y-2 mt-2 max-h-[150px] overflow-y-auto pr-1">
+                      <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-2">Available to Buy</div>
+                      {availableTwilioNumbers.map(num => (
+                        <div 
+                          key={num.phoneNumber} 
+                          className="flex justify-between items-center p-2 rounded-md border bg-white border-slate-200 text-slate-600"
+                        >
+                          <span className="text-sm font-medium">{num.friendlyName}</span>
+                          <button
+                            onClick={() => handleBuyTwilioNumber(num.phoneNumber)}
+                            disabled={buyingTwilioNumber === num.phoneNumber}
+                            className="px-2 py-1 bg-emerald-500 hover:bg-emerald-600 text-white rounded text-xs font-medium flex items-center gap-1 transition-colors disabled:opacity-50"
+                          >
+                            {buyingTwilioNumber === num.phoneNumber && <Loader2 size={10} className="animate-spin" />}
+                            Buy & Import
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {availableVapiNumbers.length > 0 && availableTwilioNumbers.length === 0 && (
+                    <div className="space-y-2 mt-2 max-h-[150px] overflow-y-auto pr-1">
+                      <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-2">My Vapi Numbers</div>
                       {availableVapiNumbers.map(num => (
                         <div 
                           key={num.id} 
