@@ -59,9 +59,9 @@ export function OutboundCallModal({ isOpen, onClose }: OutboundCallModalProps) {
             loop
             muted
             playsInline
-            // Use object-cover to fill the tall container, and object-[20%_center] to crop exactly on the manager
-            // Since the container is narrow, this will chop off the right side (where the employee is)
-            className="w-full h-full object-cover object-[18%_center] opacity-80"
+            // A much stronger scale and specific origin to completely isolate the manager
+            // and avoid cutting his head off or showing the employee.
+            className="w-full h-full object-cover scale-[2.2] origin-[15%_30%] opacity-80"
           />
           {/* Subtle gradient overlay to blend with UI */}
           <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent"></div>

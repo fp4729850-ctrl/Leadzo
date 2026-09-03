@@ -240,9 +240,8 @@ export default function VirtualOfficePage() {
         </div>
       </div>
 
-      {/* The Office Map Container */}
       <div className="w-full max-w-6xl mx-auto flex-1 flex flex-col justify-center">
-        <OfficeMap isCalling={isCalling}>
+        <OfficeMap isCalling={isCalling || isRingingPhone || isOutboundConnected}>
           {/* Manager (Boss) */}
           <AgentAvatar
             id="agent-manager"
