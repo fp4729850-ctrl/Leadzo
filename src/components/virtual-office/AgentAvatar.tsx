@@ -64,7 +64,7 @@ export function AgentAvatar({ name, role, position, statusMessage, isSending, vi
         )}
         
         {/* Name Tag */}
-        <div className={`mt-2 bg-slate-900/90 backdrop-blur-sm text-white px-3 py-2 rounded shadow-lg border border-slate-700/50 flex flex-col items-center gap-1 transition-all duration-300 ${showLabel ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'}`}>
+        <div className={`mt-2 bg-slate-900/90 backdrop-blur-sm text-white px-3 py-2 rounded shadow-lg border border-slate-700/50 flex flex-col items-center gap-1 transition-all duration-300 pointer-events-auto ${showLabel ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'}`}>
           <div className="flex items-center gap-2 text-xs font-bold whitespace-nowrap">
             {isSending && <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>}
             {name}
