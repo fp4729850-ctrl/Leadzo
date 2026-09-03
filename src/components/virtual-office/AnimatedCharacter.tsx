@@ -8,9 +8,12 @@ interface AnimatedCharacterProps {
 
 const roleSeeds: Record<AgentRole, string> = {
   boss: "Felix",
+  manager: "Felix",
   support: "Lily",
   marketing: "Oliver",
-  analyst: "Jack"
+  analytics: "Jack",
+  operation: "Sam",
+  research: "Mia"
 };
 
 export const AnimatedCharacter = ({ role, isMoving = false }: AnimatedCharacterProps) => {
