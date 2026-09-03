@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import Vapi from "@vapi-ai/web";
 import { Mic, PhoneOff, Loader2 } from "lucide-react";
-import { useQuery } from "convex/react";
+import { useQuery } from "@/lib/convex-supabase-adapter";
 import { api } from "@/convex/_generated/api.js";
 import { supabase } from "@/lib/supabase";
 import { SimliClient, generateSimliSessionToken, generateIceServers } from 'simli-client';
