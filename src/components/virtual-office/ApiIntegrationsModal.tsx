@@ -263,16 +263,20 @@ export function ApiIntegrationsModal({ isOpen, onClose }: { isOpen: boolean; onC
     }
   };
 
-  const handleFetchTwilioNumbers = async () => {
+  const handleFetchTwilioNumbers = async (countryCode = twilioCountry) => {
     try {
       setIsLoadingTwilioNumbers(true);
-      const { data, error } = await supabase.functions.invoke(`twilio_phone_numbers?country=${twilioCountry}`, {
+      const { data, error } = await supabase.functions.invoke(`twilio_phone_numbers?country=${countryCode}`, {
         method: 'GET'
       });
       if (error) throw error;
       if (data?.numbers) {
         setAvailableTwilioNumbers(data.numbers);
-        toast.success("Fetched available Twilio numbers.");
+        if (data.numbers.length === 0) {
+          toast.error(`No numbers available for ${countryCode} right now. (Note: Twilio limits Indian numbers for new accounts).`);
+        } else {
+          toast.success(`Fetched available Twilio numbers for ${countryCode}.`);
+        }
       }
     } catch (e: any) {
       let msg = e.message;
@@ -501,7 +505,10 @@ export function ApiIntegrationsModal({ isOpen, onClose }: { isOpen: boolean; onC
                   <div className="flex gap-2 mb-3">
                     <select 
                       value={twilioCountry}
-                      onChange={(e) => setTwilioCountry(e.target.value)}
+                      onChange={(e) => {
+                        setTwilioCountry(e.target.value);
+                        handleFetchTwilioNumbers(e.target.value);
+                      }}
                       className="px-2 py-1.5 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs text-slate-900 bg-white min-w-[70px]"
                     >
                       <option value="US">US (+1)</option>
@@ -510,7 +517,7 @@ export function ApiIntegrationsModal({ isOpen, onClose }: { isOpen: boolean; onC
                       <option value="AU">AU (+61)</option>
                     </select>
                     <button 
-                      onClick={handleFetchTwilioNumbers}
+                      onClick={() => handleFetchTwilioNumbers(twilioCountry)}
                       disabled={isLoadingTwilioNumbers}
                       className="flex-1 px-3 py-1.5 bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100 rounded-md text-xs font-semibold transition-colors flex items-center justify-center gap-1"
                     >
