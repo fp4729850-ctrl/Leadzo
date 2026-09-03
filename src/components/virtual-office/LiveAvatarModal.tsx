@@ -156,6 +156,10 @@ REAL-TIME COMPANY DATA: ${JSON.stringify(metrics || {}, null, 2)}`;
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleEndCall()}>
       <DialogContent className="sm:max-w-2xl bg-slate-900 border-slate-800 text-white shadow-2xl p-0 overflow-hidden">
+        <DialogHeader className="sr-only">
+          <DialogTitle>Live AI Avatar Call</DialogTitle>
+          <DialogDescription>A live video call with your AI agent.</DialogDescription>
+        </DialogHeader>
         
         <div className="relative w-full aspect-video bg-black flex items-center justify-center overflow-hidden">
           {/* Simli Video Output */}
