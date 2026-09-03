@@ -160,10 +160,19 @@ export default function VirtualOfficePage() {
     // Simulate some logic in UI then call Edge function
     try {
       const { data, error } = await supabase.functions.invoke('vapi_outbound_call');
-      if (error) throw error;
+      if (error) {
+        let errorMessage = error.message;
+        try {
+          if (error.context && typeof error.context.json === 'function') {
+             const body = await error.context.json();
+             if (body && body.error) errorMessage = body.error;
+          }
+        } catch(e) {}
+        throw new Error(errorMessage);
+      }
       toast.success("Manager is calling your phone now!");
     } catch (e: any) {
-      toast.error(e.message || "Failed to initiate outbound call");
+      toast.error(e.message || "Failed to initiate outbound call", { duration: 8000 });
       setManagerMsg("Call failed.");
     } finally {
       setIsRingingPhone(false);
