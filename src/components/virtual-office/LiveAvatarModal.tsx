@@ -28,6 +28,7 @@ export function LiveAvatarModal({ isOpen, onClose, roleName = "AI Manager" }: Li
   const audioRef = useRef<HTMLAudioElement>(null);
   const simliClientRef = useRef<SimliClient | null>(null);
   const vapiAudioPlayerRef = useRef<HTMLAudioElement | null>(null);
+  const isAudioAttachedRef = useRef<boolean>(false);
 
   const user = useQuery(api.users.getCurrentUser, {});
   const metrics = useQuery(api.adCampaigns.getDashboardMetrics);
@@ -78,7 +79,7 @@ export function LiveAvatarModal({ isOpen, onClose, roleName = "AI Manager" }: Li
 
         // If Vapi audio is already available (race condition), attach it now
         const player = vapiAudioPlayerRef.current || vapi.getAudioPlayer();
-        if (player) {
+        if (player && !isAudioAttachedRef.current) {
           console.log("Attaching Vapi audio to Simli (after Simli init)");
           // Ensure Vapi is permanently silent using its own API so it doesn't play out of sync audio
           vapi.setVolume(0); 
@@ -88,6 +89,7 @@ export function LiveAvatarModal({ isOpen, onClose, roleName = "AI Manager" }: Li
           } else {
             simliClientRef.current.listenToAudioElement(player);
           }
+          isAudioAttachedRef.current = true;
         }
         
       } catch (e) {
@@ -120,7 +122,7 @@ export function LiveAvatarModal({ isOpen, onClose, roleName = "AI Manager" }: Li
       // Ensure Vapi is permanently silent using its own API
       vapi.setVolume(0); 
       vapiAudioPlayerRef.current = player;
-      if (simliClientRef.current) {
+      if (simliClientRef.current && !isAudioAttachedRef.current) {
         console.log("Attaching Vapi audio to Simli (on event)");
         const stream = player.srcObject as MediaStream;
         if (stream && stream.getAudioTracks().length > 0) {
@@ -128,6 +130,7 @@ export function LiveAvatarModal({ isOpen, onClose, roleName = "AI Manager" }: Li
         } else {
           simliClientRef.current.listenToAudioElement(player);
         }
+        isAudioAttachedRef.current = true;
       }
     };
 
@@ -143,6 +146,7 @@ export function LiveAvatarModal({ isOpen, onClose, roleName = "AI Manager" }: Li
       vapi.off("volume-level", onVolumeLevel);
       vapi.off("error", onError);
       vapi.off("audio", onVapiAudio);
+      isAudioAttachedRef.current = false;
     };
   }, [onClose]);
 
