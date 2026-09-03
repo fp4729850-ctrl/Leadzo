@@ -34,6 +34,7 @@ export default function VirtualOfficePage() {
   
   const [isCalling, setIsCalling] = useState(false);
   const [isRingingPhone, setIsRingingPhone] = useState(false);
+  const [isOutboundConnected, setIsOutboundConnected] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isApiModalOpen, setIsApiModalOpen] = useState(false);
 
@@ -172,15 +173,16 @@ export default function VirtualOfficePage() {
         throw new Error(errorMessage);
       }
       toast.success("Manager is calling your phone now!");
+      
+      // Simulate physical phone ringing delay (7s) before opening the UI modal
+      setTimeout(() => {
+        setIsOutboundConnected(true);
+      }, 7000);
+      
     } catch (e: any) {
       toast.error(e.message || "Failed to initiate outbound call", { duration: 8000 });
       setManagerMsg("Call failed.");
       setIsRingingPhone(false);
-    } finally {
-      setTimeout(() => {
-        setIsRingingPhone(false);
-        setManagerMsg("");
-      }, 5000);
     }
   };
 
@@ -188,9 +190,12 @@ export default function VirtualOfficePage() {
     <div className="flex flex-col w-full h-full animate-in fade-in zoom-in duration-500">
       <ManagerCallModal isOpen={isModalOpen} onClose={handleCloseModal} />
       <OutboundCallModal 
-        isOpen={isRingingPhone} 
-        onClose={() => setIsRingingPhone(false)} 
-        status={managerMsg === "Call failed." ? "error" : managerMsg.includes("Ringing") ? "loading" : "active"} 
+        isOpen={isOutboundConnected} 
+        onClose={() => { 
+          setIsOutboundConnected(false); 
+          setIsRingingPhone(false); 
+          setManagerMsg(""); 
+        }} 
       />
       <ApiIntegrationsModal isOpen={isApiModalOpen} onClose={() => setIsApiModalOpen(false)} />
 
