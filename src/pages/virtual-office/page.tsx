@@ -60,44 +60,79 @@ export default function VirtualOfficePage() {
     }, 4000);
   };
 
-  // Mock Event Loop for Demonstration
+  // Real Data Fetching & Event Loop
   useEffect(() => {
-    // 1. Marketing Agent sends report
-    const timer1 = setTimeout(() => {
-      setMarketingMsg("Sending Insta Ads Report...");
-      spawnPacket("marketing", POSITIONS.marketing, "bg-emerald-500", "100 Leads Generated!");
-    }, 2000);
+    let isMounted = true;
+    const timers: NodeJS.Timeout[] = [];
 
-    // 2. Support Agent sends report
-    const timer2 = setTimeout(() => {
-      setSupportMsg("Sending Ticket Summary...");
-      spawnPacket("support", POSITIONS.support, "bg-blue-500", "5 Tickets Resolved.");
-    }, 10000);
+    const loadRealDataAndAnimate = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user || !isMounted) return;
 
-    // 3. Analytics Agent sends report
-    const timer3 = setTimeout(() => {
-      setAnalyticsMsg("Sending Data Pipeline update...");
-      spawnPacket("analytics", POSITIONS.analytics, "bg-purple-500", "Pipeline speed +20%");
-    }, 18000);
+        // Fetch User Tokens
+        const { data: userData } = await supabase.from('users').select('token_balance').eq('id', user.id).single();
+        const tokens = userData?.token_balance || 0;
 
-    // 4. Research Agent sends report
-    const timer4 = setTimeout(() => {
-      setResearchMsg("Analyzing Market Trends...");
-      spawnPacket("research", POSITIONS.research, "bg-yellow-500", "New Trend Detected!");
-    }, 25000);
+        // Fetch Active Business
+        const { data: businessData } = await supabase
+          .from('business_knowledge')
+          .select('company_name, business_details, internal_api_key')
+          .eq('user_id', user.id)
+          .eq('is_active', true)
+          .single();
 
-    // 5. Operation Agent sends report
-    const timer5 = setTimeout(() => {
-      setOperationMsg("System check complete...");
-      spawnPacket("operation", POSITIONS.operation, "bg-orange-500", "All Systems GO!");
-    }, 32000);
+        if (!isMounted) return;
+
+        const companyName = businessData?.company_name || "Unknown Company";
+        const contextLength = businessData?.business_details ? businessData.business_details.length : 0;
+        const isApiActive = !!businessData?.internal_api_key;
+
+        // 1. Marketing & Sales Agent
+        timers.push(setTimeout(() => {
+          if (!isMounted) return;
+          setMarketingMsg("Fetching active campaigns...");
+          spawnPacket("marketing", POSITIONS.marketing, "bg-emerald-500", `Managing leads for: ${companyName}`);
+        }, 2000));
+
+        // 2. Support Agent
+        timers.push(setTimeout(() => {
+          if (!isMounted) return;
+          setSupportMsg("Scanning Support Inbox...");
+          spawnPacket("support", POSITIONS.support, "bg-blue-500", "0 Pending Tickets. Inbox Zero!");
+        }, 10000));
+
+        // 3. Analytics Agent
+        timers.push(setTimeout(() => {
+          if (!isMounted) return;
+          setAnalyticsMsg("Verifying Token Usage...");
+          spawnPacket("analytics", POSITIONS.analytics, "bg-purple-500", `Tokens Remaining: ${tokens.toLocaleString()}`);
+        }, 18000));
+
+        // 4. Research Agent
+        timers.push(setTimeout(() => {
+          if (!isMounted) return;
+          setResearchMsg("Analyzing AI Knowledge Base...");
+          spawnPacket("research", POSITIONS.research, "bg-yellow-500", `Brain Size: ${contextLength} characters learned`);
+        }, 25000));
+
+        // 5. Operation Agent
+        timers.push(setTimeout(() => {
+          if (!isMounted) return;
+          setOperationMsg("Checking Internal Systems...");
+          spawnPacket("operation", POSITIONS.operation, "bg-orange-500", `Leadzo API: ${isApiActive ? "CONNECTED" : "OFFLINE"}`);
+        }, 32000));
+
+      } catch (e) {
+        console.error("Failed to load real data for virtual office", e);
+      }
+    };
+
+    loadRealDataAndAnimate();
 
     return () => {
-      clearTimeout(timer1);
-      clearTimeout(timer2);
-      clearTimeout(timer3);
-      clearTimeout(timer4);
-      clearTimeout(timer5);
+      isMounted = false;
+      timers.forEach(t => clearTimeout(t));
     };
   }, []);
 
