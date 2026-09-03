@@ -220,7 +220,14 @@ export function ApiIntegrationsModal({ isOpen, onClose }: { isOpen: boolean; onC
         }
       }
     } catch (e: any) {
-      toast.error(e.message || "Failed to fetch numbers from Vapi.");
+      let msg = e.message;
+      try {
+        if (e.context && typeof e.context.json === 'function') {
+           const body = await e.context.json();
+           if (body && body.error) msg = body.error;
+        }
+      } catch(_) {}
+      toast.error(msg || "Failed to fetch numbers from Vapi.");
     } finally {
       setIsLoadingVapiNumbers(false);
     }
@@ -237,7 +244,14 @@ export function ApiIntegrationsModal({ isOpen, onClose }: { isOpen: boolean; onC
         toast.success(`Successfully bought number: ${data.number.number}`);
       }
     } catch (e: any) {
-      toast.error(e.message || "Failed to buy number. Ensure you have a card on file in Vapi.");
+      let msg = e.message;
+      try {
+        if (e.context && typeof e.context.json === 'function') {
+           const body = await e.context.json();
+           if (body && body.error) msg = body.error;
+        }
+      } catch(_) {}
+      toast.error(msg || "Failed to buy number. Ensure you have a card on file in Vapi.");
     } finally {
       setIsBuyingNumber(false);
     }
