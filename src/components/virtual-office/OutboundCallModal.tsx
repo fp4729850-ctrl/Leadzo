@@ -1,5 +1,5 @@
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { PhoneOff, User, MicOff, Keypad, Volume2 } from "lucide-react";
+import { PhoneOff, User, MicOff, Grid3x3, Volume2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
 interface OutboundCallModalProps {
@@ -79,7 +79,7 @@ export function OutboundCallModal({ isOpen, onClose }: OutboundCallModalProps) {
             </div>
             <div className="flex flex-col items-center gap-2">
               <button className="w-14 h-14 rounded-full bg-slate-800 flex items-center justify-center hover:bg-slate-700 transition-colors">
-                <Keypad className="w-6 h-6 text-white" />
+                <Grid3x3 className="w-6 h-6 text-white" />
               </button>
               <span className="text-xs text-slate-400">keypad</span>
             </div>
