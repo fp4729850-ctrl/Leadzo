@@ -23,7 +23,23 @@ export default defineConfig({
       }
     }
   },
-  plugins: [react(), tailwindcss(), hercules()],
+  plugins: [
+    react(), 
+    tailwindcss(), 
+    hercules(),
+    {
+      name: 'fix-simli-client',
+      enforce: 'pre',
+      resolveId(id, importer) {
+        if (id === './Client' && importer && importer.includes('simli-client')) {
+          return path.resolve(path.dirname(importer), 'client.js');
+        }
+      }
+    }
+  ],
+  optimizeDeps: {
+    include: ['simli-client']
+  },
   resolve: {
     alias: {
       "@/convex": path.resolve(__dirname, "./convex"),
