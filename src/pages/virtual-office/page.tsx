@@ -235,12 +235,11 @@ export default function VirtualOfficePage() {
               Cartoon Agent
             </button>
             <button
-              onClick={() => setVideoStyle("human")}
-              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${
-                videoStyle === "human" 
-                  ? "bg-white text-indigo-600 shadow-sm" 
-                  : "text-slate-500 hover:text-slate-700"
-              }`}
+              onClick={() => {
+                setActiveLiveRole("AI Manager");
+                setIsModalOpen(true);
+              }}
+              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all text-slate-500 hover:text-slate-700 hover:bg-slate-100`}
             >
               Real Human
             </button>
