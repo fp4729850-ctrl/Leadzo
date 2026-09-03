@@ -20,12 +20,12 @@ const POSITIONS = {
 };
 
 const HUMAN_POSITIONS = {
-  manager: { x: 92, y: 45 },      // Far right back, guy on phone
-  support: { x: 20, y: 70 },      // Far left woman
-  research: { x: 35, y: 35 },     // Back left corner
-  analytics: { x: 65, y: 65 },    // Center right back man
-  operation: { x: 45, y: 75 },    // Center left man blue shirt
-  marketing: { x: 85, y: 80 },    // Far right front woman
+  manager: { x: 88, y: 48 },      // Man on phone in glass cabin
+  support: { x: 32, y: 65 },      // Woman on the left
+  research: { x: 42, y: 80 },     // Empty laptop area in front
+  operation: { x: 50, y: 55 },    // Man in the background
+  analytics: { x: 65, y: 62 },    // Man in blue shirt
+  marketing: { x: 85, y: 78 },    // Woman in the foreground right
 };
 
 type Packet = { id: string; fromRole: string; color: string; message: string };

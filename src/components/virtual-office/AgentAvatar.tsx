@@ -46,7 +46,7 @@ export function AgentAvatar({ name, role, position, statusMessage, isSending, vi
       onClick={() => setShowLabel(!showLabel)}
     >
       {/* Invisible hitbox over the person's body to make clicking easier */}
-      <div className="absolute top-0 w-24 h-40 -translate-y-1/2 z-20" />
+      <div className="absolute top-1/2 left-1/2 w-16 h-24 -translate-x-1/2 -translate-y-1/2 z-20" />
       {/* Speech Bubble */}
       {messageVisible && statusMessage && (
         <div className="absolute bottom-full mb-4 left-1/2 transform -translate-x-1/2 bg-white/95 backdrop-blur-sm px-4 py-2 rounded-2xl shadow-xl border border-slate-200 text-sm font-semibold text-slate-800 whitespace-nowrap z-50 animate-in fade-in zoom-in slide-in-from-bottom-2 duration-300">
