@@ -37,16 +37,15 @@ const ScreenOverlay = ({ x, y, rotate = 0, type = "code" }: { x: number; y: numb
 
 export function OfficeMap({ children, isCalling = false, videoStyle = "cartoon" }: OfficeMapProps) {
   return (
-    <div className="relative w-full aspect-video rounded-xl overflow-hidden shadow-2xl border-4 border-slate-300 bg-white">
+    <div className="relative w-full aspect-video rounded-xl overflow-hidden shadow-2xl border-4 border-slate-300 bg-slate-900">
       {/* Realistic Background Video */}
       <video
-        key={videoStyle + (isCalling ? "-calling" : "-idle")}
         src={
           videoStyle === "human"
-            ? "/real_human_office.mp4"
+            ? "https://www.leadzoai.com/real_human_office.mp4"
             : isCalling
-            ? "/virtual_office_bg_14s.mp4?v=1"
-            : "/virtual_office_bg_new.mp4?v=1"
+            ? "https://www.leadzoai.com/virtual_office_bg_14s.mp4?v=1"
+            : "https://www.leadzoai.com/virtual_office_bg_new.mp4?v=1"
         }
         autoPlay
         loop
