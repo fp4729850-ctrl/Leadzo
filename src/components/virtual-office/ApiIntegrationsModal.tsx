@@ -41,6 +41,11 @@ export function ApiIntegrationsModal({ isOpen, onClose }: { isOpen: boolean; onC
   const [internalApiEnabled, setInternalApiEnabled] = useState(false);
   const [isSavingInternalApi, setIsSavingInternalApi] = useState(false);
 
+  // Vapi Phone Numbers
+  const [availableVapiNumbers, setAvailableVapiNumbers] = useState<any[]>([]);
+  const [isLoadingVapiNumbers, setIsLoadingVapiNumbers] = useState(false);
+  const [isBuyingNumber, setIsBuyingNumber] = useState(false);
+
   const fetchIntegrations = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user) return;
@@ -198,6 +203,43 @@ export function ApiIntegrationsModal({ isOpen, onClose }: { isOpen: boolean; onC
       toast.error(e.message || "Failed to toggle Internal API");
     } finally {
       setIsSavingInternalApi(false);
+    }
+  };
+
+  const handleFetchVapiNumbers = async () => {
+    setIsLoadingVapiNumbers(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('vapi_phone_numbers', { method: 'GET' });
+      if (error) throw error;
+      if (data?.numbers) {
+        setAvailableVapiNumbers(data.numbers);
+        if (data.numbers.length === 0) {
+          toast.info("You don't have any phone numbers in Vapi yet.");
+        } else {
+          toast.success(`Found ${data.numbers.length} numbers.`);
+        }
+      }
+    } catch (e: any) {
+      toast.error(e.message || "Failed to fetch numbers from Vapi.");
+    } finally {
+      setIsLoadingVapiNumbers(false);
+    }
+  };
+
+  const handleBuyVapiNumber = async () => {
+    setIsBuyingNumber(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('vapi_phone_numbers', { method: 'POST' });
+      if (error) throw error;
+      if (data?.number) {
+        setAvailableVapiNumbers(prev => [...prev, data.number]);
+        setVapiPhoneId(data.number.id);
+        toast.success(`Successfully bought number: ${data.number.number}`);
+      }
+    } catch (e: any) {
+      toast.error(e.message || "Failed to buy number. Ensure you have a card on file in Vapi.");
+    } finally {
+      setIsBuyingNumber(false);
     }
   };
 
@@ -381,6 +423,51 @@ export function ApiIntegrationsModal({ isOpen, onClose }: { isOpen: boolean; onC
                   onChange={(e) => setVapiPhoneId(e.target.value)}
                   className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-slate-900 bg-white"
                 />
+                
+                {/* Vapi Numbers Fetch/Buy UI */}
+                <div className="mt-4 pt-4 border-t border-slate-200">
+                  <div className="flex gap-2 mb-3">
+                    <button 
+                      onClick={handleFetchVapiNumbers}
+                      disabled={isLoadingVapiNumbers}
+                      className="flex-1 px-3 py-1.5 bg-indigo-50 text-indigo-600 border border-indigo-200 hover:bg-indigo-100 rounded-md text-xs font-semibold transition-colors flex items-center justify-center gap-1"
+                    >
+                      {isLoadingVapiNumbers && <Loader2 size={12} className="animate-spin" />}
+                      Fetch My Vapi Numbers
+                    </button>
+                    <button 
+                      onClick={handleBuyVapiNumber}
+                      disabled={isBuyingNumber}
+                      className="flex-1 px-3 py-1.5 bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100 rounded-md text-xs font-semibold transition-colors flex items-center justify-center gap-1"
+                    >
+                      {isBuyingNumber && <Loader2 size={12} className="animate-spin" />}
+                      Buy New Vapi Number
+                    </button>
+                  </div>
+                  
+                  {availableVapiNumbers.length > 0 && (
+                    <div className="space-y-2 mt-2 max-h-[150px] overflow-y-auto pr-1">
+                      {availableVapiNumbers.map(num => (
+                        <div 
+                          key={num.id} 
+                          onClick={() => setVapiPhoneId(num.id)}
+                          className={`p-2 rounded-md border text-xs cursor-pointer transition-all ${
+                            vapiPhoneId === num.id 
+                              ? 'bg-blue-50 border-blue-400 text-blue-800 font-medium' 
+                              : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                          }`}
+                        >
+                          <div className="flex justify-between items-center">
+                            <span>{num.number}</span>
+                            {vapiPhoneId === num.id && <CheckCircle2 size={12} className="text-blue-500" />}
+                          </div>
+                          <div className="text-[10px] text-slate-400 mt-0.5 opacity-80 font-mono">{num.id}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
               </div>
               <button 
                 onClick={handleSavePhoneConfig}
