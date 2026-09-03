@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { BrainCircuit, Save, Sparkles, Loader2, Globe, Plus, Building2, CheckCircle2, Pencil, Trash2, ArrowLeft } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -37,6 +38,13 @@ export default function AIBrainPage() {
   const [internalApiEnabled, setInternalApiEnabled] = useState(false);
   const [customApiKey, setCustomApiKey] = useState("");
   const [isFetchingApi, setIsFetchingApi] = useState(false);
+
+  // Add Topic Modal States
+  const [topicModalOpen, setTopicModalOpen] = useState(false);
+  const [topicTitle, setTopicTitle] = useState("");
+  const [topicContent, setTopicContent] = useState("");
+  const [addingTopic, setAddingTopic] = useState(false);
+  const [topicBrainId, setTopicBrainId] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) loadBrains();
@@ -215,6 +223,44 @@ export default function AIBrainPage() {
     }
   };
 
+  const handleOpenAddTopic = (brainId: string) => {
+    setTopicBrainId(brainId);
+    setTopicTitle("");
+    setTopicContent("");
+    setTopicModalOpen(true);
+  };
+
+  const handleSaveTopic = async () => {
+    if (!topicTitle.trim() || !topicContent.trim() || !topicBrainId) {
+      toast.error("Both Topic Name and Details are required.");
+      return;
+    }
+    
+    setAddingTopic(true);
+    try {
+      // Find current brain details
+      const targetBrain = brains.find(b => b.id === topicBrainId);
+      if (!targetBrain) throw new Error("Brain not found");
+      
+      const newDetails = targetBrain.business_details 
+        ? `${targetBrain.business_details}\n\n--- ${topicTitle} ---\n${topicContent}`
+        : `--- ${topicTitle} ---\n${topicContent}`;
+        
+      await supabase
+        .from("business_knowledge")
+        .update({ business_details: newDetails, updated_at: new Date().toISOString() })
+        .eq("id", topicBrainId);
+        
+      toast.success("Topic added successfully! AI Brain updated.");
+      setTopicModalOpen(false);
+      loadBrains();
+    } catch (e) {
+      toast.error("Failed to add topic.");
+    } finally {
+      setAddingTopic(false);
+    }
+  };
+
   if (loading) {
     return <div className="p-8 flex justify-center"><Loader2 className="animate-spin text-primary" /></div>;
   }
@@ -281,10 +327,13 @@ export default function AIBrainPage() {
                       Set Active
                     </Button>
                   )}
-                  <Button variant="ghost" size="icon" className="h-8 w-8 ml-auto text-blue-500" onClick={() => handleEdit(brain)}>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 ml-auto text-blue-500 hover:text-blue-600 hover:bg-blue-50" onClick={() => handleEdit(brain)}>
                     <Pencil size={14} />
                   </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => handleDelete(brain.id)}>
+                  <Button variant="ghost" size="icon" title="Add specific topic" className="h-8 w-8 text-green-500 hover:text-green-600 hover:bg-green-50" onClick={() => handleOpenAddTopic(brain.id)}>
+                    <Plus size={16} />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => handleDelete(brain.id)}>
                     <Trash2 size={14} />
                   </Button>
                 </div>
@@ -412,6 +461,44 @@ export default function AIBrainPage() {
           </div>
         </motion.div>
       )}
+
+      {/* Add Topic Modal */}
+      <Dialog open={topicModalOpen} onOpenChange={setTopicModalOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus size={18} className="text-green-500" />
+              Add Specific Topic to AI Brain
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Topic Name (e.g., Refund Policy, Pricing)</Label>
+              <Input 
+                placeholder="Topic name" 
+                value={topicTitle}
+                onChange={(e) => setTopicTitle(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Topic Details</Label>
+              <Textarea 
+                placeholder="Enter all details about this topic for the AI to learn..." 
+                rows={6}
+                value={topicContent}
+                onChange={(e) => setTopicContent(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTopicModalOpen(false)}>Cancel</Button>
+            <Button onClick={handleSaveTopic} disabled={addingTopic} className="bg-green-600 hover:bg-green-700">
+              {addingTopic ? <Loader2 size={16} className="animate-spin mr-2" /> : <Save size={16} className="mr-2" />}
+              Save & Train AI
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
