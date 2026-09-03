@@ -19,7 +19,16 @@ const POSITIONS = {
   marketing: { x: 83, y: 55 },     // Woman in pink at coffee machine
 };
 
-type Packet = { id: string; from: {x:number, y:number}; color: string; message: string };
+const HUMAN_POSITIONS = {
+  manager: { x: 92, y: 45 },      // Far right back, guy on phone
+  support: { x: 20, y: 70 },      // Far left woman
+  research: { x: 35, y: 35 },     // Back left corner
+  analytics: { x: 65, y: 65 },    // Center right back man
+  operation: { x: 45, y: 75 },    // Center left man blue shirt
+  marketing: { x: 85, y: 80 },    // Far right front woman
+};
+
+type Packet = { id: string; fromRole: string; color: string; message: string };
 
 export default function VirtualOfficePage() {
   const [supportMsg, setSupportMsg] = useState("");
@@ -39,13 +48,13 @@ export default function VirtualOfficePage() {
   const [isApiModalOpen, setIsApiModalOpen] = useState(false);
   const [videoStyle, setVideoStyle] = useState<"cartoon" | "human">("cartoon");
 
-  const spawnPacket = (role: string, pos: {x:number, y:number}, color: string, finalMessage: string) => {
+  const spawnPacket = (role: string, color: string, finalMessage: string) => {
     setActiveSenders(prev => ({ ...prev, [role]: true }));
     
     // Simulate thinking/working for 1.5s before sending
     setTimeout(() => {
       const packetId = Math.random().toString();
-      setPackets(prev => [...prev, { id: packetId, from: pos, color, message: finalMessage }]);
+      setPackets(prev => [...prev, { id: packetId, fromRole: role, color, message: finalMessage }]);
     }, 1500);
   };
 
@@ -95,35 +104,35 @@ export default function VirtualOfficePage() {
         timers.push(setTimeout(() => {
           if (!isMounted) return;
           setMarketingMsg("Fetching active campaigns...");
-          spawnPacket("marketing", POSITIONS.marketing, "bg-emerald-500", `Managing leads for: ${companyName}`);
+          spawnPacket("marketing", "bg-emerald-500", `Managing leads for: ${companyName}`);
         }, 2000));
 
         // 2. Support Agent
         timers.push(setTimeout(() => {
           if (!isMounted) return;
           setSupportMsg("Scanning Support Inbox...");
-          spawnPacket("support", POSITIONS.support, "bg-blue-500", "0 Pending Tickets. Inbox Zero!");
+          spawnPacket("support", "bg-blue-500", "0 Pending Tickets. Inbox Zero!");
         }, 10000));
 
         // 3. Analytics Agent
         timers.push(setTimeout(() => {
           if (!isMounted) return;
           setAnalyticsMsg("Verifying Token Usage...");
-          spawnPacket("analytics", POSITIONS.analytics, "bg-purple-500", `Tokens Remaining: ${tokens.toLocaleString()}`);
+          spawnPacket("analytics", "bg-purple-500", `Tokens Remaining: ${tokens.toLocaleString()}`);
         }, 18000));
 
         // 4. Research Agent
         timers.push(setTimeout(() => {
           if (!isMounted) return;
           setResearchMsg("Analyzing AI Knowledge Base...");
-          spawnPacket("research", POSITIONS.research, "bg-yellow-500", `Brain Size: ${contextLength} characters learned`);
+          spawnPacket("research", "bg-yellow-500", `Brain Size: ${contextLength} characters learned`);
         }, 25000));
 
         // 5. Operation Agent
         timers.push(setTimeout(() => {
           if (!isMounted) return;
           setOperationMsg("Checking Internal Systems...");
-          spawnPacket("operation", POSITIONS.operation, "bg-orange-500", `Leadzo API: ${isApiActive ? "CONNECTED" : "OFFLINE"}`);
+          spawnPacket("operation", "bg-orange-500", `Leadzo API: ${isApiActive ? "CONNECTED" : "OFFLINE"}`);
         }, 32000));
 
       } catch (e) {
@@ -186,6 +195,8 @@ export default function VirtualOfficePage() {
       setIsRingingPhone(false);
     }
   };
+
+  const currentPositions = videoStyle === "human" ? HUMAN_POSITIONS : POSITIONS;
 
   return (
     <div className="flex flex-col w-full h-full animate-in fade-in zoom-in duration-500">
@@ -271,8 +282,9 @@ export default function VirtualOfficePage() {
             id="agent-manager"
             name="You (Manager Agent)"
             role="manager"
-            position={POSITIONS.manager}
+            position={currentPositions.manager}
             statusMessage={managerMsg || "Reviewing Analytics..."}
+            videoStyle={videoStyle}
           />
           
           {/* Support */}
@@ -280,9 +292,10 @@ export default function VirtualOfficePage() {
             id="agent-support"
             name="Support Agent"
             role="support"
-            position={POSITIONS.support}
+            position={currentPositions.support}
             statusMessage={supportMsg}
             isSending={activeSenders["support"]}
+            videoStyle={videoStyle}
           />
 
           {/* Research */}
@@ -290,9 +303,10 @@ export default function VirtualOfficePage() {
             id="agent-research"
             name="Research Agent"
             role="research"
-            position={POSITIONS.research}
+            position={currentPositions.research}
             statusMessage={researchMsg}
             isSending={activeSenders["research"]}
+            videoStyle={videoStyle}
           />
           
           {/* Analytics */}
@@ -300,9 +314,10 @@ export default function VirtualOfficePage() {
             id="agent-analytics"
             name="Analytics Agent"
             role="analytics"
-            position={POSITIONS.analytics}
+            position={currentPositions.analytics}
             statusMessage={analyticsMsg}
             isSending={activeSenders["analytics"]}
+            videoStyle={videoStyle}
           />
 
           {/* Operation */}
@@ -310,9 +325,10 @@ export default function VirtualOfficePage() {
             id="agent-operation"
             name="Operation Agent"
             role="operation"
-            position={POSITIONS.operation}
+            position={currentPositions.operation}
             statusMessage={operationMsg}
             isSending={activeSenders["operation"]}
+            videoStyle={videoStyle}
           />
           
           {/* Marketing & Sales */}
@@ -320,19 +336,20 @@ export default function VirtualOfficePage() {
             id="agent-marketing"
             name="Marketing & Sales Agent"
             role="marketing"
-            position={POSITIONS.marketing}
+            position={currentPositions.marketing}
             statusMessage={marketingMsg}
             isSending={activeSenders["marketing"]}
+            videoStyle={videoStyle}
           />
 
           {/* Flying Data Packets */}
           {packets.map(p => (
             <DataPacket 
               key={p.id}
-              startPos={p.from}
-              endPos={POSITIONS.manager}
+              startPos={currentPositions[p.fromRole as keyof typeof currentPositions]}
+              endPos={currentPositions.manager}
               color={p.color}
-              onComplete={() => handlePacketComplete(p.id, Object.keys(POSITIONS).find(k => POSITIONS[k as keyof typeof POSITIONS] === p.from) || "", p.message)}
+              onComplete={() => handlePacketComplete(p.id, p.fromRole, p.message)}
             />
           ))}
         </OfficeMap>
