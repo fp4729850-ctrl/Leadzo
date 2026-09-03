@@ -10,10 +10,12 @@ import { supabase } from "@/lib/supabase";
 
 // Exact coordinates mapped to the characters in the generated 3D image (percentages)
 const POSITIONS = {
-  boss: { x: 50, y: 15 },       // Boss in cabin
-  support: { x: 23, y: 55 },    // Left guy (Support)
-  marketing: { x: 80, y: 55 },  // Right woman (Marketing)
-  analyst: { x: 50, y: 80 },    // Bottom center guy (Analyst)
+  manager: { x: 50, y: 15 },       // Boss in cabin
+  support: { x: 23, y: 55 },       // Left woman
+  research: { x: 10, y: 35 },      // Empty space on the far left
+  analytics: { x: 50, y: 80 },     // Bottom center guy
+  operation: { x: 67, y: 48 },     // Guy in blue at coffee machine
+  marketing: { x: 83, y: 55 },     // Woman in pink at coffee machine
 };
 
 type Packet = { id: string; from: {x:number, y:number}; color: string; message: string };
@@ -21,8 +23,10 @@ type Packet = { id: string; from: {x:number, y:number}; color: string; message: 
 export default function VirtualOfficePage() {
   const [supportMsg, setSupportMsg] = useState("");
   const [marketingMsg, setMarketingMsg] = useState("");
-  const [analystMsg, setAnalystMsg] = useState("");
-  const [bossMsg, setBossMsg] = useState("");
+  const [analyticsMsg, setAnalyticsMsg] = useState("");
+  const [managerMsg, setManagerMsg] = useState("");
+  const [operationMsg, setOperationMsg] = useState("");
+  const [researchMsg, setResearchMsg] = useState("");
 
   const [activeSenders, setActiveSenders] = useState<Record<string, boolean>>({});
   const [packets, setPackets] = useState<Packet[]>([]);
@@ -47,12 +51,12 @@ export default function VirtualOfficePage() {
     setPackets(prev => prev.filter(p => p.id !== packetId));
     setActiveSenders(prev => ({ ...prev, [role]: false }));
     
-    // Show message over Boss
-    setBossMsg(`Received: ${message}`);
+    // Show message over Manager
+    setManagerMsg(`Received: ${message}`);
     
-    // Clear boss message after a while
+    // Clear manager message after a while
     setTimeout(() => {
-      setBossMsg("");
+      setManagerMsg("");
     }, 4000);
   };
 
@@ -70,22 +74,36 @@ export default function VirtualOfficePage() {
       spawnPacket("support", POSITIONS.support, "bg-blue-500", "5 Tickets Resolved.");
     }, 10000);
 
-    // 3. Analyst Agent sends report
+    // 3. Analytics Agent sends report
     const timer3 = setTimeout(() => {
-      setAnalystMsg("Sending Data Pipeline update...");
-      spawnPacket("analyst", POSITIONS.analyst, "bg-purple-500", "Pipeline speed +20%");
+      setAnalyticsMsg("Sending Data Pipeline update...");
+      spawnPacket("analytics", POSITIONS.analytics, "bg-purple-500", "Pipeline speed +20%");
     }, 18000);
+
+    // 4. Research Agent sends report
+    const timer4 = setTimeout(() => {
+      setResearchMsg("Analyzing Market Trends...");
+      spawnPacket("research", POSITIONS.research, "bg-yellow-500", "New Trend Detected!");
+    }, 25000);
+
+    // 5. Operation Agent sends report
+    const timer5 = setTimeout(() => {
+      setOperationMsg("System check complete...");
+      spawnPacket("operation", POSITIONS.operation, "bg-orange-500", "All Systems GO!");
+    }, 32000);
 
     return () => {
       clearTimeout(timer1);
       clearTimeout(timer2);
       clearTimeout(timer3);
+      clearTimeout(timer4);
+      clearTimeout(timer5);
     };
   }, []);
 
   const handleCallManager = () => {
     setIsCalling(true);
-    setBossMsg("Receiving incoming call...");
+    setManagerMsg("Receiving incoming call...");
     
     // Wait for 3 seconds for the manager in the video to pick up the phone
     // Then open the live Vapi AI call modal
@@ -97,12 +115,12 @@ export default function VirtualOfficePage() {
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setIsCalling(false);
-    setBossMsg("");
+    setManagerMsg("");
   };
 
   const handleRingPhone = async () => {
     setIsRingingPhone(true);
-    setBossMsg("Ringing my physical phone...");
+    setManagerMsg("Ringing my physical phone...");
     
     // Simulate some logic in UI then call Edge function
     try {
@@ -111,10 +129,10 @@ export default function VirtualOfficePage() {
       toast.success("Manager is calling your phone now!");
     } catch (e: any) {
       toast.error(e.message || "Failed to initiate outbound call");
-      setBossMsg("Call failed.");
+      setManagerMsg("Call failed.");
     } finally {
       setIsRingingPhone(false);
-      setTimeout(() => setBossMsg(""), 3000);
+      setTimeout(() => setManagerMsg(""), 3000);
     }
   };
 
@@ -167,39 +185,59 @@ export default function VirtualOfficePage() {
       {/* The Office Map Container */}
       <div className="w-full max-w-6xl mx-auto flex-1 flex flex-col justify-center">
         <OfficeMap isCalling={isCalling}>
-          {/* Boss */}
+          {/* Manager (Boss) */}
           <AgentAvatar
-            id="agent-boss"
-            name="You (Boss)"
-            role="boss"
-            position={POSITIONS.boss}
-            statusMessage={bossMsg || "Reviewing Analytics..."}
+            id="agent-manager"
+            name="You (Manager Agent)"
+            role="manager"
+            position={POSITIONS.manager}
+            statusMessage={managerMsg || "Reviewing Analytics..."}
           />
           
           {/* Support */}
           <AgentAvatar
             id="agent-support"
-            name="Support Bot"
+            name="Support Agent"
             role="support"
             position={POSITIONS.support}
             statusMessage={supportMsg}
             isSending={activeSenders["support"]}
           />
-          
-          {/* Analyst */}
+
+          {/* Research */}
           <AgentAvatar
-            id="agent-analyst"
-            name="Data Analyst"
-            role="analyst"
-            position={POSITIONS.analyst}
-            statusMessage={analystMsg}
-            isSending={activeSenders["analyst"]}
+            id="agent-research"
+            name="Research Agent"
+            role="research"
+            position={POSITIONS.research}
+            statusMessage={researchMsg}
+            isSending={activeSenders["research"]}
           />
           
-          {/* Marketing */}
+          {/* Analytics */}
+          <AgentAvatar
+            id="agent-analytics"
+            name="Analytics Agent"
+            role="analytics"
+            position={POSITIONS.analytics}
+            statusMessage={analyticsMsg}
+            isSending={activeSenders["analytics"]}
+          />
+
+          {/* Operation */}
+          <AgentAvatar
+            id="agent-operation"
+            name="Operation Agent"
+            role="operation"
+            position={POSITIONS.operation}
+            statusMessage={operationMsg}
+            isSending={activeSenders["operation"]}
+          />
+          
+          {/* Marketing & Sales */}
           <AgentAvatar
             id="agent-marketing"
-            name="Marketing Bot"
+            name="Marketing & Sales Agent"
             role="marketing"
             position={POSITIONS.marketing}
             statusMessage={marketingMsg}
@@ -211,7 +249,7 @@ export default function VirtualOfficePage() {
             <DataPacket 
               key={p.id}
               startPos={p.from}
-              endPos={POSITIONS.boss}
+              endPos={POSITIONS.manager}
               color={p.color}
               onComplete={() => handlePacketComplete(p.id, Object.keys(POSITIONS).find(k => POSITIONS[k as keyof typeof POSITIONS] === p.from) || "", p.message)}
             />

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Send } from "lucide-react";
 
-export type AgentRole = "support" | "marketing" | "analyst" | "boss";
+export type AgentRole = "support" | "marketing" | "analytics" | "manager" | "operation" | "research" | "boss";
 
 interface AgentAvatarProps {
   id: string;
