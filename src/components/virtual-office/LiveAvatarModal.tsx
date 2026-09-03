@@ -90,12 +90,7 @@ export function LiveAvatarModal({ isOpen, onClose, roleName = "AI Manager" }: Li
   useEffect(() => {
     const onCallStart = () => setCallStatus("active");
     const onCallEnd = () => {
-      setCallStatus((prev) => {
-        if (prev !== "error") {
-          onClose();
-        }
-        return prev === "error" ? "error" : "idle";
-      });
+      setCallStatus((prev) => (prev === "error" ? "error" : "idle"));
     };
     const onVolumeLevel = (volume: number) => setVolumeLevel(volume);
     const onError = (e: any) => {
