@@ -109,12 +109,14 @@ export function LiveAvatarModal({ isOpen, onClose, roleName = "AI Manager" }: Li
   useEffect(() => {
     const onCallStart = () => setCallStatus("active");
     const onCallEnd = () => {
-      setCallStatus((prev) => (prev === "error" ? "error" : "idle"));
+      console.log("Vapi call ended");
+      if (simliClientRef.current) simliClientRef.current.close();
+      onClose();
     };
     const onVolumeLevel = (volume: number) => setVolumeLevel(volume);
     const onError = (e: any) => {
       console.error("Vapi Error:", e);
-      setCallStatus("error");
+      setCallStatus((prev) => (prev === "loading" ? "error" : prev));
     };
 
     const onVapiAudio = (player: HTMLAudioElement) => {
