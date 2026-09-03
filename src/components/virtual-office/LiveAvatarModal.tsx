@@ -26,6 +26,7 @@ export function LiveAvatarModal({ isOpen, onClose, roleName = "AI Manager" }: Li
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const simliClientRef = useRef<SimliClient | null>(null);
+  const vapiAudioPlayerRef = useRef<HTMLAudioElement | null>(null);
 
   const user = useQuery(api.users.getCurrentUser, {});
   const metrics = useQuery(api.adCampaigns.getDashboardMetrics);
@@ -73,6 +74,14 @@ export function LiveAvatarModal({ isOpen, onClose, roleName = "AI Manager" }: Li
         
         await simliClientRef.current.start();
         console.log("Simli started");
+
+        // If Vapi audio is already available (race condition), attach it now
+        const player = vapiAudioPlayerRef.current || vapi.getAudioPlayer();
+        if (player) {
+          console.log("Attaching Vapi audio to Simli (after Simli init)");
+          simliClientRef.current.listenToAudioElement(player);
+        }
+        
       } catch (e) {
         console.error("Simli initialization failed", e);
       }
@@ -99,8 +108,10 @@ export function LiveAvatarModal({ isOpen, onClose, roleName = "AI Manager" }: Li
     };
 
     const onVapiAudio = (player: HTMLAudioElement) => {
+      console.log("Vapi audio event received");
+      vapiAudioPlayerRef.current = player;
       if (simliClientRef.current) {
-        console.log("Attaching Vapi audio to Simli");
+        console.log("Attaching Vapi audio to Simli (on event)");
         simliClientRef.current.listenToAudioElement(player);
       }
     };
