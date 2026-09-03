@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import Vapi from "@vapi-ai/web";
 import { Mic, PhoneOff, Loader2 } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useQuery } from "@/lib/convex-supabase-adapter";
 import { api } from "@/convex/_generated/api.js";
 import { supabase } from "@/lib/supabase";
@@ -91,11 +90,18 @@ export function LiveAvatarModal({ isOpen, onClose, roleName = "AI Manager" }: Li
   useEffect(() => {
     const onCallStart = () => setCallStatus("active");
     const onCallEnd = () => {
-      setCallStatus("idle");
-      onClose();
+      setCallStatus((prev) => {
+        if (prev !== "error") {
+          onClose();
+        }
+        return prev === "error" ? "error" : "idle";
+      });
     };
     const onVolumeLevel = (volume: number) => setVolumeLevel(volume);
-    const onError = (e: any) => setCallStatus("error");
+    const onError = (e: any) => {
+      console.error("Vapi Error:", e);
+      setCallStatus("error");
+    };
 
     const onVapiAudio = (player: HTMLAudioElement) => {
       if (simliClientRef.current) {
@@ -153,59 +159,59 @@ REAL-TIME COMPANY DATA: ${JSON.stringify(metrics || {}, null, 2)}`;
     onClose();
   };
 
+  if (!isOpen) return null;
+
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && handleEndCall()}>
-      <DialogContent className="sm:max-w-2xl bg-slate-900 border-slate-800 text-white shadow-2xl p-0 overflow-hidden">
-        <DialogHeader className="sr-only">
-          <DialogTitle>Live AI Avatar Call</DialogTitle>
-          <DialogDescription>A live video call with your AI agent.</DialogDescription>
-        </DialogHeader>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
+      <div className="relative w-full max-w-4xl aspect-video bg-black rounded-2xl shadow-2xl overflow-hidden border border-slate-700">
         
-        <div className="relative w-full aspect-video bg-black flex items-center justify-center overflow-hidden">
-          {/* Simli Video Output */}
-          <video 
-            ref={videoRef} 
-            className="w-full h-full object-cover z-10" 
-            autoPlay 
-            playsInline
-            muted
-          />
-          <audio ref={audioRef} autoPlay />
+        {/* Simli Video Output */}
+        <video 
+          ref={videoRef} 
+          className="w-full h-full object-cover z-10" 
+          autoPlay 
+          playsInline
+          muted
+        />
+        <audio ref={audioRef} autoPlay />
 
-          {/* Overlay UI */}
-          <div className="absolute top-4 left-4 z-20 flex flex-col gap-1">
-             <div className="bg-slate-900/80 backdrop-blur px-3 py-1.5 rounded text-sm font-semibold flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                Live: {roleName}
-             </div>
-             {callStatus === "loading" && (
-                <div className="bg-slate-900/80 backdrop-blur px-3 py-1 text-xs text-blue-400 rounded flex items-center gap-2">
-                   <Loader2 className="w-3 h-3 animate-spin" /> Connecting to Brain...
-                </div>
-             )}
-          </div>
-          
-          <div className="absolute bottom-4 z-20 left-1/2 transform -translate-x-1/2 flex items-center gap-4">
-            <div className="relative">
-              <div 
-                className="absolute inset-0 bg-emerald-500/30 rounded-full transition-all duration-75"
-                style={{ transform: `scale(${1 + volumeLevel * 2})` }}
-              />
-              <div className="relative z-10 w-12 h-12 bg-slate-800 rounded-full border border-emerald-500/50 flex items-center justify-center">
-                <Mic className="w-5 h-5 text-emerald-400" />
+        {/* Overlay UI */}
+        <div className="absolute top-4 left-4 z-20 flex flex-col gap-1">
+           <div className="bg-slate-900/80 backdrop-blur px-3 py-1.5 rounded text-sm font-semibold flex items-center gap-2 text-white">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              Live: {roleName}
+           </div>
+           {callStatus === "loading" && (
+              <div className="bg-slate-900/80 backdrop-blur px-3 py-1 text-xs text-blue-400 rounded flex items-center gap-2">
+                 <Loader2 className="w-3 h-3 animate-spin" /> Connecting to Brain...
               </div>
-            </div>
-
-            <button
-              onClick={handleEndCall}
-              className="w-12 h-12 flex items-center justify-center bg-red-500 hover:bg-red-600 rounded-full font-semibold transition-all shadow-lg"
-            >
-              <PhoneOff size={20} />
-            </button>
-          </div>
+           )}
+           {callStatus === "error" && (
+              <div className="bg-red-900/80 backdrop-blur px-3 py-1 text-xs text-red-200 rounded flex items-center gap-2">
+                 Connection Failed. Check API Keys.
+              </div>
+           )}
         </div>
         
-      </DialogContent>
-    </Dialog>
+        <div className="absolute bottom-6 z-20 left-1/2 transform -translate-x-1/2 flex items-center gap-6">
+          <div className="relative">
+            <div 
+              className="absolute inset-0 bg-emerald-500/30 rounded-full transition-all duration-75"
+              style={{ transform: `scale(${1 + volumeLevel * 2})` }}
+            />
+            <div className="relative z-10 w-14 h-14 bg-slate-800 rounded-full border border-emerald-500/50 flex items-center justify-center">
+              <Mic className="w-6 h-6 text-emerald-400" />
+            </div>
+          </div>
+
+          <button
+            onClick={handleEndCall}
+            className="w-14 h-14 flex items-center justify-center bg-red-500 hover:bg-red-600 text-white rounded-full font-semibold transition-all shadow-lg"
+          >
+            <PhoneOff size={24} />
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
