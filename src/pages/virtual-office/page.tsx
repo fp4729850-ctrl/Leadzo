@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { OfficeMap } from "@/components/virtual-office/OfficeMap";
 import { AgentAvatar } from "@/components/virtual-office/AgentAvatar";
 import { DataPacket } from "@/components/virtual-office/DataPacket";
-import { ManagerCallModal } from "@/components/virtual-office/ManagerCallModal";
+import { LiveAvatarModal } from "@/components/virtual-office/LiveAvatarModal";
 import { OutboundCallModal } from "@/components/virtual-office/OutboundCallModal";
 import { ApiIntegrationsModal } from "@/components/virtual-office/ApiIntegrationsModal";
 import { PhoneCall, PhoneForwarded } from "lucide-react";
@@ -45,6 +45,7 @@ export default function VirtualOfficePage() {
   const [isRingingPhone, setIsRingingPhone] = useState(false);
   const [isOutboundConnected, setIsOutboundConnected] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [activeLiveRole, setActiveLiveRole] = useState("AI Manager");
   const [isApiModalOpen, setIsApiModalOpen] = useState(false);
   const [videoStyle, setVideoStyle] = useState<"cartoon" | "human">("cartoon");
 
@@ -155,6 +156,7 @@ export default function VirtualOfficePage() {
     // Wait for 3 seconds for the manager in the video to pick up the phone
     // Then open the live Vapi AI call modal
     setTimeout(() => {
+      setActiveLiveRole("Manager");
       setIsModalOpen(true);
     }, 3000);
   };
@@ -200,7 +202,7 @@ export default function VirtualOfficePage() {
 
   return (
     <div className="flex flex-col w-full h-full animate-in fade-in zoom-in duration-500">
-      <ManagerCallModal isOpen={isModalOpen} onClose={handleCloseModal} />
+      <LiveAvatarModal isOpen={isModalOpen} onClose={handleCloseModal} roleName={activeLiveRole} />
       <OutboundCallModal 
         isOpen={isOutboundConnected} 
         onClose={() => { 
@@ -285,6 +287,7 @@ export default function VirtualOfficePage() {
             position={currentPositions.manager}
             statusMessage={managerMsg || "Reviewing Analytics..."}
             videoStyle={videoStyle}
+            onStartLiveCall={(roleName) => { setActiveLiveRole(roleName); setIsModalOpen(true); }}
           />
           
           {/* Support */}
@@ -296,6 +299,7 @@ export default function VirtualOfficePage() {
             statusMessage={supportMsg}
             isSending={activeSenders["support"]}
             videoStyle={videoStyle}
+            onStartLiveCall={(roleName) => { setActiveLiveRole(roleName); setIsModalOpen(true); }}
           />
 
           {/* Research */}
@@ -307,6 +311,7 @@ export default function VirtualOfficePage() {
             statusMessage={researchMsg}
             isSending={activeSenders["research"]}
             videoStyle={videoStyle}
+            onStartLiveCall={(roleName) => { setActiveLiveRole(roleName); setIsModalOpen(true); }}
           />
           
           {/* Analytics */}
@@ -318,6 +323,7 @@ export default function VirtualOfficePage() {
             statusMessage={analyticsMsg}
             isSending={activeSenders["analytics"]}
             videoStyle={videoStyle}
+            onStartLiveCall={(roleName) => { setActiveLiveRole(roleName); setIsModalOpen(true); }}
           />
 
           {/* Operation */}
@@ -329,6 +335,7 @@ export default function VirtualOfficePage() {
             statusMessage={operationMsg}
             isSending={activeSenders["operation"]}
             videoStyle={videoStyle}
+            onStartLiveCall={(roleName) => { setActiveLiveRole(roleName); setIsModalOpen(true); }}
           />
           
           {/* Marketing & Sales */}
@@ -340,6 +347,7 @@ export default function VirtualOfficePage() {
             statusMessage={marketingMsg}
             isSending={activeSenders["marketing"]}
             videoStyle={videoStyle}
+            onStartLiveCall={(roleName) => { setActiveLiveRole(roleName); setIsModalOpen(true); }}
           />
 
           {/* Flying Data Packets */}
