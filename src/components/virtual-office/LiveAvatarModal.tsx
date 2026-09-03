@@ -7,8 +7,8 @@ import { api } from "@/convex/_generated/api.js";
 import { supabase } from "@/lib/supabase";
 import { SimliClient, generateSimliSessionToken, generateIceServers } from 'simli-client';
 
-const VAPI_PUBLIC_KEY = import.meta.env.VITE_VAPI_PUBLIC_KEY || "dummy-public-key"; 
-const ASSISTANT_ID = import.meta.env.VITE_VAPI_MANAGER_ASSISTANT_ID || "dummy-assistant-id";
+const VAPI_PUBLIC_KEY = import.meta.env.VITE_VAPI_PUBLIC_KEY || "30cfacb0-68ad-49ec-82e5-3b0637432f0b"; 
+const ASSISTANT_ID = import.meta.env.VITE_VAPI_MANAGER_ASSISTANT_ID || "c72d5615-bd69-4776-bd5d-d3ded56e1687";
 // Hardcode the Simli key provided by user for this demo
 const SIMLI_API_KEY = "lw5do5bbhd3jn1yg972q";
 
