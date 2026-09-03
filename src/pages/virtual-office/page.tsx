@@ -37,6 +37,7 @@ export default function VirtualOfficePage() {
   const [isOutboundConnected, setIsOutboundConnected] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isApiModalOpen, setIsApiModalOpen] = useState(false);
+  const [videoStyle, setVideoStyle] = useState<"cartoon" | "human">("cartoon");
 
   const spawnPacket = (role: string, pos: {x:number, y:number}, color: string, finalMessage: string) => {
     setActiveSenders(prev => ({ ...prev, [role]: true }));
@@ -209,6 +210,29 @@ export default function VirtualOfficePage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200">
+            <button
+              onClick={() => setVideoStyle("cartoon")}
+              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${
+                videoStyle === "cartoon" 
+                  ? "bg-white text-indigo-600 shadow-sm" 
+                  : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              Cartoon Agent
+            </button>
+            <button
+              onClick={() => setVideoStyle("human")}
+              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${
+                videoStyle === "human" 
+                  ? "bg-white text-indigo-600 shadow-sm" 
+                  : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              Real Human
+            </button>
+          </div>
+
           <button 
             onClick={() => setIsApiModalOpen(true)}
             className="flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 transition-all shadow-sm"
@@ -241,7 +265,7 @@ export default function VirtualOfficePage() {
       </div>
 
       <div className="w-full max-w-6xl mx-auto flex-1 flex flex-col justify-center">
-        <OfficeMap isCalling={isCalling || isRingingPhone || isOutboundConnected}>
+        <OfficeMap isCalling={isCalling || isRingingPhone || isOutboundConnected} videoStyle={videoStyle}>
           {/* Manager (Boss) */}
           <AgentAvatar
             id="agent-manager"
