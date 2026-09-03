@@ -80,6 +80,7 @@ export function LiveAvatarModal({ isOpen, onClose, roleName = "AI Manager" }: Li
         const player = vapiAudioPlayerRef.current || vapi.getAudioPlayer();
         if (player) {
           console.log("Attaching Vapi audio to Simli (after Simli init)");
+          player.muted = true; // Mute Vapi player to prevent echo
           const stream = player.srcObject as MediaStream;
           if (stream && stream.getAudioTracks().length > 0) {
             simliClientRef.current.listenToMediastreamTrack(stream.getAudioTracks()[0]);
@@ -115,6 +116,7 @@ export function LiveAvatarModal({ isOpen, onClose, roleName = "AI Manager" }: Li
 
     const onVapiAudio = (player: HTMLAudioElement) => {
       console.log("Vapi audio event received");
+      player.muted = true; // Mute Vapi player to prevent echo
       vapiAudioPlayerRef.current = player;
       if (simliClientRef.current) {
         console.log("Attaching Vapi audio to Simli (on event)");
