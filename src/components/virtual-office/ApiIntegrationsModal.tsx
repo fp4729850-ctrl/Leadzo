@@ -50,6 +50,7 @@ export function ApiIntegrationsModal({ isOpen, onClose }: { isOpen: boolean; onC
   const [availableTwilioNumbers, setAvailableTwilioNumbers] = useState<any[]>([]);
   const [isLoadingTwilioNumbers, setIsLoadingTwilioNumbers] = useState(false);
   const [buyingTwilioNumber, setBuyingTwilioNumber] = useState<string | null>(null);
+  const [twilioCountry, setTwilioCountry] = useState("US");
 
   const fetchIntegrations = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -265,7 +266,7 @@ export function ApiIntegrationsModal({ isOpen, onClose }: { isOpen: boolean; onC
   const handleFetchTwilioNumbers = async () => {
     try {
       setIsLoadingTwilioNumbers(true);
-      const { data, error } = await supabase.functions.invoke('twilio_phone_numbers', {
+      const { data, error } = await supabase.functions.invoke(`twilio_phone_numbers?country=${twilioCountry}`, {
         method: 'GET'
       });
       if (error) throw error;
@@ -498,6 +499,16 @@ export function ApiIntegrationsModal({ isOpen, onClose }: { isOpen: boolean; onC
                 {/* Vapi/Twilio Numbers Fetch/Buy UI */}
                 <div className="mt-4 pt-4 border-t border-slate-200">
                   <div className="flex gap-2 mb-3">
+                    <select 
+                      value={twilioCountry}
+                      onChange={(e) => setTwilioCountry(e.target.value)}
+                      className="px-2 py-1.5 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs text-slate-900 bg-white min-w-[70px]"
+                    >
+                      <option value="US">US (+1)</option>
+                      <option value="IN">IN (+91)</option>
+                      <option value="GB">UK (+44)</option>
+                      <option value="AU">AU (+61)</option>
+                    </select>
                     <button 
                       onClick={handleFetchTwilioNumbers}
                       disabled={isLoadingTwilioNumbers}
