@@ -521,16 +521,16 @@ export function ApiIntegrationsModal({ isOpen, onClose }: { isOpen: boolean; onC
                       <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-2">Available to Buy</div>
                       {availableTwilioNumbers.map(num => (
                         <div 
-                          key={num.phoneNumber} 
+                          key={num.phone_number} 
                           className="flex justify-between items-center p-2 rounded-md border bg-white border-slate-200 text-slate-600"
                         >
-                          <span className="text-sm font-medium">{num.friendlyName}</span>
+                          <span className="text-sm font-medium">{num.friendly_name}</span>
                           <button
-                            onClick={() => handleBuyTwilioNumber(num.phoneNumber)}
-                            disabled={buyingTwilioNumber === num.phoneNumber}
+                            onClick={() => handleBuyTwilioNumber(num.phone_number)}
+                            disabled={buyingTwilioNumber === num.phone_number}
                             className="px-2 py-1 bg-emerald-500 hover:bg-emerald-600 text-white rounded text-xs font-medium flex items-center gap-1 transition-colors disabled:opacity-50"
                           >
-                            {buyingTwilioNumber === num.phoneNumber && <Loader2 size={10} className="animate-spin" />}
+                            {buyingTwilioNumber === num.phone_number && <Loader2 size={10} className="animate-spin" />}
                             Buy & Import
                           </button>
                         </div>
