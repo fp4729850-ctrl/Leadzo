@@ -221,24 +221,7 @@ REAL-TIME COMPANY DATA: ${JSON.stringify(metrics || {}, null, 2)}`;
            )}
         </div>
         
-        <div className="absolute bottom-6 z-20 left-1/2 transform -translate-x-1/2 flex items-center gap-6">
-          <div className="relative">
-            <div 
-              className="absolute inset-0 bg-emerald-500/30 rounded-full transition-all duration-75"
-              style={{ transform: `scale(${1 + volumeLevel * 2})` }}
-            />
-            <div className="relative z-10 w-14 h-14 bg-slate-800 rounded-full border border-emerald-500/50 flex items-center justify-center">
-              <Mic className="w-6 h-6 text-emerald-400" />
-            </div>
-          </div>
 
-          <button
-            onClick={handleEndCall}
-            className="w-14 h-14 flex items-center justify-center bg-red-500 hover:bg-red-600 text-white rounded-full font-semibold transition-all shadow-lg"
-          >
-            <PhoneOff size={24} />
-          </button>
-        </div>
       </div>
     </div>,
     document.body
