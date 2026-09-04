@@ -49,7 +49,8 @@ serve(async (req) => {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          provider: "vapi"
+          provider: "vapi",
+          numberDesiredAreaCode: "575"
         })
       });
 

@@ -21,8 +21,11 @@ serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } }
     );
     
-    const { data: { user } } = await supabaseClient.auth.getUser();
-    if (!user) throw new Error("Unauthorized");
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
+    if (authError || !user) {
+      throw new Error(`Auth Error: ${authError?.message || 'User not found'}. URL exists: ${!!Deno.env.get('SUPABASE_URL')}`);
+    }
 
     // Fetch user phone
     const { data: userData } = await supabaseClient.from('users').select('phone').eq('id', user.id).single();
@@ -61,11 +64,54 @@ serve(async (req) => {
         },
         assistantId: assistantId,
         assistantOverrides: {
+          firstMessage: `Hello Boss! I have the latest updates from the marketing team and data analysis for ${businessData.company_name || 'your company'}. What would you like to discuss?`,
           model: {
+            provider: "openai",
+            model: "gpt-4o",
+            tools: [
+              {
+                type: "function",
+                function: {
+                  name: "get_marketing_metrics",
+                  description: "Fetch real-time Facebook/Meta Ads campaign metrics.",
+                  parameters: { type: "object", properties: {} }
+                }
+              },
+              {
+                type: "function",
+                function: {
+                  name: "get_revenue_data",
+                  description: "Fetch real-time Razorpay revenue and sales data.",
+                  parameters: { type: "object", properties: {} }
+                }
+              },
+              {
+                type: "function",
+                function: {
+                  name: "get_support_tickets",
+                  description: "Fetch the number of open and resolved customer support tickets.",
+                  parameters: { type: "object", properties: {} }
+                }
+              },
+              {
+                type: "function",
+                function: {
+                  name: "get_api_balances",
+                  description: "Fetch the remaining API credits for Vapi, OpenAI, Gemini and Ad Campaign budgets.",
+                  parameters: { type: "object", properties: {} }
+                }
+              }
+            ],
             messages: [
               {
                 role: "system",
-                content: `You are an AI Manager for ${businessData.company_name || 'a company'}. Here is your knowledge base and instructions:\n\n${businessData.business_details || 'Be helpful and polite.'}`
+                content: `You are the AI Manager for ${businessData.company_name || 'Leadzo'}. You are taking a phone call from your boss (the user). 
+You must discuss company data analysis, marketing metrics, and whatever the marketing team has reported. Always respond professionally and wait for the boss to ask before giving detailed reports.
+
+YOUR COMPANY BRAIN:
+${businessData.business_details || ''}
+
+If the boss asks for live data (like marketing metrics or revenue), you MUST use the appropriate function tool to fetch it on their behalf before answering.`
               }
             ]
           }

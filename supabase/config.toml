@@ -555,3 +555,25 @@ entrypoint = "./functions/leadzo_internal_api/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/leadzo_internal_api/*.html" ]
+
+[functions.vapi_phone_numbers]
+enabled = true
+verify_jwt = false
+import_map = "./functions/vapi_phone_numbers/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/vapi_phone_numbers/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/vapi_phone_numbers/*.html" ]
+
+[functions.twilio_phone_numbers]
+enabled = true
+verify_jwt = false
+import_map = "./functions/twilio_phone_numbers/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/twilio_phone_numbers/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/twilio_phone_numbers/*.html" ]

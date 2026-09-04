@@ -1,8 +1,7 @@
 // @ts-nocheck
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-// @ts-ignore
-import StreamingAvatar, { AvatarQuality, StreamingEvents } from "@heygen/streaming-avatar";
+import { LiveAvatarSession, SessionEvent, SessionState } from "@heygen/liveavatar-web-sdk";
 import { Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 
@@ -16,7 +15,7 @@ const HEYGEN_API_KEY = "e5ca3582-61ca-4244-9a18-aa177a832a5b";
 export function HeyGenAvatarModal({ isOpen, onClose }: HeyGenAvatarModalProps) {
   const [callStatus, setCallStatus] = useState<"idle" | "loading" | "active" | "error">("idle");
   const videoRef = useRef<HTMLVideoElement>(null);
-  const avatarRef = useRef<StreamingAvatar | null>(null);
+  const avatarRef = useRef<LiveAvatarSession | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -27,49 +26,57 @@ export function HeyGenAvatarModal({ isOpen, onClose }: HeyGenAvatarModalProps) {
       setCallStatus("loading");
       
       try {
-        const response = await fetch("https://api.heygen.com/v1/streaming.create_token", {
+        const response = await fetch("https://api.liveavatar.com/v1/sessions/token", {
           method: "POST",
-          headers: { "x-api-key": HEYGEN_API_KEY }
+          headers: { 
+            "X-API-KEY": HEYGEN_API_KEY,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            mode: "FULL",
+            avatar_id: "dd73ea75-1218-4ef3-92ce-606d5f7fbc0a",
+            avatar_persona: {
+              voice_id: "a3abc0cd-26d0-4661-aaf5-af10e3cec175"
+            }
+          })
         });
         
         if (!response.ok) {
-          throw new Error("Failed to get HeyGen token");
+          throw new Error("Failed to get LiveAvatar token");
         }
         
         const { data } = await response.json();
         
-        const avatar = new StreamingAvatar({ token: data.token });
-        avatarRef.current = avatar;
+        const session = new LiveAvatarSession(data.session_token, { voiceChat: true });
+        avatarRef.current = session;
         
-        avatar.on(StreamingEvents.STREAM_READY, (event) => {
-          if (videoRef.current && event.detail) {
-            videoRef.current.srcObject = event.detail;
-            videoRef.current.play().catch(console.error);
-          }
+        session.on(SessionEvent.SESSION_STATE_CHANGED, (state) => {
+           if (state === SessionState.CONNECTED) {
+               if (isMounted) setCallStatus("active");
+           }
+        });
+
+        session.on(SessionEvent.SESSION_STREAM_READY, () => {
+           if (videoRef.current) {
+               session.attach(videoRef.current);
+           }
         });
         
-        avatar.on(StreamingEvents.STREAM_DISCONNECTED, () => {
-           setCallStatus("idle");
+        session.on(SessionEvent.SESSION_DISCONNECTED, () => {
+           if (isMounted) setCallStatus("idle");
            onClose();
         });
         
-        await avatar.createStartAvatar({
-          quality: AvatarQuality.Low,
-          avatarName: "dd73ea75-1218-4ef3-92ce-606d5f7fbc0a",
-          voice: {
-             voiceId: "en-US-JennyNeural"
-          }
-        });
+        await session.start();
         
         if (!isMounted) return;
-        setCallStatus("active");
         
-        await avatar.speak({ text: "Hello! I am your HeyGen Interactive Avatar. How can I assist you today?" });
+        session.repeat("Hello! I am your Interactive Avatar. How can I assist you today?");
         
       } catch (e: any) {
-         console.error("HeyGen init error", e);
-         toast.error(e.message || "Failed to start HeyGen avatar");
-         setCallStatus("error");
+         console.error("LiveAvatar init error", e);
+         toast.error(e.message || "Failed to start avatar");
+         if (isMounted) setCallStatus("error");
       }
     };
     
@@ -80,7 +87,7 @@ export function HeyGenAvatarModal({ isOpen, onClose }: HeyGenAvatarModalProps) {
     return () => {
        isMounted = false;
        if (avatarRef.current) {
-          avatarRef.current.stopAvatar().catch(console.error);
+          avatarRef.current.stop().catch(console.error);
           avatarRef.current = null;
        }
     };
@@ -88,7 +95,7 @@ export function HeyGenAvatarModal({ isOpen, onClose }: HeyGenAvatarModalProps) {
 
   const handleEndCall = () => {
     if (avatarRef.current) {
-      avatarRef.current.stopAvatar();
+      avatarRef.current.stop();
       avatarRef.current = null;
     }
     setCallStatus("idle");
@@ -118,7 +125,7 @@ export function HeyGenAvatarModal({ isOpen, onClose }: HeyGenAvatarModalProps) {
         <div className="absolute top-4 left-4 z-20 flex flex-col gap-1">
            <div className="bg-slate-900/80 backdrop-blur px-3 py-1.5 rounded text-sm font-semibold flex items-center gap-2 text-white">
               <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-              Live: HeyGen Avatar
+              Live Avatar
            </div>
            {callStatus === "loading" && (
               <div className="bg-slate-900/80 backdrop-blur px-3 py-1 text-xs text-blue-400 rounded flex items-center gap-2">
