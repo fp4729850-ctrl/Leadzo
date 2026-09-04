@@ -77,6 +77,11 @@ export function HeyGenAvatarModal({ isOpen, onClose }: HeyGenAvatarModalProps) {
         session.on(SessionEvent.SESSION_STATE_CHANGED, (state) => {
            if (state === SessionState.CONNECTED) {
                if (isMounted) setCallStatus("active");
+               try {
+                 session.startListening();
+               } catch (e) {
+                 console.error("Failed to start listening command", e);
+               }
            }
         });
 
