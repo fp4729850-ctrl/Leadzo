@@ -14,6 +14,7 @@
     "rewrite-imports": "node rewrite-imports.cjs"
   },
   "dependencies": {
+    "@heygen/streaming-avatar": "^2.1.1",
     "@hookform/resolvers": "^5.2.2",
     "@lottiefiles/react-lottie-player": "^3.6.0",
     "@radix-ui/react-accordion": "^1.2.12",

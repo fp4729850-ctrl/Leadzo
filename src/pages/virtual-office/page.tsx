@@ -3,6 +3,7 @@ import { OfficeMap } from "@/components/virtual-office/OfficeMap";
 import { AgentAvatar } from "@/components/virtual-office/AgentAvatar";
 import { DataPacket } from "@/components/virtual-office/DataPacket";
 import { LiveAvatarModal } from "@/components/virtual-office/LiveAvatarModal";
+import { HeyGenAvatarModal } from "@/components/virtual-office/HeyGenAvatarModal";
 import { OutboundCallModal } from "@/components/virtual-office/OutboundCallModal";
 import { ApiIntegrationsModal } from "@/components/virtual-office/ApiIntegrationsModal";
 import { PhoneCall, PhoneForwarded } from "lucide-react";
@@ -45,6 +46,7 @@ export default function VirtualOfficePage() {
   const [isRingingPhone, setIsRingingPhone] = useState(false);
   const [isOutboundConnected, setIsOutboundConnected] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isHeyGenModalOpen, setIsHeyGenModalOpen] = useState(false);
   const [activeLiveRole, setActiveLiveRole] = useState("AI Manager");
   const [activeFaceId, setActiveFaceId] = useState("5514e24d-6086-46a3-ace4-6a7264e5cb7c");
   const [isApiModalOpen, setIsApiModalOpen] = useState(false);
@@ -204,6 +206,7 @@ export default function VirtualOfficePage() {
   return (
     <div className="flex flex-col w-full h-full animate-in fade-in zoom-in duration-500">
       <LiveAvatarModal isOpen={isModalOpen} onClose={handleCloseModal} roleName={activeLiveRole} faceId={activeFaceId} />
+      <HeyGenAvatarModal isOpen={isHeyGenModalOpen} onClose={() => setIsHeyGenModalOpen(false)} />
       <OutboundCallModal 
         isOpen={isOutboundConnected} 
         onClose={() => { 
@@ -254,6 +257,12 @@ export default function VirtualOfficePage() {
               className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all text-slate-500 hover:text-slate-700 hover:bg-slate-100`}
             >
               Real Human (Indian)
+            </button>
+            <button
+              onClick={() => setIsHeyGenModalOpen(true)}
+              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all text-slate-500 hover:text-slate-700 hover:bg-slate-100`}
+            >
+              HeyGen Avatar
             </button>
           </div>
 
