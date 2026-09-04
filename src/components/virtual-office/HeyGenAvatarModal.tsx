@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { LiveAvatarSession, SessionEvent, SessionState } from "@heygen/liveavatar-web-sdk";
-import { Loader2, X } from "lucide-react";
+import { Loader2, X, Mic, MicOff } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/lib/supabase";
@@ -16,6 +16,7 @@ const HEYGEN_API_KEY = "e5ca3582-61ca-4244-9a18-aa177a832a5b";
 
 export function HeyGenAvatarModal({ isOpen, onClose }: HeyGenAvatarModalProps) {
   const [callStatus, setCallStatus] = useState<"idle" | "loading" | "active" | "error">("idle");
+  const [isMuted, setIsMuted] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const avatarRef = useRef<LiveAvatarSession | null>(null);
 
@@ -28,6 +29,15 @@ export function HeyGenAvatarModal({ isOpen, onClose }: HeyGenAvatarModalProps) {
       setCallStatus("loading");
       
       try {
+        // Request microphone permission explicitly
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          stream.getTracks().forEach(track => track.stop());
+        } catch (err) {
+          toast.error("Microphone access is required to talk to the avatar");
+          console.warn("Mic error", err);
+        }
+
         const { data: activeBrain } = await supabase
           .from("business_knowledge")
           .select("company_name, business_details")
@@ -67,11 +77,6 @@ export function HeyGenAvatarModal({ isOpen, onClose }: HeyGenAvatarModalProps) {
         session.on(SessionEvent.SESSION_STATE_CHANGED, (state) => {
            if (state === SessionState.CONNECTED) {
                if (isMounted) setCallStatus("active");
-               try {
-                 session.startListening();
-               } catch (e) {
-                 console.error("Failed to start listening automatically", e);
-               }
            }
         });
 
@@ -87,6 +92,13 @@ export function HeyGenAvatarModal({ isOpen, onClose }: HeyGenAvatarModalProps) {
         });
         
         await session.start();
+        
+        // Ensure voiceChat is started
+        try {
+          await session.voiceChat?.start();
+        } catch (e) {
+          console.error("Failed to start voice chat automatically", e);
+        }
         
         if (!isMounted) return;
         
@@ -121,6 +133,21 @@ export function HeyGenAvatarModal({ isOpen, onClose }: HeyGenAvatarModalProps) {
     onClose();
   };
 
+  const toggleMute = async () => {
+    if (!avatarRef.current?.voiceChat) return;
+    try {
+      if (isMuted) {
+        await avatarRef.current.voiceChat.unmute();
+        setIsMuted(false);
+      } else {
+        await avatarRef.current.voiceChat.mute();
+        setIsMuted(true);
+      }
+    } catch (e) {
+      console.error("Toggle mute error", e);
+    }
+  };
+
   if (!isOpen) return null;
 
   return createPortal(
@@ -134,12 +161,23 @@ export function HeyGenAvatarModal({ isOpen, onClose }: HeyGenAvatarModalProps) {
           playsInline
         />
 
-        <button
-          onClick={handleEndCall}
-          className="absolute top-4 right-4 z-20 w-10 h-10 flex items-center justify-center bg-slate-900/50 hover:bg-slate-900/80 text-white rounded-full backdrop-blur transition-all"
-        >
-          <X className="w-5 h-5" />
-        </button>
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 z-20">
+          <button
+            onClick={toggleMute}
+            className={`w-12 h-12 flex items-center justify-center rounded-full backdrop-blur transition-all ${
+              isMuted ? 'bg-red-500 hover:bg-red-600 text-white' : 'bg-slate-900/60 hover:bg-slate-900/80 text-white'
+            }`}
+          >
+            {isMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+          </button>
+          
+          <button
+            onClick={handleEndCall}
+            className="w-12 h-12 flex items-center justify-center bg-red-600 hover:bg-red-700 text-white rounded-full backdrop-blur transition-all"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </div>
 
         <div className="absolute top-4 left-4 z-20 flex flex-col gap-1">
            <div className="bg-slate-900/80 backdrop-blur px-3 py-1.5 rounded text-sm font-semibold flex items-center gap-2 text-white">
