@@ -49,6 +49,27 @@ export function HeyGenAvatarModal({ isOpen, onClose }: HeyGenAvatarModalProps) {
           systemPrompt = `You are an AI assistant for ${activeBrain.company_name}. Here is your knowledge base:\n${activeBrain.business_details}`;
         }
 
+        // Create Context ID for the Avatar to have memory
+        const contextRes = await fetch("https://api.liveavatar.com/v1/contexts", {
+          method: "POST",
+          headers: { 
+            "X-API-KEY": HEYGEN_API_KEY,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            name: activeBrain?.company_name || "Leadzo AI Assistant",
+            prompt: systemPrompt,
+            opening_text: "Hello! I am your Interactive Avatar. How can I assist you today?"
+          })
+        });
+
+        if (!contextRes.ok) {
+           throw new Error("Failed to create context");
+        }
+        
+        const contextData = await contextRes.json();
+        const contextId = contextData.data.id;
+
         const response = await fetch("https://api.liveavatar.com/v1/sessions/token", {
           method: "POST",
           headers: { 
@@ -60,7 +81,7 @@ export function HeyGenAvatarModal({ isOpen, onClose }: HeyGenAvatarModalProps) {
             avatar_id: "dd73ea75-1218-4ef3-92ce-606d5f7fbc0a",
             avatar_persona: {
               voice_id: "a3abc0cd-26d0-4661-aaf5-af10e3cec175",
-              system_prompt: systemPrompt
+              context_id: contextId
             }
           })
         });
@@ -106,8 +127,6 @@ export function HeyGenAvatarModal({ isOpen, onClose }: HeyGenAvatarModalProps) {
         }
         
         if (!isMounted) return;
-        
-        session.repeat("Hello! I am your Interactive Avatar. How can I assist you today?");
         
       } catch (e: any) {
          console.error("LiveAvatar init error", e);
