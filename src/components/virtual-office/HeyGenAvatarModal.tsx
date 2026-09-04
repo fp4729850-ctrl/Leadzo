@@ -5,6 +5,8 @@ import { LiveAvatarSession, SessionEvent, SessionState } from "@heygen/liveavata
 import { Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 
+import { supabase } from "@/lib/supabase";
+
 interface HeyGenAvatarModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -26,6 +28,17 @@ export function HeyGenAvatarModal({ isOpen, onClose }: HeyGenAvatarModalProps) {
       setCallStatus("loading");
       
       try {
+        const { data: activeBrain } = await supabase
+          .from("business_knowledge")
+          .select("company_name, business_details")
+          .eq("is_active", true)
+          .single();
+
+        let systemPrompt = "You are a helpful assistant.";
+        if (activeBrain) {
+          systemPrompt = `You are an AI assistant for ${activeBrain.company_name}. Here is your knowledge base:\n${activeBrain.business_details}`;
+        }
+
         const response = await fetch("https://api.liveavatar.com/v1/sessions/token", {
           method: "POST",
           headers: { 
@@ -36,7 +49,8 @@ export function HeyGenAvatarModal({ isOpen, onClose }: HeyGenAvatarModalProps) {
             mode: "FULL",
             avatar_id: "dd73ea75-1218-4ef3-92ce-606d5f7fbc0a",
             avatar_persona: {
-              voice_id: "a3abc0cd-26d0-4661-aaf5-af10e3cec175"
+              voice_id: "a3abc0cd-26d0-4661-aaf5-af10e3cec175",
+              system_prompt: systemPrompt
             }
           })
         });
@@ -53,6 +67,11 @@ export function HeyGenAvatarModal({ isOpen, onClose }: HeyGenAvatarModalProps) {
         session.on(SessionEvent.SESSION_STATE_CHANGED, (state) => {
            if (state === SessionState.CONNECTED) {
                if (isMounted) setCallStatus("active");
+               try {
+                 session.startListening();
+               } catch (e) {
+                 console.error("Failed to start listening automatically", e);
+               }
            }
         });
 
