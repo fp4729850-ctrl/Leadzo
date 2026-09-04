@@ -18,9 +18,10 @@ interface LiveAvatarModalProps {
   isOpen: boolean;
   onClose: () => void;
   roleName?: string;
+  faceId?: string;
 }
 
-export function LiveAvatarModal({ isOpen, onClose, roleName = "AI Manager" }: LiveAvatarModalProps) {
+export function LiveAvatarModal({ isOpen, onClose, roleName = "AI Manager", faceId = "5514e24d-6086-46a3-ace4-6a7264e5cb7c" }: LiveAvatarModalProps) {
   const [callStatus, setCallStatus] = useState<"idle" | "loading" | "active" | "error">("idle");
   const [volumeLevel, setVolumeLevel] = useState(0);
   
@@ -60,7 +61,7 @@ export function LiveAvatarModal({ isOpen, onClose, roleName = "AI Manager" }: Li
         const token = await generateSimliSessionToken({
           apiKey: SIMLI_API_KEY,
           config: {
-            faceId: '5514e24d-6086-46a3-ace4-6a7264e5cb7c',
+            faceId: faceId,
             handleSilence: true,
             maxSessionLength: 3600,
             maxIdleTime: 3600

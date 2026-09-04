@@ -46,6 +46,7 @@ export default function VirtualOfficePage() {
   const [isOutboundConnected, setIsOutboundConnected] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeLiveRole, setActiveLiveRole] = useState("AI Manager");
+  const [activeFaceId, setActiveFaceId] = useState("5514e24d-6086-46a3-ace4-6a7264e5cb7c");
   const [isApiModalOpen, setIsApiModalOpen] = useState(false);
   const [videoStyle, setVideoStyle] = useState<"cartoon" | "human">("cartoon");
 
@@ -202,7 +203,7 @@ export default function VirtualOfficePage() {
 
   return (
     <div className="flex flex-col w-full h-full animate-in fade-in zoom-in duration-500">
-      <LiveAvatarModal isOpen={isModalOpen} onClose={handleCloseModal} roleName={activeLiveRole} />
+      <LiveAvatarModal isOpen={isModalOpen} onClose={handleCloseModal} roleName={activeLiveRole} faceId={activeFaceId} />
       <OutboundCallModal 
         isOpen={isOutboundConnected} 
         onClose={() => { 
@@ -236,12 +237,23 @@ export default function VirtualOfficePage() {
             </button>
             <button
               onClick={() => {
-                setActiveLiveRole("AI Manager");
+                setActiveLiveRole("AI Manager (International)");
+                setActiveFaceId("5514e24d-6086-46a3-ace4-6a7264e5cb7c");
                 setIsModalOpen(true);
               }}
               className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all text-slate-500 hover:text-slate-700 hover:bg-slate-100`}
             >
-              Real Human
+              Real Human (Intl)
+            </button>
+            <button
+              onClick={() => {
+                setActiveLiveRole("AI Manager (Indian)");
+                setActiveFaceId("b9e5fba3-071a-4e35-896e-211c4d6eaa7b");
+                setIsModalOpen(true);
+              }}
+              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all text-slate-500 hover:text-slate-700 hover:bg-slate-100`}
+            >
+              Real Human (Indian)
             </button>
           </div>
 
