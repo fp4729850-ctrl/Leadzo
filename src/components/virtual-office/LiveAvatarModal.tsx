@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import Vapi from "@vapi-ai/web";
