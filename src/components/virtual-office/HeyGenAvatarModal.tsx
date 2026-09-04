@@ -53,7 +53,7 @@ export function HeyGenAvatarModal({ isOpen, onClose }: HeyGenAvatarModalProps) {
         
         await avatar.createStartAvatar({
           quality: AvatarQuality.Low,
-          avatarName: "josh_lite3_20230714",
+          avatarName: "dd73ea75-1218-4ef3-92ce-606d5f7fbc0a",
           voice: {
              voiceId: "en-US-JennyNeural"
           }
