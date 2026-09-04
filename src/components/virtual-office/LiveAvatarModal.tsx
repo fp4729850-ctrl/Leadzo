@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import Vapi from "@vapi-ai/web";
-import { Mic, PhoneOff, Loader2 } from "lucide-react";
+import { Mic, PhoneOff, Loader2, X } from "lucide-react";
 import { useQuery } from "@/lib/convex-supabase-adapter";
 import { api } from "@/convex/_generated/api.js";
 import { supabase } from "@/lib/supabase";
@@ -195,13 +195,21 @@ REAL-TIME COMPANY DATA: ${JSON.stringify(metrics || {}, null, 2)}`;
         {/* Simli Video Output */}
         <video 
           ref={videoRef} 
-          className="w-full h-full object-cover z-10" 
+          className="w-full h-full object-contain z-10" 
           autoPlay 
           playsInline
           muted
         />
         {/* Play Simli's synchronized returned audio */}
         <audio ref={audioRef} autoPlay />
+
+        {/* Close Button */}
+        <button
+          onClick={handleEndCall}
+          className="absolute top-4 right-4 z-20 w-10 h-10 flex items-center justify-center bg-slate-900/50 hover:bg-slate-900/80 text-white rounded-full backdrop-blur transition-all"
+        >
+          <X className="w-5 h-5" />
+        </button>
 
         {/* Overlay UI */}
         <div className="absolute top-4 left-4 z-20 flex flex-col gap-1">
