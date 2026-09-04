@@ -248,7 +248,7 @@ export default function VirtualOfficePage() {
             <button
               onClick={() => {
                 setActiveLiveRole("AI Manager (Indian)");
-                setActiveFaceId("b9e5fba3-071a-4e35-896e-211c4d6eaa7b");
+                setActiveFaceId("7e74d6e7-d559-4394-bd56-4923a3ab75ad");
                 setIsModalOpen(true);
               }}
               className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all text-slate-500 hover:text-slate-700 hover:bg-slate-100`}
