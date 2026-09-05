@@ -102,7 +102,7 @@ CTR: ${metrics.ctr}%`
        const openaiKey = Deno.env.get("OPENAI_API_KEY");
        if (openaiKey) {
          try {
-           const openAiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+           const openAiResponse = await fetch(`${Deno.env.get("OMNIROUTE_URL") || "https://api.openai.com/v1"}/chat/completions`, {
              method: "POST",
              headers: { "Content-Type": "application/json", "Authorization": `Bearer ${openaiKey}` },
              body: JSON.stringify({

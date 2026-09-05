@@ -32,7 +32,7 @@ serve(async (req) => {
 
     // 3. Generate summary via OpenAI
     const openAiKey = Deno.env.get('OPENAI_API_KEY')
-    const aiRes = await fetch('https://api.openai.com/v1/chat/completions', {
+    const aiRes = await fetch(`${Deno.env.get("OMNIROUTE_URL") || "https://api.openai.com/v1"}/chat/completions`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${openAiKey}`,

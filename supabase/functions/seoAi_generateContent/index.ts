@@ -108,7 +108,7 @@ Respond ONLY with a JSON object containing EXACTLY this structure:
           model: "gpt-4o-mini",
           response_format: { type: "json_object" }
         }
-        const openAiRes = await fetch("https://api.openai.com/v1/chat/completions", {
+        const openAiRes = await fetch(`${Deno.env.get("OMNIROUTE_URL") || "https://api.openai.com/v1"}/chat/completions`, {
           method: "POST",
           headers: {
             "Authorization": `Bearer ${openAIKey}`,

@@ -94,7 +94,7 @@ Generate exactly 4-6 weeks of content ideas.`
           model: "gpt-4o-mini",
           response_format: { type: "json_object" }
         }
-        const openAiRes = await fetch("https://api.openai.com/v1/chat/completions", {
+        const openAiRes = await fetch(`${Deno.env.get("OMNIROUTE_URL") || "https://api.openai.com/v1"}/chat/completions`, {
           method: "POST",
           headers: {
             "Authorization": `Bearer ${openAIKey}`,

@@ -66,7 +66,7 @@ Each object must have these exactly keys:
         throw new Error("OpenAI fallback only supports text/csv currently.")
       }
 
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      const response = await fetch(`${Deno.env.get("OMNIROUTE_URL") || "https://api.openai.com/v1"}/chat/completions`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

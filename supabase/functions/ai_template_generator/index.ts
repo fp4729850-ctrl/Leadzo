@@ -56,7 +56,7 @@ serve(async (req) => {
             Text: ${textContent}
         `;
 
-        const openAiRes = await fetch("https://api.openai.com/v1/chat/completions", {
+        const openAiRes = await fetch(`${Deno.env.get("OMNIROUTE_URL") || "https://api.openai.com/v1"}/chat/completions`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",

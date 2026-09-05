@@ -40,7 +40,7 @@ Limit the response to 2-3 sentences. Return ONLY the raw text script, no quotes,
     }
 
     const callOpenAI = async () => {
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      const response = await fetch(`${Deno.env.get("OMNIROUTE_URL") || "https://api.openai.com/v1"}/chat/completions`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

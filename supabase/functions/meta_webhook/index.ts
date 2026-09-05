@@ -90,7 +90,7 @@ serve(async (req) => {
               let aiReply = "Thank you for reaching out!";
               
               if (OPENAI_API_KEY) {
-                const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+                const aiResponse = await fetch(`${Deno.env.get("OMNIROUTE_URL") || "https://api.openai.com/v1"}/chat/completions`, {
                   method: 'POST',
                   headers: {
                     'Authorization': `Bearer ${OPENAI_API_KEY}`,

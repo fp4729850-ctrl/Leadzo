@@ -92,7 +92,7 @@ Rules:
 ${websiteUrl ? `5. At the very end of the message, you MUST include this exact link for the user to visit: ${websiteUrl}` : `5. Include placeholders like [Name] or [Link] where appropriate.`}
 6. Output ONLY a valid JSON array of strings, where each string is a template. DO NOT wrap in markdown \`\`\`json or output anything else.`;
 
-    const openAiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+    const openAiResponse = await fetch(`${Deno.env.get("OMNIROUTE_URL") || "https://api.openai.com/v1"}/chat/completions`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${OPENAI_API_KEY}`,
