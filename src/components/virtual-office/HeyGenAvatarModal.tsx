@@ -78,6 +78,7 @@ export function HeyGenAvatarModal({ isOpen, onClose }: HeyGenAvatarModalProps) {
           },
           body: JSON.stringify({
             mode: "FULL",
+            is_sandbox: true,
             avatar_id: "dd73ea75-1218-4ef3-92ce-606d5f7fbc0a",
             avatar_persona: {
               voice_id: "a3abc0cd-26d0-4661-aaf5-af10e3cec175",
