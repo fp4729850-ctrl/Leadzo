@@ -79,6 +79,7 @@ export function VapiVoiceAgent() {
         if (activeBrain.system_prompt) {
           systemPrompt += `\nAdditional Instructions:\n${activeBrain.system_prompt}`;
         }
+        systemPrompt += `\n\nIMPORTANT: You are a highly capable multilingual assistant. You MUST strictly reply in the exact same language that the user speaks to you (e.g., if the user speaks Hindi, reply in Hindi. If English, reply in English. If Marathi, reply in Marathi).`;
         firstMessage = `Hello! I am the Voice Assistant for ${activeBrain.company_name}. How can I assist you today?`;
       }
 
@@ -97,7 +98,8 @@ export function VapiVoiceAgent() {
         },
         voice: {
           provider: "11labs",
-          voiceId: "jBpfuIE2acCO8z3wKNLl" // A good generic voice
+          voiceId: "jBpfuIE2acCO8z3wKNLl", // A good generic voice
+          model: "eleven_multilingual_v2" // Force multilingual model
         }
       };
 
