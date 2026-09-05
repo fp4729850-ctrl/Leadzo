@@ -89,8 +89,8 @@ export function VapiVoiceAgent() {
         name: "Leadzo Global Agent",
         firstMessage: firstMessage,
         model: {
-          provider: "groq",
-          model: "llama-3.1-70b-versatile",
+          provider: "openai",
+          model: "gpt-4o-mini",
           messages: [
             {
               role: "system",
