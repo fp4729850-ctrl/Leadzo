@@ -42,6 +42,7 @@ const NAV_ITEMS = [
 const LIVE_PATHS = ["/ai-brain", "/virtual-office", "/dashboard", "/pipeline", "/inbox", "/analytics", "/ceo-dashboard", "/market-intelligence", "/creative-generation", "/campaign-launch", "/optimization", "/learning-agent", "/crm", "/wa-sender", "/rcs-sender", "/email-campaign", "/insta-campaign", "/bulk-calling", "/ai-reminders", "/seo-agent", "/ai-ranking-os", "/reddit-agent", "/gsc-dashboard", "/pricing", "/settings"];
 
 import InstallBanner from "@/components/install-banner.tsx";
+import { VapiVoiceAgent } from "@/components/ui/vapi-voice-agent.tsx";
 
 export default function AppLayout() {
   const location = useLocation();
@@ -201,6 +202,7 @@ export default function AppLayout() {
         </main>
       </div>
       <InstallBanner />
+      <VapiVoiceAgent />
     </div>
   );
 }
