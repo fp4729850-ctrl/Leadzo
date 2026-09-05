@@ -80,30 +80,25 @@ export function VapiVoiceAgent() {
           systemPrompt += `\nAdditional Instructions:\n${activeBrain.system_prompt}`;
         }
         systemPrompt += `\n\nIMPORTANT: You are a highly capable multilingual assistant. You MUST strictly reply in the exact same language that the user speaks to you (e.g., if the user speaks Hindi, reply in Hindi. If English, reply in English. If Marathi, reply in Marathi).`;
-        firstMessage = `Hello! I am the Voice Assistant for ${activeBrain.company_name}. How can I assist you today?`;
+        firstMessage = `Namaste! I am the Voice Assistant for ${activeBrain.company_name}. How can I assist you today?`;
       }
 
-      const assistantPayload = {
+      const VAPI_ASSISTANT_ID = import.meta.env.VITE_VAPI_MANAGER_ASSISTANT_ID || "c72d5615-bd69-4776-bd5d-d3ded56e1687";
+
+      const assistantOverrides = {
         name: "Leadzo Global Agent",
         firstMessage: firstMessage,
         model: {
-          provider: "openai",
-          model: "gpt-4o-mini", // Cost effective for generic floating assistant
           messages: [
             {
               role: "system",
               content: systemPrompt
             }
           ]
-        },
-        voice: {
-          provider: "11labs",
-          voiceId: "jBpfuIE2acCO8z3wKNLl", // A good generic voice
-          model: "eleven_multilingual_v2" // Force multilingual model
         }
       };
 
-      await vapiRef.current?.start(assistantPayload as any);
+      await vapiRef.current?.start(VAPI_ASSISTANT_ID, assistantOverrides as any);
       
     } catch (e: any) {
       console.error("Error starting Vapi global call:", e);

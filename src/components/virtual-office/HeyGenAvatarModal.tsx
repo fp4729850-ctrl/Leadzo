@@ -48,6 +48,8 @@ export function HeyGenAvatarModal({ isOpen, onClose }: HeyGenAvatarModalProps) {
         if (activeBrain) {
           systemPrompt = `You are an AI assistant for ${activeBrain.company_name}. Here is your knowledge base:\n${activeBrain.business_details}`;
         }
+        
+        systemPrompt += `\n\nIMPORTANT: You must clearly speak and reply in HINDI language to the user. Do not use English unless necessary.`;
 
         // Create Context ID for the Avatar to have memory
         const contextRes = await fetch("https://api.liveavatar.com/v1/contexts", {
@@ -59,7 +61,7 @@ export function HeyGenAvatarModal({ isOpen, onClose }: HeyGenAvatarModalProps) {
           body: JSON.stringify({
             name: activeBrain?.company_name || "Leadzo AI Assistant",
             prompt: systemPrompt,
-            opening_text: "Hello! I am your Interactive Avatar. How can I assist you today?"
+            opening_text: "Namaste! Main aapka AI Assistant hoon. Main aapki kya madad kar sakta hoon?"
           })
         });
 
@@ -82,7 +84,8 @@ export function HeyGenAvatarModal({ isOpen, onClose }: HeyGenAvatarModalProps) {
             avatar_id: "dd73ea75-1218-4ef3-92ce-606d5f7fbc0a",
             avatar_persona: {
               voice_id: "a3abc0cd-26d0-4661-aaf5-af10e3cec175",
-              context_id: contextId
+              context_id: contextId,
+              language: "hi" // Force Hindi/Multilingual language support for STT and TTS
             }
           })
         });
