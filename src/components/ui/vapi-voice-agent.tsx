@@ -296,14 +296,24 @@ If the user asks you to set up Leadzo for their website, use the setup_business_
     
     setStatus("active");
     try {
-      const { data, error } = await supabase.functions.invoke("omnirouter_tts", {
-        body: { text, voice: 'alloy' },
+      const session = await supabase.auth.getSession();
+      const token = session.data.session?.access_token || import.meta.env.VITE_SUPABASE_ANON_KEY;
+      
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/omnirouter_tts`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({ text, voice: 'alloy' })
       });
 
-      if (error) throw error;
+      if (!response.ok) {
+        throw new Error(`TTS API failed with status ${response.status}`);
+      }
       
-      // data is a Blob
-      const audioUrl = URL.createObjectURL(data);
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
       const audio = new Audio(audioUrl);
       audioRef.current = audio;
       
