@@ -55,12 +55,6 @@ export function AgentAvatar({ name, role, position, statusMessage, isSending, vi
           <div className="absolute -top-6 w-4 h-4 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_15px_rgba(52,211,113,0.8)] z-10 pointer-events-none"></div>
         )}
         
-        {/* Animated Character (Only for Cartoon mode) */}
-        {videoStyle === "cartoon" && (
-          <div className="w-16 h-20 mb-1">
-            <AnimatedCharacter role={role} isMoving={isSending} />
-          </div>
-        )}
 
         {/* Name Tag */}
         <div className="mt-2 bg-white/40 backdrop-blur-md text-slate-900 px-3 py-1.5 rounded-lg shadow-sm border border-white/50 flex flex-col items-center gap-0.5 transition-all duration-300 pointer-events-none opacity-100 scale-100">
