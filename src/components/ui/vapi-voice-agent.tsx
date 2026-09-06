@@ -48,6 +48,64 @@ export function VapiVoiceAgent() {
     }
   }, [currentPath, isAutoGuideOn]);
 
+  // Global Click Listener for Auto-CoPilot
+  const lastClickTimeRef = useRef(0);
+  useEffect(() => {
+    if (!isAutoGuideOn) return;
+
+    const handleGlobalClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target) return;
+
+      // Ignore clicks inside Vapi widget container
+      if (target.closest(".vapi-widget-container")) return;
+
+      // Find closest interactive element
+      const interactiveEl = target.closest("button, a, label, [role='button'], input[type='submit'], input[type='file']") as HTMLElement;
+      if (!interactiveEl) return;
+
+      // Throttle (prevent duplicate click triggers within 2.5s)
+      const now = Date.now();
+      if (now - lastClickTimeRef.current < 2500) return;
+      lastClickTimeRef.current = now;
+
+      // Extract button label/text
+      const label = (
+        interactiveEl.innerText || 
+        interactiveEl.getAttribute("aria-label") || 
+        interactiveEl.getAttribute("title") || 
+        interactiveEl.getAttribute("placeholder") || 
+        interactiveEl.tagName
+      ).trim().replace(/\s+/g, " ");
+
+      if (!label || label.length < 2) return;
+
+      handleAutoClickGuidance(label, currentPath);
+    };
+
+    window.addEventListener("click", handleGlobalClick, true);
+    return () => {
+      window.removeEventListener("click", handleGlobalClick, true);
+    };
+  }, [isAutoGuideOn, currentPath]);
+
+  const handleAutoClickGuidance = async (buttonLabel: string, pagePath: string) => {
+    toast.info(`Auto Copilot: Clicked "${buttonLabel.substring(0, 25)}"`, { icon: "👆" });
+
+    let currentMsgs = messagesRef.current;
+    if (currentMsgs.length === 0) {
+      currentMsgs = await initSystemPrompt();
+    }
+
+    const clickPrompt = `[AUTO_CLICK_TRIGGER]: User just clicked button/action "${buttonLabel}" on page "${pagePath}".
+Briefly explain in 1-2 short Hinglish sentences what this button does and what the user should do next. Be very direct and concise.`;
+
+    const newMsgs = [...currentMsgs, { role: "user", content: clickPrompt } as Message];
+    setMessages(newMsgs);
+    setIsOpen(true);
+    await fetchOmniRouter(newMsgs);
+  };
+
   const handleAutoPageChange = async (newPath: string) => {
     toast.info(`Auto Copilot: Navigated to ${newPath}`, { icon: "✨" });
     let currentMsgs = messagesRef.current;
