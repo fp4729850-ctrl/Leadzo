@@ -80,22 +80,29 @@ export function VapiVoiceAgent() {
         .eq("is_active", true)
         .single();
 
-      let systemPrompt = "You are a helpful assistant.";
-      let firstMessage = "Hello! How can I help you today?";
+      let companyName = activeBrain?.company_name || "Leadzo AI";
+      let systemPrompt = `CRITICAL DIRECTIVE: You are a highly specialized and restricted Voice AI Agent for ${companyName}. 
+YOUR ONLY PURPOSE IS TO ASSIST WITH ${companyName}.
+YOU ARE STRICTLY FORBIDDEN FROM ANSWERING ANY GENERAL KNOWLEDGE, POLITICS, MATH, CODING, OR UNRELATED QUESTIONS.
+If the user asks ANYTHING that is not directly related to ${companyName} or your provided knowledge base (e.g. 'Who is the prime minister', 'What is the capital of France', 'Write a poem'), YOU MUST REPLY EXACTLY WITH:
+"I am a specialized assistant for ${companyName}, and I am only programmed to answer questions related to our platform."
+Do NOT provide any information outside your domain.`;
+
+      let firstMessage = `Hello! I am the Voice Assistant for ${companyName}. How can I assist you today?`;
       
       if (activeBrain) {
-        systemPrompt = `You are a helpful Voice AI Agent for ${activeBrain.company_name}. You must keep your answers extremely concise and conversational. Do not use long paragraphs. Your knowledge base:\n${activeBrain.business_details}`;
+        systemPrompt += `\n\nYour knowledge base:\n${activeBrain.business_details}`;
         if (activeBrain.system_prompt) {
           systemPrompt += `\nAdditional Instructions:\n${activeBrain.system_prompt}`;
         }
-        systemPrompt += `\n\nSTRICT CONSTRAINT: Your knowledge is confined ENTIRELY to ${activeBrain.company_name} and the provided knowledge base. If the user asks ANY question that is not related to ${activeBrain.company_name}, you MUST politely decline by saying: 'I am a specialized assistant for ${activeBrain.company_name}, and I can only answer questions related to our platform.' Do NOT answer general knowledge questions or unrelated topics.`;
-        systemPrompt += `\n\nIMPORTANT: You are a highly capable multilingual visual copilot. You MUST strictly reply in the exact same language that the user speaks to you.
+        firstMessage = `Namaste! I am the Voice Assistant for ${activeBrain.company_name}. How can I assist you today?`;
+      }
+
+      systemPrompt += `\n\nIMPORTANT: You are a highly capable multilingual visual copilot. You MUST strictly reply in the exact same language that the user speaks to you.
 You can control the user's screen using tools. You are currently on the page: ${currentPath}. 
 If the user wants to do something on a different page, use navigate_to_page tool. If you want to show them where to click or type on the current page, use highlight_element tool.
 If the user asks you to look at their screen or asks what is on the screen, use the analyze_current_screen tool.
 If the user asks you to set up Leadzo for their website, use the setup_business_profile tool and provide the website_url.`;
-        firstMessage = `Namaste! I am the Voice Assistant for ${activeBrain.company_name}. How can I assist you today?`;
-      }
 
       const initialMsgs: Message[] = [
         { role: "system", content: systemPrompt },
