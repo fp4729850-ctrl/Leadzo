@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Send } from "lucide-react";
+import { AnimatedCharacter } from "./AnimatedCharacter";
 
 export type AgentRole = "support" | "marketing" | "analytics" | "manager" | "operation" | "research" | "boss";
 
@@ -54,6 +55,13 @@ export function AgentAvatar({ name, role, position, statusMessage, isSending, vi
           <div className="absolute -top-6 w-4 h-4 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_15px_rgba(52,211,113,0.8)] z-10 pointer-events-none"></div>
         )}
         
+        {/* Animated Character (Only for Cartoon mode) */}
+        {videoStyle === "cartoon" && (
+          <div className="w-16 h-20 mb-1">
+            <AnimatedCharacter role={role} isMoving={isSending} />
+          </div>
+        )}
+
         {/* Name Tag */}
         <div className="mt-2 bg-slate-900/90 backdrop-blur-sm text-white px-3 py-2 rounded shadow-lg border border-slate-700/50 flex flex-col items-center gap-1 transition-all duration-300 pointer-events-auto opacity-100 scale-100">
           <div className="flex items-center gap-2 text-xs font-bold whitespace-nowrap">
