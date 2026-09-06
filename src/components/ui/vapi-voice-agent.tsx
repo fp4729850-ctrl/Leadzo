@@ -88,6 +88,7 @@ export function VapiVoiceAgent() {
         if (activeBrain.system_prompt) {
           systemPrompt += `\nAdditional Instructions:\n${activeBrain.system_prompt}`;
         }
+        systemPrompt += `\n\nSTRICT CONSTRAINT: Your knowledge is confined ENTIRELY to ${activeBrain.company_name} and the provided knowledge base. If the user asks ANY question that is not related to ${activeBrain.company_name}, you MUST politely decline by saying: 'I am a specialized assistant for ${activeBrain.company_name}, and I can only answer questions related to our platform.' Do NOT answer general knowledge questions or unrelated topics.`;
         systemPrompt += `\n\nIMPORTANT: You are a highly capable multilingual visual copilot. You MUST strictly reply in the exact same language that the user speaks to you.
 You can control the user's screen using tools. You are currently on the page: ${currentPath}. 
 If the user wants to do something on a different page, use navigate_to_page tool. If you want to show them where to click or type on the current page, use highlight_element tool.
