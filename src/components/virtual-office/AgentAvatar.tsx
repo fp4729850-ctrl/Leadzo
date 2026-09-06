@@ -63,22 +63,14 @@ export function AgentAvatar({ name, role, position, statusMessage, isSending, vi
         )}
 
         {/* Name Tag */}
-        <div className="mt-2 bg-slate-900/90 backdrop-blur-sm text-white px-3 py-2 rounded shadow-lg border border-slate-700/50 flex flex-col items-center gap-1 transition-all duration-300 pointer-events-auto opacity-100 scale-100">
-          <div className="flex items-center gap-2 text-xs font-bold whitespace-nowrap">
-            {isSending && <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>}
+        <div className="mt-2 bg-white/40 backdrop-blur-md text-slate-900 px-3 py-1.5 rounded-lg shadow-sm border border-white/50 flex flex-col items-center gap-0.5 transition-all duration-300 pointer-events-none opacity-100 scale-100">
+          <div className="flex items-center gap-2 text-[11px] font-bold whitespace-nowrap drop-shadow-sm">
+            {isSending && <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>}
             {name}
           </div>
-          <div className="text-[10px] text-slate-300 font-medium uppercase tracking-wider whitespace-nowrap">
+          <div className="text-[9px] text-slate-700 font-bold uppercase tracking-wider whitespace-nowrap drop-shadow-sm">
             {role.replace('-', ' ')}
           </div>
-          {onStartLiveCall && (
-            <button 
-              onClick={(e) => { e.stopPropagation(); onStartLiveCall(name); }}
-              className="mt-1 px-3 py-1 bg-indigo-500 hover:bg-indigo-600 rounded text-[10px] font-bold text-white transition-colors"
-            >
-              Start Live Call
-            </button>
-          )}
         </div>
       </div>
     </div>
