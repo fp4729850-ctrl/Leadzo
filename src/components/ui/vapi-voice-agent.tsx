@@ -1,27 +1,28 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import * as htmlToImage from "html-to-image";
-import Vapi from "@vapi-ai/web";
-import { Mic, Loader2, Square, PhoneOff, Send, X, Bot } from "lucide-react";
+import { Mic, Loader2, Square, Send, X, Bot } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 
-const VAPI_PUBLIC_KEY = import.meta.env.VITE_VAPI_PUBLIC_KEY || "30cfacb0-68ad-49ec-82e5-3b0637432f0b";
+// OmniRouter endpoint (Local)
+const OMNIROUTE_URL = import.meta.env.VITE_OMNIROUTE_URL || "http://localhost:20128/v1";
 
 type CallStatus = "idle" | "loading" | "active" | "error";
-type Message = { role: "user" | "assistant" | "system", text: string };
+type Message = { role: "user" | "assistant" | "system" | "tool", content: string, name?: string, tool_call_id?: string };
 
 export function VapiVoiceAgent() {
   const [status, setStatus] = useState<CallStatus>("idle");
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [volumeLevel, setVolumeLevel] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const [inputText, setInputText] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
+  const [isSystemReady, setIsSystemReady] = useState(false);
   
-  const vapiRef = useRef<Vapi | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const recognitionRef = useRef<any>(null);
+  const synthRef = useRef<SpeechSynthesis | null>(null);
+  
   const navigate = useNavigate();
   const location = useLocation();
   const currentPath = location.pathname;
@@ -31,161 +32,45 @@ export function VapiVoiceAgent() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, status]);
 
+  // Init Speech APIs
   useEffect(() => {
-    vapiRef.current = new Vapi(VAPI_PUBLIC_KEY);
-    const vapi = vapiRef.current;
-    
-    const onCallStart = () => setStatus("active");
-    const onCallEnd = () => {
-      setStatus("idle");
-      setIsSpeaking(false);
-      setVolumeLevel(0);
-    };
-    const onSpeechStart = () => setIsSpeaking(true);
-    const onSpeechEnd = () => setIsSpeaking(false);
-    const onVolumeLevel = (volume: number) => setVolumeLevel(volume);
-    const onError = (e: any) => {
-      console.error("Vapi Error:", e);
-      let errorMsg = e?.message;
-      if (!errorMsg) {
-        try { errorMsg = JSON.stringify(e); } catch(err) {}
-      }
-      toast.error("Vapi Connection Error: " + (errorMsg || "Unknown error"));
-      setStatus("error");
-      setTimeout(() => setStatus("idle"), 3000);
-    };
-
-    const onMessage = (message: any) => {
-      // Handle tool calls
-      if (message.type === "tool-calls") {
-        message.toolCallList.forEach(async (toolCall: any) => {
-          const functionName = toolCall.function.name;
-          const args = toolCall.function.arguments;
-          
-          if (functionName === "navigate_to_page") {
-            navigate(args.path);
-            setMessages(prev => [...prev, { role: "system", text: `Navigated to ${args.path}` }]);
-          }
-          else if (functionName === "highlight_element") {
-            const target = document.querySelector(args.selector);
-            if (target) {
-              target.classList.add("ring-4", "ring-primary", "ring-offset-2", "animate-pulse", "shadow-[0_0_25px_rgba(255,100,100,0.8)]");
-              toast(args.message, { icon: "💡", duration: 8000 });
-              setTimeout(() => {
-                target.classList.remove("ring-4", "ring-primary", "ring-offset-2", "animate-pulse", "shadow-[0_0_25px_rgba(255,100,100,0.8)]");
-              }, 8000);
-            } else {
-              toast.info(args.message);
-            }
-          }
-          else if (functionName === "analyze_current_screen") {
-            toast.loading("Taking a look at your screen...", { id: "screenshot-toast" });
-            try {
-              const dataUrl = await htmlToImage.toJpeg(document.body, { 
-                quality: 0.4,
-                canvasWidth: Math.floor(document.body.clientWidth * 0.5),
-                canvasHeight: Math.floor(document.body.clientHeight * 0.5),
-                filter: (node: any) => !node.classList?.contains('vapi-widget-container') // Ignore the voice widget itself
-              });
-              const base64Image = dataUrl.split(",")[1];
-              
-              const { data, error } = await supabase.functions.invoke("vapi_analyze_screen", {
-                body: { image_base64: base64Image },
-              });
-
-              if (error) throw error;
-
-              vapiRef.current?.send({
-                type: "add-message",
-                message: {
-                  role: "system",
-                  content: `Screen Analysis Result: ${data.description}`
-                }
-              });
-              toast.success("Screen analyzed!", { id: "screenshot-toast" });
-            } catch (err: any) {
-              console.error("Screenshot error:", err);
-              toast.error(`Failed to analyze: ${err.message || err}`, { id: "screenshot-toast", duration: 10000 });
-            }
-          }
-          else if (functionName === "setup_business_profile") {
-            toast.loading(`Setting up Leadzo for ${args.website_url}...`, { id: "setup-toast", duration: 15000 });
-            setMessages(prev => [...prev, { role: "system", text: `⏳ Autonomous action: Setting up business from ${args.website_url}...` }]);
-            try {
-              // 1. Scrape website
-              const { data: scrapeData, error: scrapeError } = await supabase.functions.invoke("ai_scrape_website", {
-                body: { url: args.website_url }
-              });
-              
-              if (scrapeError) throw scrapeError;
-
-              // 2. Save to database
-              const companyName = args.company_name || new URL(args.website_url).hostname;
-              const { error: dbError } = await supabase
-                .from("business_knowledge")
-                .upsert({
-                  id: "default-business",
-                  company_name: companyName,
-                  website_url: args.website_url,
-                  business_details: scrapeData.prompt,
-                  is_active: true
-                });
-
-              if (dbError) throw dbError;
-
-              toast.success("Leadzo Setup Complete!", { id: "setup-toast" });
-              setMessages(prev => [...prev, { role: "system", text: `✅ Successfully set up Leadzo for ${args.website_url}. The AI is now trained on this data.` }]);
-              
-              vapiRef.current?.send({
-                type: "add-message",
-                message: { role: "system", content: `I have successfully set up the Leadzo account for ${args.website_url}. The business details have been scraped and saved.` }
-              });
-            } catch (err: any) {
-               console.error("Setup error:", err);
-               toast.error(`Setup failed: ${err.message}`, { id: "setup-toast" });
-               setMessages(prev => [...prev, { role: "system", text: `❌ Setup failed: ${err.message}` }]);
-               
-               vapiRef.current?.send({
-                type: "add-message",
-                message: { role: "system", content: `Setup failed with error: ${err.message}` }
-               });
-            }
-          }
-        });
-      }
-
-      // Handle transcripts for chat UI
-      if (message.type === "transcript" && message.transcriptType === "final") {
-        setMessages(prev => [...prev, { role: message.role, text: message.transcript }]);
-      }
-    };
-
-    vapi.on("call-start", onCallStart);
-    vapi.on("call-end", onCallEnd);
-    vapi.on("speech-start", onSpeechStart);
-    vapi.on("speech-end", onSpeechEnd);
-    vapi.on("volume-level", onVolumeLevel);
-    vapi.on("error", onError);
-    vapi.on("message", onMessage);
-
-    return () => {
-      vapi.off("call-start", onCallStart);
-      vapi.off("call-end", onCallEnd);
-      vapi.off("speech-start", onSpeechStart);
-      vapi.off("speech-end", onSpeechEnd);
-      vapi.off("volume-level", onVolumeLevel);
-      vapi.off("error", onError);
-      vapi.off("message", onMessage);
-      vapi.stop();
-    };
-  }, [navigate]);
-
-  const initVapiSession = async (initialMessage?: string) => {
-    if (status === "active" || status === "loading") return;
-    
-    try {
-      setStatus("loading");
+    if (typeof window !== "undefined") {
+      synthRef.current = window.speechSynthesis;
       
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        recognitionRef.current = new SpeechRecognition();
+        recognitionRef.current.continuous = false;
+        recognitionRef.current.interimResults = false;
+        recognitionRef.current.lang = 'en-US';
+
+        recognitionRef.current.onstart = () => setStatus("active");
+        
+        recognitionRef.current.onend = () => {
+          // If we were just active and stopped, go back to idle unless we are loading the AI response
+          setStatus(prev => prev === "active" ? "idle" : prev);
+        };
+        
+        recognitionRef.current.onerror = (event: any) => {
+          console.error("Speech Recognition Error:", event.error);
+          if (event.error !== 'no-speech') {
+            toast.error("Microphone error: " + event.error);
+          }
+          setStatus("idle");
+        };
+
+        recognitionRef.current.onresult = (event: any) => {
+          const transcript = event.results[0][0].transcript;
+          handleSendText(transcript);
+        };
+      } else {
+        console.warn("SpeechRecognition not supported in this browser.");
+      }
+    }
+  }, []);
+
+  const initSystemPrompt = async () => {
+    try {
       const { data: activeBrain } = await supabase
         .from("business_knowledge")
         .select("company_name, business_details, system_prompt")
@@ -200,7 +85,7 @@ export function VapiVoiceAgent() {
         if (activeBrain.system_prompt) {
           systemPrompt += `\nAdditional Instructions:\n${activeBrain.system_prompt}`;
         }
-        systemPrompt += `\n\nIMPORTANT: You are a highly capable multilingual visual copilot. You MUST strictly reply in the exact same language that the user speaks to you (e.g., if the user speaks Hindi, reply in Hindi).
+        systemPrompt += `\n\nIMPORTANT: You are a highly capable multilingual visual copilot. You MUST strictly reply in the exact same language that the user speaks to you.
 You can control the user's screen using tools. You are currently on the page: ${currentPath}. 
 If the user wants to do something on a different page, use navigate_to_page tool. If you want to show them where to click or type on the current page, use highlight_element tool.
 If the user asks you to look at their screen or asks what is on the screen, use the analyze_current_screen tool.
@@ -208,127 +93,261 @@ If the user asks you to set up Leadzo for their website, use the setup_business_
         firstMessage = `Namaste! I am the Voice Assistant for ${activeBrain.company_name}. How can I assist you today?`;
       }
 
-      if (messages.length === 0) {
-        setMessages([{ role: "assistant", text: firstMessage }]);
+      const initialMsgs: Message[] = [
+        { role: "system", content: systemPrompt },
+        { role: "assistant", content: firstMessage }
+      ];
+      
+      setMessages(initialMsgs);
+      setIsSystemReady(true);
+      return initialMsgs;
+    } catch (e) {
+      console.error("Error initializing system prompt", e);
+      return [];
+    }
+  };
+
+  const getToolsDef = () => [
+    {
+      type: "function",
+      function: {
+        name: "navigate_to_page",
+        description: "Navigate the user to a specific page path.",
+        parameters: { type: "object", properties: { path: { type: "string", description: "The path to navigate to" } }, required: ["path"] }
       }
-
-      const VAPI_ASSISTANT_ID = import.meta.env.VITE_VAPI_MANAGER_ASSISTANT_ID || "c72d5615-bd69-4776-bd5d-d3ded56e1687";
-
-      const assistantOverrides = {
-        name: "Leadzo Global Agent",
-        firstMessage: firstMessage,
-        model: {
-          provider: "openai",
-          model: "gpt-4o-mini",
-          messages: [
-            {
-              role: "system",
-              content: systemPrompt
-            }
-          ],
-          tools: [
-            {
-              type: "function",
-              function: {
-                name: "navigate_to_page",
-                description: "Navigate the user to a specific page path.",
-                parameters: {
-                  type: "object",
-                  properties: { path: { type: "string", description: "The path to navigate to" } },
-                  required: ["path"]
-                }
-              }
-            },
-            {
-              type: "function",
-              function: {
-                name: "highlight_element",
-                description: "Highlight a UI element.",
-                parameters: {
-                  type: "object",
-                  properties: { 
-                    selector: { type: "string", description: "CSS selector of the element" }, 
-                    message: { type: "string", description: "Message to show" } 
-                  },
-                  required: ["selector", "message"]
-                }
-              }
-            },
-            {
-              type: "function",
-              function: {
-                name: "analyze_current_screen",
-                description: "Take a screenshot of the user's screen.",
-                parameters: { type: "object", properties: {} }
-              }
-            },
-            {
-              type: "function",
-              function: {
-                name: "setup_business_profile",
-                description: "Autonomously set up the Leadzo account by scraping a website and configuring the AI Brain. Use this when the user gives you a website link to set up.",
-                parameters: {
-                  type: "object",
-                  properties: { 
-                    website_url: { type: "string", description: "The full URL of the website to scrape, e.g. https://example.com" },
-                    company_name: { type: "string", description: "Optional name of the company if known" }
-                  },
-                  required: ["website_url"]
-                }
-              }
-            }
-          ]
+    },
+    {
+      type: "function",
+      function: {
+        name: "highlight_element",
+        description: "Highlight a UI element.",
+        parameters: { type: "object", properties: { selector: { type: "string", description: "CSS selector of the element" }, message: { type: "string", description: "Message to show" } }, required: ["selector", "message"] }
+      }
+    },
+    {
+      type: "function",
+      function: {
+        name: "analyze_current_screen",
+        description: "Take a screenshot of the user's screen.",
+        parameters: { type: "object", properties: {} }
+      }
+    },
+    {
+      type: "function",
+      function: {
+        name: "setup_business_profile",
+        description: "Autonomously set up the Leadzo account by scraping a website and configuring the AI Brain. Use this when the user gives you a website link to set up.",
+        parameters: {
+          type: "object",
+          properties: { 
+            website_url: { type: "string", description: "The full URL of the website to scrape, e.g. https://example.com" },
+            company_name: { type: "string", description: "Optional name of the company if known" }
+          },
+          required: ["website_url"]
         }
-      };
-
-      await vapiRef.current?.start(VAPI_ASSISTANT_ID, assistantOverrides as any);
-      
-      if (initialMessage) {
-        vapiRef.current?.send({
-          type: "add-message",
-          message: { role: "user", content: initialMessage }
-        });
       }
-      
+    }
+  ];
+
+  const handleToolCalls = async (toolCalls: any[], currentMsgs: Message[]): Promise<Message[]> => {
+    const newMsgs = [...currentMsgs];
+    
+    for (const toolCall of toolCalls) {
+      const functionName = toolCall.function.name;
+      const args = JSON.parse(toolCall.function.arguments || "{}");
+      let toolResult = "";
+
+      if (functionName === "navigate_to_page") {
+        navigate(args.path);
+        toolResult = `Navigated to ${args.path}`;
+      }
+      else if (functionName === "highlight_element") {
+        const target = document.querySelector(args.selector);
+        if (target) {
+          target.classList.add("ring-4", "ring-primary", "ring-offset-2", "animate-pulse", "shadow-[0_0_25px_rgba(255,100,100,0.8)]");
+          toast(args.message, { icon: "💡", duration: 8000 });
+          setTimeout(() => {
+            target.classList.remove("ring-4", "ring-primary", "ring-offset-2", "animate-pulse", "shadow-[0_0_25px_rgba(255,100,100,0.8)]");
+          }, 8000);
+          toolResult = `Element highlighted successfully with message: ${args.message}`;
+        } else {
+          toolResult = `Element ${args.selector} not found on the page.`;
+        }
+      }
+      else if (functionName === "analyze_current_screen") {
+        toast.loading("Taking a look at your screen...", { id: "screenshot-toast" });
+        try {
+          const dataUrl = await htmlToImage.toJpeg(document.body, { 
+            quality: 0.4,
+            canvasWidth: Math.floor(document.body.clientWidth * 0.5),
+            canvasHeight: Math.floor(document.body.clientHeight * 0.5),
+            filter: (node: any) => !node.classList?.contains('vapi-widget-container')
+          });
+          const base64Image = dataUrl.split(",")[1];
+          
+          const { data, error } = await supabase.functions.invoke("vapi_analyze_screen", {
+            body: { image_base64: base64Image },
+          });
+
+          if (error) throw error;
+          toast.success("Screen analyzed!", { id: "screenshot-toast" });
+          toolResult = `Screen Analysis Result: ${data.description}`;
+        } catch (err: any) {
+          toast.error(`Failed to analyze: ${err.message || err}`, { id: "screenshot-toast" });
+          toolResult = `Failed to capture screen: ${err.message}`;
+        }
+      }
+      else if (functionName === "setup_business_profile") {
+        toast.loading(`Setting up Leadzo for ${args.website_url}...`, { id: "setup-toast", duration: 15000 });
+        try {
+          const { data: scrapeData, error: scrapeError } = await supabase.functions.invoke("ai_scrape_website", {
+            body: { url: args.website_url }
+          });
+          if (scrapeError) throw scrapeError;
+
+          const companyName = args.company_name || new URL(args.website_url).hostname;
+          const { error: dbError } = await supabase.from("business_knowledge").upsert({
+            id: "default-business",
+            company_name: companyName,
+            website_url: args.website_url,
+            business_details: scrapeData.prompt,
+            is_active: true
+          });
+
+          if (dbError) throw dbError;
+          toast.success("Leadzo Setup Complete!", { id: "setup-toast" });
+          toolResult = `Successfully set up Leadzo for ${args.website_url}. The AI is now trained on this data.`;
+        } catch (err: any) {
+           toast.error(`Setup failed: ${err.message}`, { id: "setup-toast" });
+           toolResult = `Setup failed with error: ${err.message}`;
+        }
+      }
+
+      newMsgs.push({
+        role: "tool",
+        tool_call_id: toolCall.id,
+        name: functionName,
+        content: toolResult
+      });
+    }
+
+    setMessages(newMsgs);
+    return newMsgs;
+  };
+
+  const fetchOmniRouter = async (currentMsgs: Message[]) => {
+    setStatus("loading");
+    try {
+      const response = await fetch(`${OMNIROUTE_URL}/chat/completions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          // Dummy token for OmniRouter if required, though it might bypass if local
+          "Authorization": `Bearer omni_dummy_key`
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini", // Change as per OmniRouter setup
+          messages: currentMsgs,
+          tools: getToolsDef(),
+          tool_choice: "auto"
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const choice = data.choices[0].message;
+
+      // Add assistant response to messages
+      const updatedMsgs = [...currentMsgs, choice];
+      setMessages(updatedMsgs);
+
+      if (choice.tool_calls && choice.tool_calls.length > 0) {
+        // Handle tools
+        const msgsAfterTools = await handleToolCalls(choice.tool_calls, updatedMsgs);
+        // Call LLM again with tool results
+        await fetchOmniRouter(msgsAfterTools);
+      } else if (choice.content) {
+        // Speak the content
+        speakText(choice.content);
+        setStatus("idle");
+      } else {
+        setStatus("idle");
+      }
+
     } catch (e: any) {
-      console.error("Error starting Vapi global call:", e);
-      toast.error(e.message || "Failed to start AI Voice Agent.");
+      console.error("OmniRouter Error:", e);
+      toast.error("OmniRouter Connection Error: " + (e?.message || "Unknown error"));
       setStatus("error");
       setTimeout(() => setStatus("idle"), 3000);
     }
   };
 
-  const handleToggleCall = () => {
+  const speakText = (text: string) => {
+    if (!synthRef.current) return;
+    
+    // Cancel any ongoing speech
+    synthRef.current.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    // Try to pick a decent English voice
+    const voices = synthRef.current.getVoices();
+    const englishVoice = voices.find(v => v.lang.startsWith('en-') && !v.name.includes('Google')); // Prefer OS voices
+    if (englishVoice) {
+      utterance.voice = englishVoice;
+    }
+    
+    utterance.rate = 1.1; // Slightly faster
+    utterance.onstart = () => setStatus("active");
+    utterance.onend = () => setStatus("idle");
+    
+    synthRef.current.speak(utterance);
+  };
+
+  const handleToggleMic = async () => {
     if (status === "active" || status === "loading") {
-      vapiRef.current?.stop();
+      // Stop listening/speaking
+      if (recognitionRef.current) recognitionRef.current.stop();
+      if (synthRef.current) synthRef.current.cancel();
       setStatus("idle");
     } else {
-      initVapiSession();
+      let currentMsgs = messages;
+      if (!isSystemReady) {
+        currentMsgs = await initSystemPrompt();
+      }
+      
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.start();
+        } catch(e) {
+          console.error(e);
+        }
+      } else {
+        toast.error("Voice recognition not supported.");
+      }
     }
   };
 
-  const handleSendText = async () => {
-    if (!inputText.trim()) return;
+  const handleSendText = async (textInput?: string) => {
+    const text = typeof textInput === "string" ? textInput : inputText.trim();
+    if (!text) return;
     
-    const text = inputText.trim();
-    setInputText("");
-    
-    // Add locally for instant feedback
-    setMessages(prev => [...prev, { role: "user", text }]);
-
-    if (status !== "active") {
-      // Start session with text if not active
-      await initVapiSession(text);
-    } else {
-      vapiRef.current?.send({
-        type: "add-message",
-        message: { role: "user", content: text }
-      });
+    if (typeof textInput !== "string") {
+      setInputText("");
     }
+    
+    let currentMsgs = messages;
+    if (!isSystemReady) {
+      currentMsgs = await initSystemPrompt();
+    }
+    
+    const newMsgs = [...currentMsgs, { role: "user", content: text } as Message];
+    setMessages(newMsgs);
+    
+    await fetchOmniRouter(newMsgs);
   };
-
-  // UI calculations
-  const scale = status === "active" ? 1 + (volumeLevel > 0.1 ? volumeLevel * 0.5 : 0) : 1;
 
   return (
     <div className="vapi-widget-container fixed bottom-6 right-6 z-[9999] flex flex-col items-end group font-sans">
@@ -345,8 +364,8 @@ If the user asks you to set up Leadzo for their website, use the setup_business_
                 <div className={cn("absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-slate-900 transition-colors", status === 'active' ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)]' : 'bg-slate-400')} />
               </div>
               <div>
-                <h3 className="font-semibold text-slate-100 text-sm tracking-wide">Leadzo AI Copilot</h3>
-                <p className="text-[11px] text-indigo-300">{status === 'active' ? 'Listening to voice...' : status === 'loading' ? 'Connecting...' : 'Online'}</p>
+                <h3 className="font-semibold text-slate-100 text-sm tracking-wide">Leadzo Omni Copilot</h3>
+                <p className="text-[11px] text-indigo-300">{status === 'active' ? 'Mic Active / Speaking...' : status === 'loading' ? 'Thinking...' : 'Online (Local AI)'}</p>
               </div>
             </div>
             <button onClick={() => setIsOpen(false)} className="p-2 bg-white/5 hover:bg-white/10 rounded-full transition-colors">
@@ -361,24 +380,25 @@ If the user asks you to set up Leadzo for their website, use the setup_business_
                   <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center border border-white/5">
                     <Bot className="w-8 h-8 text-indigo-400" />
                   </div>
-                  <p className="text-sm text-slate-300">How can I help you setup Leadzo?</p>
+                  <p className="text-sm text-slate-300 text-center px-4">Hello! I am your completely free Local AI assistant powered by OmniRouter.</p>
                 </div>
              )}
-             {messages.map((m, i) => (
+             {messages.filter(m => m.role !== 'system' && m.role !== 'tool').map((m, i) => (
                 <div key={i} className={cn("flex flex-col max-w-[85%]", m.role === 'user' ? "self-end items-end" : "self-start items-start")}>
-                  {m.role === 'system' ? (
-                     <div className="text-[10px] text-emerald-400 uppercase tracking-widest font-bold my-2 bg-emerald-500/10 px-3 py-1.5 rounded-full border border-emerald-500/20 flex items-center gap-1.5">
-                       {m.text}
-                     </div>
-                  ) : (
-                     <div className={cn("px-4 py-2.5 text-[13px] leading-relaxed rounded-2xl shadow-sm", 
-                        m.role === 'user' 
-                          ? "bg-indigo-600 text-white rounded-tr-sm" 
-                          : "bg-slate-800 text-slate-200 rounded-tl-sm border border-white/5"
-                     )}>
-                       {m.text}
-                     </div>
-                  )}
+                  <div className={cn("px-4 py-2.5 text-[13px] leading-relaxed rounded-2xl shadow-sm", 
+                    m.role === 'user' 
+                      ? "bg-indigo-600 text-white rounded-tr-sm" 
+                      : "bg-slate-800 text-slate-200 rounded-tl-sm border border-white/5"
+                  )}>
+                    {m.content}
+                  </div>
+                </div>
+             ))}
+             {messages.filter(m => m.role === 'tool').map((m, i) => (
+                <div key={`tool-${i}`} className="flex flex-col max-w-[85%] self-start items-start">
+                   <div className="text-[10px] text-emerald-400 uppercase tracking-widest font-bold my-1 bg-emerald-500/10 px-3 py-1.5 rounded-full border border-emerald-500/20 flex items-center gap-1.5">
+                     🔧 {m.name}: {m.content.substring(0, 50)}{m.content.length > 50 ? '...' : ''}
+                   </div>
                 </div>
              ))}
              {status === "loading" && (
@@ -392,7 +412,7 @@ If the user asks you to set up Leadzo for their website, use the setup_business_
           {/* Input Area */}
           <div className="p-3 bg-slate-900/80 backdrop-blur-md border-t border-white/5 flex gap-2 items-center shrink-0">
              <button
-               onClick={handleToggleCall}
+               onClick={handleToggleMic}
                className={cn(
                  "p-3 rounded-full transition-all shrink-0 relative overflow-hidden group/mic shadow-md",
                  status === "idle" ? "bg-slate-800 hover:bg-slate-700 text-slate-300 border border-white/5" :
@@ -400,10 +420,10 @@ If the user asks you to set up Leadzo for their website, use the setup_business_
                  status === "active" ? "bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30" :
                  "bg-red-900 text-white"
                )}
-               title={status === 'active' ? "End Voice Call" : "Start Voice Call"}
+               title={status === 'active' ? "Stop Voice" : "Start Voice"}
              >
                {status === "active" && (
-                 <div className="absolute inset-0 bg-red-500/20 rounded-full transition-all" style={{ transform: `scale(${scale})`, opacity: isSpeaking ? 1 : 0.4 }} />
+                 <div className="absolute inset-0 bg-red-500/20 rounded-full transition-all animate-pulse" />
                )}
                {status === "idle" && <Mic className="w-5 h-5 relative z-10 group-hover/mic:text-white transition-colors" />}
                {status === "loading" && <Loader2 className="w-5 h-5 animate-spin relative z-10" />}
@@ -422,7 +442,7 @@ If the user asks you to set up Leadzo for their website, use the setup_business_
              />
              
              <button 
-               onClick={handleSendText} 
+               onClick={() => handleSendText()} 
                disabled={!inputText.trim()}
                className="p-3 bg-indigo-600 disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed rounded-full text-white hover:bg-indigo-500 transition-all shrink-0 shadow-md"
              >
@@ -435,13 +455,16 @@ If the user asks you to set up Leadzo for their website, use the setup_business_
       {/* Floating Button Toggle */}
       {!isOpen && (
         <button
-          onClick={() => setIsOpen(true)}
+          onClick={() => {
+            setIsOpen(true);
+            if (!isSystemReady) initSystemPrompt();
+          }}
           className="relative w-16 h-16 rounded-full bg-gradient-to-tr from-indigo-600 to-indigo-500 hover:scale-105 shadow-[0_10px_25px_-5px_rgba(79,70,229,0.5)] flex items-center justify-center transition-all duration-300 z-10 border border-white/10"
         >
           <Bot className="w-7 h-7 text-white drop-shadow-md" />
           
           <div className="absolute right-full mr-4 bg-slate-900/90 backdrop-blur-md border border-white/10 px-4 py-2 rounded-xl shadow-xl text-xs font-semibold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none hidden md:flex items-center text-slate-200">
-            Open AI Copilot
+            Open Omni Copilot
             <div className="absolute right-[-5px] top-1/2 -translate-y-1/2 w-2 h-2 bg-slate-900/90 border-t border-r border-white/10 rotate-45" />
           </div>
         </button>
