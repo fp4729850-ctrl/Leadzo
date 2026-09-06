@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from "motion/react";
 import { 
   Building2, Calendar, RefreshCw, CheckCircle2, ShieldCheck, 
   Link as LinkIcon, Plus, User, Phone, Globe, Lock, AlertTriangle, 
-  Sparkles, Copy, Check, ExternalLink, Bot, BedDouble, Hotel, CalendarCheck, ShieldAlert
+  Sparkles, Copy, Check, ExternalLink, Bot, BedDouble, Hotel, CalendarCheck, ShieldAlert,
+  Settings, Key, Layers, X, Wand2
 } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
@@ -12,6 +13,7 @@ import { Badge } from "@/components/ui/badge.tsx";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card.tsx";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs.tsx";
 import { Textarea } from "@/components/ui/textarea.tsx";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog.tsx";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils.ts";
 
@@ -20,9 +22,19 @@ interface OtaChannel {
   name: string;
   iconColor: string;
   badgeBg: string;
+  connectMode: "ai" | "ical";
+  email: string;
+  password: string;
   icalUrl: string;
   status: "connected" | "syncing" | "pending";
   lastSync: string;
+}
+
+interface RoomIcalLinks {
+  bookingCom?: string;
+  airbnb?: string;
+  agoda?: string;
+  goibibo?: string;
 }
 
 interface Room {
@@ -30,6 +42,8 @@ interface Room {
   number: string;
   type: string;
   pricePerNight: number;
+  masterExportIcal: string;
+  icalLinks: RoomIcalLinks;
 }
 
 interface Booking {
@@ -45,26 +59,60 @@ interface Booking {
 }
 
 export default function HotelLeadManagerPage() {
-  const [copiedLink, setCopiedLink] = useState(false);
+  const [copiedRoomIcal, setCopiedRoomIcal] = useState<string | null>(null);
   const [selectedTab, setSelectedTab] = useState("matrix");
   const [isSyncingAll, setIsSyncingAll] = useState(false);
+  const [selectedRoomForIcal, setSelectedRoomForIcal] = useState<Room | null>(null);
+  const [isAiMatching, setIsAiMatching] = useState(false);
 
-  // Sample OTA channels
+  // OTA Channels with Dual Connect Mode (AI Login & Password vs Direct iCal)
   const [channels, setChannels] = useState<OtaChannel[]>([
-    { id: "booking", name: "Booking.com", iconColor: "text-blue-400", badgeBg: "bg-blue-500/10 text-blue-400 border-blue-500/20", icalUrl: "https://admin.booking.com/hotel/ical/export/sample.ics", status: "connected", lastSync: "2 mins ago" },
-    { id: "airbnb", name: "Airbnb", iconColor: "text-rose-400", badgeBg: "bg-rose-500/10 text-rose-400 border-rose-500/20", icalUrl: "https://www.airbnb.com/calendar/ical/12345678.ics?s=sample", status: "connected", lastSync: "5 mins ago" },
-    { id: "agoda", name: "Agoda", iconColor: "text-amber-400", badgeBg: "bg-amber-500/10 text-amber-400 border-amber-500/20", icalUrl: "https://ycs.agoda.com/ical/export/sample.ics", status: "connected", lastSync: "1 min ago" },
-    { id: "goibibo", name: "Goibibo / MMT", iconColor: "text-orange-400", badgeBg: "bg-orange-500/10 text-orange-400 border-orange-500/20", icalUrl: "", status: "pending", lastSync: "Not connected" },
+    { id: "booking", name: "Booking.com", iconColor: "text-blue-400", badgeBg: "bg-blue-500/10 text-blue-400 border-blue-500/20", connectMode: "ai", email: "hotel.grand@booking.com", password: "••••••••", icalUrl: "https://admin.booking.com/hotel/ical/export/sample.ics", status: "connected", lastSync: "2 mins ago" },
+    { id: "airbnb", name: "Airbnb", iconColor: "text-rose-400", badgeBg: "bg-rose-500/10 text-rose-400 border-rose-500/20", connectMode: "ai", email: "host@airbnb.com", password: "••••••••", icalUrl: "https://www.airbnb.com/calendar/ical/12345678.ics?s=sample", status: "connected", lastSync: "5 mins ago" },
+    { id: "agoda", name: "Agoda", iconColor: "text-amber-400", badgeBg: "bg-amber-500/10 text-amber-400 border-amber-500/20", connectMode: "ical", email: "", password: "", icalUrl: "https://ycs.agoda.com/ical/export/sample.ics", status: "connected", lastSync: "1 min ago" },
+    { id: "goibibo", name: "Goibibo / MMT", iconColor: "text-orange-400", badgeBg: "bg-orange-500/10 text-orange-400 border-orange-500/20", connectMode: "ai", email: "", password: "", icalUrl: "", status: "pending", lastSync: "Not connected" },
   ]);
 
-  // Rooms
-  const rooms: Room[] = [
-    { id: "101", number: "101", type: "Deluxe King Suite", pricePerNight: 3500 },
-    { id: "102", number: "102", type: "Deluxe Double Bed", pricePerNight: 3000 },
-    { id: "201", number: "201", type: "Executive Suite", pricePerNight: 5500 },
-    { id: "202", number: "202", type: "Royal Family Room", pricePerNight: 6500 },
-    { id: "301", number: "301", type: "Presidential Penthouse", pricePerNight: 12000 },
-  ];
+  // Rooms with Per-Room iCal Links
+  const [rooms, setRooms] = useState<Room[]>([
+    { 
+      id: "101", number: "101", type: "Deluxe King Suite", pricePerNight: 3500, 
+      masterExportIcal: "https://api.leadzoai.com/v1/hotel/ical/export/room_101_leadzo.ics",
+      icalLinks: {
+        bookingCom: "https://admin.booking.com/ical/room_101.ics",
+        airbnb: "https://www.airbnb.com/calendar/ical/room_101.ics",
+        agoda: "https://ycs.agoda.com/ical/room_101.ics"
+      }
+    },
+    { 
+      id: "102", number: "102", type: "Deluxe Double Bed", pricePerNight: 3000, 
+      masterExportIcal: "https://api.leadzoai.com/v1/hotel/ical/export/room_102_leadzo.ics",
+      icalLinks: {
+        bookingCom: "https://admin.booking.com/ical/room_102.ics",
+        airbnb: "https://www.airbnb.com/calendar/ical/room_102.ics"
+      }
+    },
+    { 
+      id: "201", number: "201", type: "Executive Suite", pricePerNight: 5500, 
+      masterExportIcal: "https://api.leadzoai.com/v1/hotel/ical/export/room_201_leadzo.ics",
+      icalLinks: {
+        bookingCom: "https://admin.booking.com/ical/room_201.ics",
+        agoda: "https://ycs.agoda.com/ical/room_201.ics"
+      }
+    },
+    { 
+      id: "202", number: "202", type: "Royal Family Room", pricePerNight: 6500, 
+      masterExportIcal: "https://api.leadzoai.com/v1/hotel/ical/export/room_202_leadzo.ics",
+      icalLinks: {
+        airbnb: "https://www.airbnb.com/calendar/ical/room_202.ics"
+      }
+    },
+    { 
+      id: "301", number: "301", type: "Presidential Penthouse", pricePerNight: 12000, 
+      masterExportIcal: "https://api.leadzoai.com/v1/hotel/ical/export/room_301_leadzo.ics",
+      icalLinks: {}
+    },
+  ]);
 
   // Next 7 days
   const dates = ["Sept 06", "Sept 07", "Sept 08", "Sept 09", "Sept 10", "Sept 11", "Sept 12"];
@@ -78,16 +126,39 @@ export default function HotelLeadManagerPage() {
     { id: "b5", roomNumber: "301", guestName: "Maintenance Block", phone: "N/A", source: "Direct / AI Agent", checkIn: "Sept 08", checkOut: "Sept 09", amount: 0, status: "blocked" },
   ]);
 
-  const masterExportIcal = "https://api.leadzoai.com/v1/hotel/ical/export/master_hotel_sync_9918.ics";
-
   const handleSyncAll = () => {
     setIsSyncingAll(true);
     toast.info("Syncing OTA Calendars across Booking.com, Airbnb, Agoda...");
     setTimeout(() => {
       setIsSyncingAll(false);
       setChannels(prev => prev.map(c => c.status === "connected" ? { ...c, lastSync: "Just now" } : c));
-      toast.success("All OTA Channels Synced & Master Calendar Updated!");
+      toast.success("All Room Calendars Synced & Double Bookings Guard Active!");
     }, 1800);
+  };
+
+  const handleAiAutoMatchRooms = () => {
+    setIsAiMatching(true);
+    toast.loading("AI Agent logging into Booking.com & Airbnb to auto-extract per-room iCal links...", { id: "ai-match" });
+    setTimeout(() => {
+      setIsAiMatching(false);
+      toast.success("AI Auto-Matched 5 Rooms with OTA iCal Links!", { id: "ai-match" });
+      setRooms(prev => prev.map(r => ({
+        ...r,
+        icalLinks: {
+          bookingCom: `https://admin.booking.com/ical/room_${r.number}.ics`,
+          airbnb: `https://www.airbnb.com/calendar/ical/room_${r.number}.ics`,
+          agoda: `https://ycs.agoda.com/ical/room_${r.number}.ics`
+        }
+      })));
+    }, 2200);
+  };
+
+  const handleConnectOtaViaAi = (channelId: string, name: string) => {
+    toast.loading(`AI Logging into ${name}...`, { id: "ota-connect" });
+    setTimeout(() => {
+      setChannels(prev => prev.map(c => c.id === channelId ? { ...c, status: "connected", lastSync: "Just now" } : c));
+      toast.success(`AI Connected to ${name} & Auto-Extracted Room iCal Links!`, { id: "ota-connect" });
+    }, 1500);
   };
 
   const getBookingForCell = (roomNum: string, date: string) => {
@@ -112,20 +183,21 @@ export default function HotelLeadManagerPage() {
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-bold tracking-tight font-serif">Hotel Lead & Channel Manager</h1>
               <Badge variant="outline" className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-[10px]">
-                Double Booking Guard 🛡️
+                Per-Room iCal Sync Guard 🛡️
               </Badge>
             </div>
-            <p className="text-xs text-muted-foreground">Auto-sync calendars & leads across Booking.com, Airbnb, Agoda & Direct AI Caller</p>
+            <p className="text-xs text-muted-foreground">Auto-sync room calendars & leads across Booking.com, Airbnb, Agoda & Direct AI Caller</p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
+          <Button onClick={handleAiAutoMatchRooms} disabled={isAiMatching} variant="secondary" size="sm" className="gap-2 cursor-pointer border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20">
+            <Wand2 size={14} className={cn(isAiMatching && "animate-spin text-amber-400")} />
+            {isAiMatching ? "AI Matching..." : "AI Auto-Match Rooms"}
+          </Button>
           <Button onClick={handleSyncAll} disabled={isSyncingAll} variant="outline" size="sm" className="gap-2 cursor-pointer border-border hover:bg-muted">
             <RefreshCw size={14} className={cn(isSyncingAll && "animate-spin text-amber-400")} />
-            {isSyncingAll ? "Syncing..." : "Sync OTA Channels"}
-          </Button>
-          <Button size="sm" className="gap-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold cursor-pointer">
-            <Plus size={14} /> Direct Booking
+            {isSyncingAll ? "Syncing..." : "Sync All Rooms"}
           </Button>
         </div>
       </div>
@@ -185,10 +257,10 @@ export default function HotelLeadManagerPage() {
       <Tabs defaultValue="matrix" value={selectedTab} onValueChange={setSelectedTab} className="w-full">
         <TabsList className="bg-muted/40 p-1 border border-border/60">
           <TabsTrigger value="matrix" className="gap-2 text-xs">
-            <Calendar size={13} /> Availability Matrix
+            <Calendar size={13} /> Room Availability Matrix
           </TabsTrigger>
           <TabsTrigger value="channels" className="gap-2 text-xs">
-            <Globe size={13} /> OTA Channel Sync (iCal)
+            <Globe size={13} /> OTA Channel Credentials (AI Login)
           </TabsTrigger>
           <TabsTrigger value="receptionist" className="gap-2 text-xs">
             <Bot size={13} /> AI Receptionist & Voice
@@ -203,8 +275,8 @@ export default function HotelLeadManagerPage() {
           <Card className="border-border">
             <CardHeader className="p-4 pb-2 border-b border-border flex flex-row items-center justify-between">
               <div>
-                <CardTitle className="text-base font-semibold">Live Room Availability & Channel Matrix</CardTitle>
-                <CardDescription className="text-xs">Real-time room occupancy grid across all connected OTAs</CardDescription>
+                <CardTitle className="text-base font-semibold">Per-Room Live Availability & iCal Sync Grid</CardTitle>
+                <CardDescription className="text-xs">Each room has its own unique iCal links mapped across Booking.com, Airbnb & Agoda</CardDescription>
               </div>
               <div className="flex items-center gap-3 text-xs">
                 <span className="flex items-center gap-1"><span className="size-2.5 rounded-full bg-blue-500 inline-block"></span> Booking.com</span>
@@ -214,11 +286,11 @@ export default function HotelLeadManagerPage() {
               </div>
             </CardHeader>
             <CardContent className="p-0 overflow-x-auto">
-              <table className="w-full text-xs text-left border-collapse min-w-[700px]">
+              <table className="w-full text-xs text-left border-collapse min-w-[800px]">
                 <thead>
                   <tr className="bg-muted/30 border-b border-border text-muted-foreground">
-                    <th className="p-3 w-44">Room No & Type</th>
-                    <th className="p-3 w-24">Rate/Night</th>
+                    <th className="p-3 w-48">Room & Type</th>
+                    <th className="p-3 w-36">Per-Room iCal Setup</th>
                     {dates.map((d, i) => (
                       <th key={i} className="p-3 text-center border-l border-border/40 font-mono">{d}</th>
                     ))}
@@ -228,10 +300,104 @@ export default function HotelLeadManagerPage() {
                   {rooms.map((room) => (
                     <tr key={room.id} className="hover:bg-muted/10 transition-colors">
                       <td className="p-3 font-semibold">
-                        <p className="font-mono text-sm">{room.number}</p>
-                        <p className="text-[11px] text-muted-foreground font-normal">{room.type}</p>
+                        <p className="font-mono text-sm">Room {room.number}</p>
+                        <p className="text-[11px] text-muted-foreground font-normal">{room.type} (₹{room.pricePerNight})</p>
                       </td>
-                      <td className="p-3 font-mono text-muted-foreground">₹{room.pricePerNight}</td>
+
+                      {/* Per-Room iCal Link Setup Modal Trigger */}
+                      <td className="p-3">
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              onClick={() => setSelectedRoomForIcal(room)}
+                              className="h-7 text-[11px] gap-1 cursor-pointer border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10 text-amber-300"
+                            >
+                              <Settings size={11} /> Room {room.number} iCal
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="sm:max-w-[550px]">
+                            <DialogHeader>
+                              <DialogTitle className="flex items-center gap-2 text-base">
+                                <BedDouble className="size-5 text-amber-500" /> Room {room.number} ({room.type}) iCal Links
+                              </DialogTitle>
+                              <DialogDescription className="text-xs">
+                                Manage dedicated iCal URLs for Room {room.number}. Leadzo will block Room {room.number} across all OTAs when booked anywhere.
+                              </DialogDescription>
+                            </DialogHeader>
+
+                            <div className="space-y-4 py-2">
+                              {/* Room Master Export iCal */}
+                              <div className="space-y-1 bg-muted/40 p-3 rounded-lg border border-border">
+                                <Label className="text-xs font-semibold text-emerald-400 flex items-center gap-1.5">
+                                  <Copy size={12} /> Leadzo Master Export Link for Room {room.number}
+                                </Label>
+                                <p className="text-[10px] text-muted-foreground">Paste this link into Room {room.number}'s calendar import on Booking.com / Airbnb</p>
+                                <div className="flex gap-2 pt-1">
+                                  <Input value={room.masterExportIcal} readOnly className="font-mono text-[11px] bg-background" />
+                                  <Button 
+                                    size="sm" 
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(room.masterExportIcal);
+                                      setCopiedRoomIcal(room.number);
+                                      setTimeout(() => setCopiedRoomIcal(null), 2000);
+                                      toast.success(`Master iCal Link for Room ${room.number} Copied!`);
+                                    }}
+                                    className="gap-1 cursor-pointer shrink-0"
+                                  >
+                                    {copiedRoomIcal === room.number ? <Check size={12} /> : <Copy size={12} />}
+                                    {copiedRoomIcal === room.number ? "Copied" : "Copy"}
+                                  </Button>
+                                </div>
+                              </div>
+
+                              {/* OTA Import Links for this Room */}
+                              <div className="space-y-3">
+                                <div className="space-y-1">
+                                  <Label className="text-xs text-blue-400">Booking.com iCal for Room {room.number}</Label>
+                                  <Input 
+                                    placeholder="https://admin.booking.com/ical/room_101.ics"
+                                    value={room.icalLinks.bookingCom || ""}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      setRooms(prev => prev.map(r => r.id === room.id ? { ...r, icalLinks: { ...r.icalLinks, bookingCom: val } } : r));
+                                    }}
+                                    className="text-xs font-mono"
+                                  />
+                                </div>
+
+                                <div className="space-y-1">
+                                  <Label className="text-xs text-rose-400">Airbnb iCal for Room {room.number}</Label>
+                                  <Input 
+                                    placeholder="https://www.airbnb.com/calendar/ical/room_101.ics"
+                                    value={room.icalLinks.airbnb || ""}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      setRooms(prev => prev.map(r => r.id === room.id ? { ...r, icalLinks: { ...r.icalLinks, airbnb: val } } : r));
+                                    }}
+                                    className="text-xs font-mono"
+                                  />
+                                </div>
+
+                                <div className="space-y-1">
+                                  <Label className="text-xs text-amber-400">Agoda iCal for Room {room.number}</Label>
+                                  <Input 
+                                    placeholder="https://ycs.agoda.com/ical/room_101.ics"
+                                    value={room.icalLinks.agoda || ""}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      setRooms(prev => prev.map(r => r.id === room.id ? { ...r, icalLinks: { ...r.icalLinks, agoda: val } } : r));
+                                    }}
+                                    className="text-xs font-mono"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                      </td>
+
                       {dates.map((date, idx) => {
                         const booking = getBookingForCell(room.number, date);
                         return (
@@ -272,32 +438,8 @@ export default function HotelLeadManagerPage() {
           </Card>
         </TabsContent>
 
-        {/* Tab 2: OTA Channel Sync (iCal Engine) */}
+        {/* Tab 2: OTA Channel Credentials (AI Login & Password Auto-Connect) */}
         <TabsContent value="channels" className="mt-4 space-y-4">
-          <Card className="border-border">
-            <CardHeader className="p-4 border-b border-border">
-              <CardTitle className="text-base font-semibold">Master Export iCal Link (For OTAs)</CardTitle>
-              <CardDescription className="text-xs">Copy this master link and paste it into Booking.com, Airbnb & Agoda calendar import settings so they auto-block dates when booked in Leadzo.</CardDescription>
-            </CardHeader>
-            <CardContent className="p-4 space-y-3">
-              <div className="flex gap-2">
-                <Input value={masterExportIcal} readOnly className="font-mono text-xs bg-muted/30" />
-                <Button 
-                  onClick={() => {
-                    navigator.clipboard.writeText(masterExportIcal);
-                    setCopiedLink(true);
-                    setTimeout(() => setCopiedLink(false), 2000);
-                    toast.success("Master iCal Link Copied!");
-                  }} 
-                  variant="secondary" className="gap-2 cursor-pointer shrink-0"
-                >
-                  {copiedLink ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
-                  {copiedLink ? "Copied" : "Copy Link"}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {channels.map((channel) => (
               <Card key={channel.id} className="border-border">
@@ -307,23 +449,77 @@ export default function HotelLeadManagerPage() {
                     <CardTitle className="text-sm font-semibold">{channel.name}</CardTitle>
                   </div>
                   <Badge variant="outline" className={channel.badgeBg}>
-                    {channel.status === "connected" ? "🟢 Connected" : "🟠 Pending"}
+                    {channel.status === "connected" ? "🟢 Connected (Auto AI)" : "🟠 Pending"}
                   </Badge>
                 </CardHeader>
                 <CardContent className="p-4 space-y-3">
-                  <div className="space-y-1">
-                    <Label className="text-[11px] text-muted-foreground">{channel.name} iCal Calendar Feed URL</Label>
-                    <Input 
-                      placeholder={`Paste ${channel.name} iCal URL here...`} 
-                      value={channel.icalUrl}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setChannels(prev => prev.map(c => c.id === channel.id ? { ...c, icalUrl: val, status: val ? "connected" : "pending" } : c));
-                      }}
-                      className="text-xs font-mono" 
-                    />
+                  {/* Connect Mode Switcher */}
+                  <div className="flex items-center gap-2 bg-muted/40 p-1 rounded-lg border border-border">
+                    <button 
+                      onClick={() => setChannels(prev => prev.map(c => c.id === channel.id ? { ...c, connectMode: "ai" } : c))}
+                      className={cn("flex-1 text-[11px] font-semibold py-1 rounded cursor-pointer transition-all flex items-center justify-center gap-1", channel.connectMode === "ai" ? "bg-amber-500/20 text-amber-300 border border-amber-500/30" : "text-muted-foreground")}
+                    >
+                      <Bot size={12} /> AI Auto-Login
+                    </button>
+                    <button 
+                      onClick={() => setChannels(prev => prev.map(c => c.id === channel.id ? { ...c, connectMode: "ical" } : c))}
+                      className={cn("flex-1 text-[11px] font-semibold py-1 rounded cursor-pointer transition-all flex items-center justify-center gap-1", channel.connectMode === "ical" ? "bg-blue-500/20 text-blue-300 border border-blue-500/30" : "text-muted-foreground")}
+                    >
+                      <LinkIcon size={12} /> Direct iCal Feed
+                    </button>
                   </div>
-                  <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1">
+
+                  {channel.connectMode === "ai" ? (
+                    <div className="space-y-2 pt-1">
+                      <div className="space-y-1">
+                        <Label className="text-[11px] text-muted-foreground">{channel.name} Login Email / ID</Label>
+                        <Input 
+                          placeholder="e.g. hotel.grand@gmail.com" 
+                          value={channel.email}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setChannels(prev => prev.map(c => c.id === channel.id ? { ...c, email: val } : c));
+                          }}
+                          className="text-xs" 
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[11px] text-muted-foreground">{channel.name} Password</Label>
+                        <Input 
+                          type="password" 
+                          placeholder="••••••••" 
+                          value={channel.password}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setChannels(prev => prev.map(c => c.id === channel.id ? { ...c, password: val } : c));
+                          }}
+                          className="text-xs font-mono" 
+                        />
+                      </div>
+                      <Button 
+                        onClick={() => handleConnectOtaViaAi(channel.id, channel.name)}
+                        size="sm" 
+                        className="w-full gap-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold cursor-pointer text-xs mt-1"
+                      >
+                        <Bot size={13} /> Auto-Connect & Extract Room iCal via AI
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-1 pt-1">
+                      <Label className="text-[11px] text-muted-foreground">{channel.name} Master iCal Feed URL</Label>
+                      <Input 
+                        placeholder={`Paste ${channel.name} iCal URL here...`} 
+                        value={channel.icalUrl}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setChannels(prev => prev.map(c => c.id === channel.id ? { ...c, icalUrl: val, status: val ? "connected" : "pending" } : c));
+                        }}
+                        className="text-xs font-mono" 
+                      />
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1 border-t border-border/40">
                     <span>Last Sync: {channel.lastSync}</span>
                     <Button 
                       size="sm" 
@@ -389,12 +585,12 @@ export default function HotelLeadManagerPage() {
               <CardContent className="p-4 space-y-3 text-xs leading-relaxed">
                 <div className="p-3 rounded-lg bg-muted/40 border border-border">
                   <p className="font-semibold text-emerald-400 mb-1">Guest Query (Phone / WhatsApp):</p>
-                  <p className="text-muted-foreground font-mono">"Namaste, kya Sept 08 se Sept 10 tak Deluxe Room available hai?"</p>
+                  <p className="text-muted-foreground font-mono">"Namaste, kya Sept 08 se Sept 10 tak Deluxe Room 101 available hai?"</p>
                 </div>
 
                 <div className="p-3 rounded-lg bg-indigo-500/10 border border-indigo-500/20">
                   <p className="font-semibold text-indigo-300 mb-1">AI Receptionist Auto Response:</p>
-                  <p className="text-slate-200">"Namaste! Haan, Sept 08 se Sept 10 tak Deluxe Room 102 available hai. Price per night ₹3,000 hai. Kya main aapke WhatsApp par instant booking link bhej doon?"</p>
+                  <p className="text-slate-200">"Namaste! Haan, Sept 08 se Sept 10 tak Deluxe Room 101 available hai. Price per night ₹3,500 hai. Kya main aapke WhatsApp par instant direct booking link bhej doon?"</p>
                 </div>
               </CardContent>
             </Card>
