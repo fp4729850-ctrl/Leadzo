@@ -51,6 +51,7 @@ export function ApiIntegrationsModal({ isOpen, onClose }: { isOpen: boolean; onC
   const [isLoadingTwilioNumbers, setIsLoadingTwilioNumbers] = useState(false);
   const [buyingTwilioNumber, setBuyingTwilioNumber] = useState<string | null>(null);
   const [twilioCountry, setTwilioCountry] = useState("US");
+  const [showExotelSetup, setShowExotelSetup] = useState(false);
 
   const fetchIntegrations = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -532,7 +533,43 @@ export function ApiIntegrationsModal({ isOpen, onClose }: { isOpen: boolean; onC
                       {isLoadingVapiNumbers && <Loader2 size={12} className="animate-spin" />}
                       Fetch My Vapi Numbers
                     </button>
+                    <button 
+                      onClick={() => setShowExotelSetup(!showExotelSetup)}
+                      className="flex-1 px-3 py-1.5 bg-orange-50 text-orange-600 border border-orange-200 hover:bg-orange-100 rounded-md text-xs font-semibold transition-colors flex items-center justify-center gap-1"
+                    >
+                      Setup Exotel (India)
+                    </button>
                   </div>
+                  
+                  {showExotelSetup && (
+                    <div className="mb-4 p-4 rounded-xl border border-orange-200 bg-orange-50/50 space-y-3">
+                      <h4 className="font-semibold text-orange-800 text-sm flex items-center gap-2">
+                        Exotel SIP Trunk Setup (Manual KYC Required)
+                      </h4>
+                      <p className="text-xs text-orange-700/80 leading-relaxed">
+                        Indian telecom rules require strict KYC (Aadhaar, PAN, Company Registration) to purchase virtual numbers. 
+                        Therefore, you must create a SIP Trunk on Exotel and connect it to Vapi manually.
+                      </p>
+                      
+                      <div className="space-y-2 mt-2">
+                        <div className="bg-white p-3 rounded-md border border-orange-100 text-xs text-slate-700">
+                          <strong>Step 1:</strong> Complete your KYC on Exotel and purchase a virtual number.
+                        </div>
+                        <div className="bg-white p-3 rounded-md border border-orange-100 text-xs text-slate-700">
+                          <strong>Step 2:</strong> Create a SIP Trunk in Exotel and route calls to Vapi's SIP URI:
+                          <div className="mt-2 p-2 bg-slate-900 text-emerald-400 rounded font-mono text-[10px] break-all select-all">
+                            sip:sip.vapi.ai
+                          </div>
+                        </div>
+                        <div className="bg-white p-3 rounded-md border border-orange-100 text-xs text-slate-700">
+                          <strong>Step 3:</strong> Once Exotel support confirms the SIP Trunk is active, import your SIP connection in your Vapi Dashboard.
+                        </div>
+                        <div className="bg-white p-3 rounded-md border border-orange-100 text-xs text-slate-700">
+                          <strong>Step 4:</strong> Click "Fetch My Vapi Numbers" above, select your new Exotel number, and click Save.
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   
                   {availableTwilioNumbers.length > 0 && (
                     <div className="space-y-2 mt-2 max-h-[150px] overflow-y-auto pr-1">
