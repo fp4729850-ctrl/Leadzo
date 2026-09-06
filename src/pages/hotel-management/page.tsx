@@ -538,6 +538,96 @@ export default function HotelLeadManagerPage() {
 
         {/* Tab 3: AI Hotel Receptionist & Voice */}
         <TabsContent value="receptionist" className="mt-4 space-y-4">
+
+          {/* Inbound Phone & Call Forwarding Setup Card */}
+          <Card className="border-amber-500/30 bg-amber-500/5">
+            <CardHeader className="p-4 border-b border-amber-500/20">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Phone className="size-5 text-amber-400" />
+                  <div>
+                    <CardTitle className="text-base font-semibold text-amber-200">Inbound Phone Call & AI Forwarding Setup</CardTitle>
+                    <CardDescription className="text-xs text-amber-300/70">Connect your personal mobile number so AI answers when you are busy or get unknown caller leads</CardDescription>
+                  </div>
+                </div>
+                <Badge variant="outline" className="bg-emerald-500/20 text-emerald-300 border-emerald-500/40 w-fit">
+                  🟢 AI Call Guard Active
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="p-4 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <Label className="text-xs">Your Personal / Hotel Mobile Number</Label>
+                  <Input defaultValue="+91 98765 43210" className="text-xs font-mono bg-background" />
+                  <p className="text-[10px] text-muted-foreground">Calls to this number will be auto-handled by Leadzo AI</p>
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs text-indigo-300">Leadzo AI Virtual Inbound Number</Label>
+                  <Input readOnly value="+91 11 4084 5918" className="text-xs font-mono bg-indigo-500/10 border-indigo-500/30 text-indigo-200 font-bold" />
+                  <p className="text-[10px] text-indigo-300/70">Target AI Number for Call Forwarding</p>
+                </div>
+              </div>
+
+              {/* Rules Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+                {/* Rule 1: Forward When Busy/Unanswered */}
+                <div className="p-3 rounded-lg bg-card border border-border space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-xs text-amber-300 flex items-center gap-1.5">
+                      <ShieldCheck size={13} /> Rule 1: Busy / Unanswered Forwarding
+                    </span>
+                    <Badge variant="secondary" className="text-[9px]">Active</Badge>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    Aap busy honge ya call nahi uthayenge (after 15s), toh call automatic AI Receptionist ko transfer ho jayegi!
+                  </p>
+                  <div className="pt-1 flex items-center justify-between">
+                    <span className="font-mono text-[11px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                      Dial: *61*+911140845918#
+                    </span>
+                    <Button size="sm" variant="ghost" onClick={() => { navigator.clipboard.writeText("*61*+911140845918#"); toast.success("USSD Code Copied!"); }} className="h-6 text-[10px] cursor-pointer">
+                      Copy Code
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Rule 2: Unknown Contacts Auto Answer */}
+                <div className="p-3 rounded-lg bg-card border border-border space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-xs text-indigo-300 flex items-center gap-1.5">
+                      <User size={13} /> Rule 2: Unknown / Unsaved Callers (New Leads)
+                    </span>
+                    <Badge variant="secondary" className="text-[9px]">Active</Badge>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    Naye guests aur unknown numbers se aane waale calls direct AI Manager uthayega aur room booking deal final karega!
+                  </p>
+                  <div className="pt-1 flex items-center justify-between">
+                    <span className="font-mono text-[11px] text-indigo-300 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
+                      Dial: *21*+911140845918#
+                    </span>
+                    <Button size="sm" variant="ghost" onClick={() => { navigator.clipboard.writeText("*21*+911140845918#"); toast.success("USSD Code Copied!"); }} className="h-6 text-[10px] cursor-pointer">
+                      Copy Code
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {/* One-Click USSD Dialing for Indian Telecom Carriers */}
+              <div className="pt-2 flex flex-wrap items-center justify-between gap-2 border-t border-amber-500/20">
+                <span className="text-xs text-muted-foreground">1-Click Mobile Setup:</span>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={() => toast.info("Jio Forwarding Code: *61*+911140845918#")} className="h-7 text-[11px] cursor-pointer">Jio</Button>
+                  <Button size="sm" variant="outline" onClick={() => toast.info("Airtel Forwarding Code: *61*+911140845918#")} className="h-7 text-[11px] cursor-pointer">Airtel</Button>
+                  <Button size="sm" variant="outline" onClick={() => toast.info("Vi Forwarding Code: *61*+911140845918#")} className="h-7 text-[11px] cursor-pointer">Vi</Button>
+                  <Button size="sm" variant="outline" onClick={() => toast.info("BSNL Forwarding Code: *61*+911140845918#")} className="h-7 text-[11px] cursor-pointer">BSNL</Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <Card className="border-border">
               <CardHeader className="p-4 border-b border-border">
