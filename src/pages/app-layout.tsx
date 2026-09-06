@@ -15,7 +15,7 @@ const NAV_ITEMS = [
   { path: "/wa-sender", label: "Bulk Whatsapp", icon: Send },
   { path: "/rcs-sender", label: "Bulk RCS", icon: MessageSquareShare },
   { path: "/bulk-calling", label: "Bulk Calling", icon: Phone },
-  { path: "/bulk-email", label: "Bulk Email", icon: Mail, isNew: true },
+  { path: "/email-campaign", label: "Bulk Email", icon: Mail },
   { path: "/ai-brain", label: "AI Brain 🧠", icon: BrainCircuit, isNew: true },
   { path: "/virtual-office", label: "Virtual Office", icon: Building2, isNew: true },
   { path: "/ai-reminders", label: "AI Reminders", icon: Bot },
