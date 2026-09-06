@@ -26,7 +26,7 @@ export function VapiVoiceAgent() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
-  const synthRef = useRef<SpeechSynthesis | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   
   const navigate = useNavigate();
   const location = useLocation();
@@ -37,11 +37,9 @@ export function VapiVoiceAgent() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, status]);
 
-  // Init Speech APIs
+  // Init Speech Recognition API
   useEffect(() => {
     if (typeof window !== "undefined") {
-      synthRef.current = window.speechSynthesis;
-      
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       if (SpeechRecognition) {
         recognitionRef.current = new SpeechRecognition();
@@ -290,32 +288,46 @@ If the user asks you to set up Leadzo for their website, use the setup_business_
     }
   };
 
-  const speakText = (text: string) => {
-    if (!synthRef.current) return;
-    
-    // Cancel any ongoing speech
-    synthRef.current.cancel();
-
-    const utterance = new SpeechSynthesisUtterance(text);
-    const voices = synthRef.current.getVoices();
-    const englishVoice = voices.find(v => v.name.includes('Samantha') || v.name.includes('Daniel') || v.name.includes('Google US English') || v.name.includes('Premium')) 
-                         || voices.find(v => v.lang.startsWith('en-') && !v.name.includes('Google')); 
-    if (englishVoice) {
-      utterance.voice = englishVoice;
+  const speakText = async (text: string) => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
     }
     
-    utterance.rate = 1.1; // Slightly faster
-    utterance.onstart = () => setStatus("active");
-    utterance.onend = () => setStatus("idle");
-    
-    synthRef.current.speak(utterance);
+    setStatus("active");
+    try {
+      const { data, error } = await supabase.functions.invoke("omnirouter_tts", {
+        body: { text, voice: 'alloy' },
+      });
+
+      if (error) throw error;
+      
+      // data is a Blob
+      const audioUrl = URL.createObjectURL(data);
+      const audio = new Audio(audioUrl);
+      audioRef.current = audio;
+      
+      audio.onended = () => {
+        setStatus("idle");
+        URL.revokeObjectURL(audioUrl);
+      };
+      
+      audio.play();
+    } catch (err: any) {
+      console.error("TTS Error:", err);
+      toast.error("Failed to generate voice: " + (err.message || "Unknown error"));
+      setStatus("idle");
+    }
   };
 
   const handleToggleMic = async () => {
     if (status === "active" || status === "loading") {
       // Stop listening/speaking
       if (recognitionRef.current) recognitionRef.current.stop();
-      if (synthRef.current) synthRef.current.cancel();
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
       setStatus("idle");
     } else {
       let currentMsgs = messagesRef.current;
