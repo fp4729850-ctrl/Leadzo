@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import html2canvas from "html2canvas";
 import Vapi from "@vapi-ai/web";
 import { Mic, Loader2, Square, PhoneOff } from "lucide-react";
 import { toast } from "sonner";
@@ -62,6 +63,36 @@ export function VapiVoiceAgent() {
               toast.info(args.message);
             }
           }
+          else if (functionName === "analyze_current_screen") {
+            toast.loading("Taking a look at your screen...", { id: "screenshot-toast" });
+            try {
+              const canvas = await html2canvas(document.body, { 
+                useCORS: true,
+                scale: 1, 
+                logging: false,
+                ignoreElements: (element) => element.classList.contains("group") // Ignore the voice widget itself if needed
+              });
+              const base64Image = canvas.toDataURL("image/jpeg", 0.5).split(",")[1];
+              
+              const { data, error } = await supabase.functions.invoke("vapi_analyze_screen", {
+                body: { image_base64: base64Image },
+              });
+
+              if (error) throw error;
+
+              vapiRef.current?.send({
+                type: "add-message",
+                message: {
+                  role: "system",
+                  content: `Screen Analysis Result: ${data.description}`
+                }
+              });
+              toast.success("Screen analyzed!", { id: "screenshot-toast" });
+            } catch (err) {
+              console.error("Screenshot error:", err);
+              toast.error("Failed to analyze screen", { id: "screenshot-toast" });
+            }
+          }
         });
       }
     };
@@ -113,7 +144,8 @@ export function VapiVoiceAgent() {
         }
         systemPrompt += `\n\nIMPORTANT: You are a highly capable multilingual visual copilot. You MUST strictly reply in the exact same language that the user speaks to you (e.g., if the user speaks Hindi, reply in Hindi).
 You can control the user's screen using tools. You are currently on the page: ${currentPath}. 
-If the user wants to do something on a different page, use navigate_to_page tool. If you want to show them where to click or type on the current page, use highlight_element tool with a standard css selector (like button, input, or specific classes/ids if you know them) and an explanation message.`;
+If the user wants to do something on a different page, use navigate_to_page tool. If you want to show them where to click or type on the current page, use highlight_element tool with a standard css selector (like button, input, or specific classes/ids if you know them) and an explanation message.
+If the user asks you to look at their screen or asks what is on the screen, use the analyze_current_screen tool to take a screenshot.`;
         firstMessage = `Namaste! I am the Voice Assistant for ${activeBrain.company_name}. How can I assist you today?`;
       }
 
@@ -167,6 +199,17 @@ If the user wants to do something on a different page, use navigate_to_page tool
                     }
                   },
                   required: ["selector", "message"]
+                }
+              }
+            },
+            {
+              type: "function",
+              function: {
+                name: "analyze_current_screen",
+                description: "Take a screenshot of the user's current screen and get a text description of what they are looking at.",
+                parameters: {
+                  type: "object",
+                  properties: {}
                 }
               }
             }
