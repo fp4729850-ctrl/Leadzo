@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import * as htmlToImage from "html-to-image";
-import { Mic, Loader2, Square, Send, X, Bot } from "lucide-react";
+import { Mic, Loader2, Square, Send, X, Bot, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
@@ -18,6 +18,11 @@ export function VapiVoiceAgent() {
   const [inputText, setInputText] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [isSystemReady, setIsSystemReady] = useState(false);
+  const [isAutoGuideOn, setIsAutoGuideOn] = useState(() => localStorage.getItem("leadzo_auto_guide") === "true");
+
+  useEffect(() => {
+    localStorage.setItem("leadzo_auto_guide", String(isAutoGuideOn));
+  }, [isAutoGuideOn]);
   
   const messagesRef = useRef<Message[]>([]);
   useEffect(() => {
@@ -31,6 +36,53 @@ export function VapiVoiceAgent() {
   const navigate = useNavigate();
   const location = useLocation();
   const currentPath = location.pathname;
+
+  const prevPathRef = useRef(currentPath);
+  useEffect(() => {
+    if (prevPathRef.current !== currentPath) {
+      const newPath = currentPath;
+      prevPathRef.current = newPath;
+      if (isAutoGuideOn) {
+        handleAutoPageChange(newPath);
+      }
+    }
+  }, [currentPath, isAutoGuideOn]);
+
+  const handleAutoPageChange = async (newPath: string) => {
+    toast.info(`Auto Copilot: Navigated to ${newPath}`, { icon: "✨" });
+    let currentMsgs = messagesRef.current;
+    if (currentMsgs.length === 0) {
+      currentMsgs = await initSystemPrompt();
+    }
+    
+    // Quick screen analysis in background
+    let screenContext = "";
+    try {
+      const dataUrl = await htmlToImage.toJpeg(document.body, { 
+        quality: 0.3,
+        canvasWidth: Math.floor(document.body.clientWidth * 0.4),
+        canvasHeight: Math.floor(document.body.clientHeight * 0.4),
+        filter: (node: any) => !node.classList?.contains('vapi-widget-container')
+      });
+      const base64Image = dataUrl.split(",")[1];
+      const { data } = await supabase.functions.invoke("vapi_analyze_screen", {
+        body: { image_base64: base64Image },
+      });
+      if (data?.description) {
+        screenContext = `Screen Snapshot Details: ${data.description}`;
+      }
+    } catch (e) {
+      console.warn("Auto screen capture fallback", e);
+    }
+
+    const autoPrompt = `[AUTO_GUIDE_TRIGGER]: User just navigated to page "${newPath}". ${screenContext}
+Give a 2-sentence warm Hindi/Hinglish greeting explaining what this page is for and the 1-2 steps to use it. Be concise and friendly.`;
+
+    const newMsgs = [...currentMsgs, { role: "user", content: autoPrompt } as Message];
+    setMessages(newMsgs);
+    setIsOpen(true);
+    await fetchOmniRouter(newMsgs);
+  };
 
   // Auto-scroll chat
   useEffect(() => {
@@ -499,23 +551,54 @@ If the user asks you to set up Leadzo for their website, use the setup_business_
         </div>
       )}
 
-      {/* Floating Button Toggle */}
-      {!isOpen && (
+      {/* Floating Button Toggle & Auto-Guide Badge */}
+      <div className="flex flex-col items-end gap-2">
+        {/* AUTO ON/OFF Pill Toggle Switch */}
         <button
-          onClick={() => {
-            setIsOpen(true);
-            if (!isSystemReady) initSystemPrompt();
+          onClick={(e) => {
+            e.stopPropagation();
+            const next = !isAutoGuideOn;
+            setIsAutoGuideOn(next);
+            toast.success(next ? "Auto-CoPilot Mode Enabled ✨" : "Auto-CoPilot Mode Disabled", {
+              description: next ? "AI will now auto-guide you as you click and navigate!" : "Auto page guide turned off."
+            });
           }}
-          className="relative w-16 h-16 rounded-full bg-gradient-to-tr from-indigo-600 to-indigo-500 hover:scale-105 shadow-[0_10px_25px_-5px_rgba(79,70,229,0.5)] flex items-center justify-center transition-all duration-300 z-10 border border-white/10"
+          className={cn(
+            "px-3 py-1.5 rounded-full text-[11px] font-bold tracking-wide flex items-center gap-1.5 border backdrop-blur-md shadow-xl transition-all duration-300 cursor-pointer hover:scale-105 active:scale-95",
+            isAutoGuideOn 
+              ? "bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-[0_0_15px_rgba(245,158,11,0.4)] animate-pulse" 
+              : "bg-slate-900/90 text-slate-400 border-white/10 hover:text-slate-200 hover:border-white/20"
+          )}
+          title="Click to toggle Auto-CoPilot page guidance"
         >
-          <Bot className="w-7 h-7 text-white drop-shadow-md" />
-          
-          <div className="absolute right-full mr-4 bg-slate-900/90 backdrop-blur-md border border-white/10 px-4 py-2 rounded-xl shadow-xl text-xs font-semibold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none hidden md:flex items-center text-slate-200">
-            Open Omni Copilot
-            <div className="absolute right-[-5px] top-1/2 -translate-y-1/2 w-2 h-2 bg-slate-900/90 border-t border-r border-white/10 rotate-45" />
-          </div>
+          <Sparkles className={cn("w-3.5 h-3.5", isAutoGuideOn ? "text-amber-400 fill-amber-400 animate-spin" : "text-slate-400")} />
+          <span>AUTO {isAutoGuideOn ? "ON" : "OFF"}</span>
         </button>
-      )}
+
+        {!isOpen && (
+          <button
+            onClick={() => {
+              setIsOpen(true);
+              if (!isSystemReady) initSystemPrompt();
+            }}
+            className="relative w-16 h-16 rounded-full bg-gradient-to-tr from-indigo-600 to-indigo-500 hover:scale-105 shadow-[0_10px_25px_-5px_rgba(79,70,229,0.5)] flex items-center justify-center transition-all duration-300 z-10 border border-white/10 group/btn"
+          >
+            <Bot className="w-7 h-7 text-white drop-shadow-md" />
+            
+            {isAutoGuideOn && (
+              <span className="absolute -top-1 -right-1 flex h-4 w-4">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-4 w-4 bg-amber-500"></span>
+              </span>
+            )}
+            
+            <div className="absolute right-full mr-4 bg-slate-900/90 backdrop-blur-md border border-white/10 px-4 py-2 rounded-xl shadow-xl text-xs font-semibold whitespace-nowrap opacity-0 group-hover/btn:opacity-100 transition-opacity pointer-events-none hidden md:flex items-center text-slate-200">
+              {isAutoGuideOn ? "✨ Auto-CoPilot Active" : "Open Omni Copilot"}
+              <div className="absolute right-[-5px] top-1/2 -translate-y-1/2 w-2 h-2 bg-slate-900/90 border-t border-r border-white/10 rotate-45" />
+            </div>
+          </button>
+        )}
+      </div>
     </div>
   );
 }
