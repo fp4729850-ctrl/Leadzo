@@ -46,7 +46,11 @@ export function VapiVoiceAgent() {
     const onVolumeLevel = (volume: number) => setVolumeLevel(volume);
     const onError = (e: any) => {
       console.error("Vapi Error:", e);
-      toast.error("Vapi Connection Error: " + (e?.message || "Unknown error"));
+      let errorMsg = e?.message;
+      if (!errorMsg) {
+        try { errorMsg = JSON.stringify(e); } catch(err) {}
+      }
+      toast.error("Vapi Connection Error: " + (errorMsg || "Unknown error"));
       setStatus("error");
       setTimeout(() => setStatus("idle"), 3000);
     };
@@ -220,8 +224,7 @@ If the user asks you to set up Leadzo for their website, use the setup_business_
             {
               role: "system",
               content: systemPrompt
-            },
-            ...(initialMessage ? [{ role: "user", content: initialMessage }] : [])
+            }
           ],
           tools: [
             {
@@ -231,7 +234,7 @@ If the user asks you to set up Leadzo for their website, use the setup_business_
                 description: "Navigate the user to a specific page path.",
                 parameters: {
                   type: "object",
-                  properties: { path: { type: "string" } },
+                  properties: { path: { type: "string", description: "The path to navigate to" } },
                   required: ["path"]
                 }
               }
@@ -243,7 +246,10 @@ If the user asks you to set up Leadzo for their website, use the setup_business_
                 description: "Highlight a UI element.",
                 parameters: {
                   type: "object",
-                  properties: { selector: { type: "string" }, message: { type: "string" } },
+                  properties: { 
+                    selector: { type: "string", description: "CSS selector of the element" }, 
+                    message: { type: "string", description: "Message to show" } 
+                  },
                   required: ["selector", "message"]
                 }
               }
@@ -276,6 +282,13 @@ If the user asks you to set up Leadzo for their website, use the setup_business_
       };
 
       await vapiRef.current?.start(VAPI_ASSISTANT_ID, assistantOverrides as any);
+      
+      if (initialMessage) {
+        vapiRef.current?.send({
+          type: "add-message",
+          message: { role: "user", content: initialMessage }
+        });
+      }
       
     } catch (e: any) {
       console.error("Error starting Vapi global call:", e);
