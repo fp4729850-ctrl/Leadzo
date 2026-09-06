@@ -319,7 +319,7 @@ If the user asks you to set up Leadzo for their website, use the setup_business_
       setStatus("idle");
     } else {
       let currentMsgs = messagesRef.current;
-      if (!isSystemReady) {
+      if (currentMsgs.length === 0) {
         currentMsgs = await initSystemPrompt();
       }
       
@@ -344,7 +344,7 @@ If the user asks you to set up Leadzo for their website, use the setup_business_
     }
     
     let currentMsgs = messagesRef.current;
-    if (!isSystemReady) {
+    if (currentMsgs.length === 0) {
       currentMsgs = await initSystemPrompt();
     }
     
