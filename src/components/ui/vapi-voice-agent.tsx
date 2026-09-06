@@ -90,12 +90,24 @@ Do NOT provide any information outside your domain.`;
 
       let firstMessage = `Hello! I am the Voice Assistant for ${companyName}. How can I assist you today?`;
       
+      const fallbackKnowledge = `Leadzo AI is a next-generation SaaS platform that provides powerful AI tools for businesses.
+Key Features:
+1. AI Copilot: A voice and text assistant that controls the screen, built with OmniRouter and OpenAI TTS.
+2. Bulk Calling: Automated outbound calling using Vapi.ai and Twilio/Telnyx SIP Trunks for 50% cheaper rates.
+3. AI Brain: A centralized workspace to train AI on business data.
+4. Virtual Office: Interactive live 3D avatars (HeyGen) and office maps.
+5. Omnichannel Marketing: Instagram, WhatsApp Cloud API, Reddit, and SEO Agent automation.
+Target Audience: Businesses wanting to automate sales and support.
+Tone: Helpful, polite, and strictly professional.`;
+
       if (activeBrain) {
         systemPrompt += `\n\nYour knowledge base:\n${activeBrain.business_details}`;
         if (activeBrain.system_prompt) {
           systemPrompt += `\nAdditional Instructions:\n${activeBrain.system_prompt}`;
         }
         firstMessage = `Namaste! I am the Voice Assistant for ${activeBrain.company_name}. How can I assist you today?`;
+      } else {
+        systemPrompt += `\n\nYour knowledge base:\n${fallbackKnowledge}`;
       }
 
       systemPrompt += `\n\nIMPORTANT: You are a highly capable multilingual visual copilot. You MUST strictly reply in the exact same language that the user speaks to you.
