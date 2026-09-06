@@ -4,7 +4,7 @@ import {
   Building2, Calendar, RefreshCw, CheckCircle2, ShieldCheck, 
   Link as LinkIcon, Plus, User, Phone, Globe, Lock, AlertTriangle, 
   Sparkles, Copy, Check, ExternalLink, Bot, BedDouble, Hotel, CalendarCheck, ShieldAlert,
-  Settings, Key, Layers, X, Wand2
+  Settings, Key, Layers, X, Wand2, Rocket, MapPin, Target, ArrowRight, Camera
 } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
@@ -255,7 +255,7 @@ export default function HotelLeadManagerPage() {
 
       {/* Main Tabs */}
       <Tabs defaultValue="matrix" value={selectedTab} onValueChange={setSelectedTab} className="w-full">
-        <TabsList className="bg-muted/40 p-1 border border-border/60">
+        <TabsList className="bg-muted/40 p-1 border border-border/60 flex-wrap">
           <TabsTrigger value="matrix" className="gap-2 text-xs">
             <Calendar size={13} /> Room Availability Matrix
           </TabsTrigger>
@@ -264,6 +264,9 @@ export default function HotelLeadManagerPage() {
           </TabsTrigger>
           <TabsTrigger value="receptionist" className="gap-2 text-xs">
             <Bot size={13} /> AI Receptionist & Voice
+          </TabsTrigger>
+          <TabsTrigger value="campaigns" className="gap-2 text-xs">
+            <Rocket size={13} /> Hotel Ad Campaigns (Insta & Google)
           </TabsTrigger>
           <TabsTrigger value="reservations" className="gap-2 text-xs">
             <User size={13} /> All Reservations
@@ -737,6 +740,97 @@ export default function HotelLeadManagerPage() {
               </table>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Tab 5: Hotel Ad Campaigns (Insta & Google) */}
+        <TabsContent value="campaigns" className="mt-4 space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Campaign Setup Card */}
+            <Card className="border-border">
+              <CardHeader className="p-4 border-b border-border">
+                <div className="flex items-center gap-2">
+                  <Rocket className="size-5 text-rose-400" />
+                  <div>
+                    <CardTitle className="text-base font-semibold">City-Targeted Hotel Ad Campaign Launcher</CardTitle>
+                    <CardDescription className="text-xs">Run high-converting Instagram Reels & Google Search Ads targeting travelers</CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-4 space-y-4">
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold flex items-center gap-1.5">
+                    <MapPin size={13} className="text-rose-400" /> Select Target City / Tourist Region
+                  </Label>
+                  <Input defaultValue="Goa (Calangute & North Goa)" className="text-xs" />
+                  <p className="text-[10px] text-muted-foreground">Ads will specifically target tourists & travelers planning trips to this city</p>
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold flex items-center gap-1.5">
+                    <Target size={13} className="text-amber-400" /> Hotel Campaign Offer Type
+                  </Label>
+                  <Input defaultValue="Weekend Luxury Staycation - 25% Off + Free Breakfast" className="text-xs" />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Daily Ad Budget</Label>
+                    <Input defaultValue="₹500 / day" className="text-xs font-mono" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Target Platform</Label>
+                    <Input defaultValue="Instagram Reels + Google Search" readOnly className="text-xs font-mono bg-muted/40" />
+                  </div>
+                </div>
+
+                <Button 
+                  onClick={() => toast.success("AI Hotel Ad Copy & Reels Script Generated!")} 
+                  variant="outline" 
+                  className="w-full border-border hover:bg-muted text-xs cursor-pointer gap-2"
+                >
+                  <Sparkles size={14} className="text-amber-400" /> Auto-Generate AI Ad Copy & Script
+                </Button>
+
+                <Button 
+                  onClick={() => {
+                    toast.success("Connecting to Leadzo Insta & Google Ad Launcher!");
+                    window.location.href = "/campaign-launch";
+                  }} 
+                  className="w-full bg-gradient-to-r from-rose-500 to-indigo-600 hover:from-rose-600 hover:to-indigo-700 text-white font-semibold cursor-pointer gap-2"
+                >
+                  <Rocket size={14} /> Launch Hotel Campaign on Insta & Google <ArrowRight size={14} />
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* AI Ad Preview Card */}
+            <Card className="border-border bg-card/40">
+              <CardHeader className="p-4 border-b border-border">
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <Camera className="size-4 text-rose-400" /> Instagram Reels Ad Preview & Script
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 space-y-3 text-xs leading-relaxed">
+                <div className="p-3 rounded-lg bg-muted/40 border border-border space-y-1">
+                  <p className="font-semibold text-rose-400">Instagram Reel Video Hook Script:</p>
+                  <p className="text-slate-200">"Planning a trip to Goa this weekend? 🌴 Stay at Hotel Grand Palace with private pool & beach access at flat 25% OFF! Tap 'Book Now' to talk to our AI Receptionist and reserve instantly."</p>
+                </div>
+
+                <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 space-y-1">
+                  <p className="font-semibold text-blue-300">Google Search Ad Copy:</p>
+                  <p className="text-slate-200 font-mono">Headline: Best Luxury Hotel in Goa | 25% Off Weekend Rates</p>
+                  <p className="text-muted-foreground text-[11px]">Description: Book direct with 0% booking fee. Swimming pool, free breakfast & 24/7 AI Receptionist.</p>
+                </div>
+
+                <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-2">
+                  <ShieldCheck size={16} className="text-emerald-400 shrink-0" />
+                  <p className="text-[11px] text-emerald-300">
+                    All ad leads automatically flow into Leadzo Hotel Lead Manager, where AI Voice & WhatsApp Receptionist instantly calls/texts to close bookings!
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>
