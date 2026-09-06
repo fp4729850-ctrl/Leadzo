@@ -106,12 +106,62 @@ Briefly explain in 1-2 short Hinglish sentences what this button does and what t
     await fetchOmniRouter(newMsgs);
   };
 
+const PAGE_KNOWLEDGE_MAP: Record<string, string> = {
+  "/bulk-calling": `PAGE: Bulk Calling (AI Voice Outbound Calls)
+DEEP SECTION MANUAL:
+1. AI Brain Setup (Vapi.ai): Type your business website URL (e.g. https://example.com) and click 'Scan & Learn' to auto-train the AI caller on your business in seconds.
+2. Voicebox (Clone Your Voice): Enter a Voice Name (e.g. Rahul's Voice), upload a sample audio file (.mp3/.wav), and click 'Clone Voice' to make the AI call in your exact voice.
+3. Phone Numbers List: Enter recipients' phone numbers line by line (format: +919876543210) or click 'Upload .txt / .csv' to import contacts.
+4. AI Calling Engine: Select between Vapi Standard Voice (OpenAI Alloy/Shimmer) or your custom Voicebox Voice Clones.
+5. WhatsApp Follow-up Message: Enter a link or message (e.g. https://leadzo.in/book) that the AI will automatically text to the customer on WhatsApp if they agree during the call.
+6. AI System Prompt: View or edit the AI sales script, or click 'AI Generate' to auto-draft a high-converting sales pitch.
+7. Launch: Click 'Bulk Call X Numbers' button at the bottom to start dialing immediately.`,
+
+  "/wa-sender": `PAGE: Bulk WhatsApp Sender
+DEEP SECTION MANUAL:
+1. Recipients List: Paste WhatsApp numbers line by line or click 'Upload .txt / .csv'.
+2. Message Body & AI Generator: Type your message or click '✶ AI Generate' to get 3 AI-drafted Hinglish sales templates.
+3. WhatsApp Instance / Green API: Select connected WhatsApp instance.
+4. Launch Campaign: Click 'Send WhatsApp Campaign' to start real-time batch sending with live progress status.`,
+
+  "/email-campaign": `PAGE: Bulk Email Sender
+DEEP SECTION MANUAL:
+1. Recipients List: Enter target email addresses or upload CSV/txt.
+2. Subject Line: Enter a catchy email subject line.
+3. Email Body: Write HTML/Text message or click '✶ AI Generate' to generate 3 AI copy options.
+4. Launch Campaign: Click 'Send Email Campaign' to trigger real-time delivery via Resend API with live progress status.`,
+
+  "/rcs-sender": `PAGE: Bulk RCS Messaging
+DEEP SECTION MANUAL:
+1. Contact List: Import phone numbers for Rich Communication Services (RCS).
+2. Card Title & Description: Create interactive rich cards with images, call-to-action buttons, and rich media.
+3. Send RCS: Trigger instant rich messaging campaigns.`,
+
+  "/ai-brain": `PAGE: AI Brain (Centralized Business Knowledge Base)
+DEEP SECTION MANUAL:
+1. Business Details: Train Leadzo AI on your company name, website, FAQs, pricing, and products.
+2. Custom System Prompt: Define how the AI should talk to leads across WhatsApp, Calls, and Instagram.
+3. Save & Activate: Save brain configuration so all AI agents use this exact knowledge base.`,
+
+  "/virtual-office": `PAGE: Virtual Office (AI Live Avatars & Office Map)
+DEEP SECTION MANUAL:
+1. Office Map: Interactive 3D/video workspace with specialized agent desks.
+2. Live AI Avatars (HeyGen / LiveAvatar): Connect real-time video avatar agents for automated video calls and customer desk support.`,
+
+  "/crm": `PAGE: CRM Agent & Contacts
+DEEP SECTION MANUAL:
+1. Lead List: Manage all captured leads, phone numbers, email, tag status, and pipeline stages.
+2. Auto-Sync: Automatically sync leads captured from WhatsApp, Calls, and Meta Ads.`
+};
+
   const handleAutoPageChange = async (newPath: string) => {
     toast.info(`Auto Copilot: Navigated to ${newPath}`, { icon: "✨" });
     let currentMsgs = messagesRef.current;
     if (currentMsgs.length === 0) {
       currentMsgs = await initSystemPrompt();
     }
+    
+    const pageKnowledge = PAGE_KNOWLEDGE_MAP[newPath] || `PAGE: ${newPath}. Help the user navigate and use this section.`;
     
     // Quick screen analysis in background
     let screenContext = "";
@@ -133,8 +183,13 @@ Briefly explain in 1-2 short Hinglish sentences what this button does and what t
       console.warn("Auto screen capture fallback", e);
     }
 
-    const autoPrompt = `[AUTO_GUIDE_TRIGGER]: User just navigated to page "${newPath}". ${screenContext}
-Give a 2-sentence warm Hindi/Hinglish greeting explaining what this page is for and the 1-2 steps to use it. Be concise and friendly.`;
+    const autoPrompt = `[AUTO_GUIDE_TRIGGER]: User just navigated to page "${newPath}". 
+
+${pageKnowledge}
+
+${screenContext}
+
+CRITICAL DIRECTIVE: Speak a warm, complete, step-by-step Hindi/Hinglish overview of this page. Mention the main 4-5 sections and what to do in each step (e.g. Website URL Scan & Learn, Voicebox Cloning, Phone Numbers, AI Calling Engine, WhatsApp message, and Bulk Call launch). Be clear, friendly, and structured.`;
 
     const newMsgs = [...currentMsgs, { role: "user", content: autoPrompt } as Message];
     setMessages(newMsgs);
@@ -540,7 +595,7 @@ If the user asks you to set up Leadzo for their website, use the setup_business_
                   <p className="text-sm text-slate-300 text-center px-4">Hello! I am your completely free Local AI assistant powered by OmniRouter.</p>
                 </div>
              )}
-             {messages.filter(m => m.role !== 'system' && m.role !== 'tool').map((m, i) => (
+             {messages.filter(m => m.role !== 'system' && m.role !== 'tool' && !m.content.startsWith('[AUTO_')).map((m, i) => (
                 <div key={i} className={cn("flex flex-col max-w-[85%]", m.role === 'user' ? "self-end items-end" : "self-start items-start")}>
                   <div className={cn("px-4 py-2.5 text-[13px] leading-relaxed rounded-2xl shadow-sm", 
                     m.role === 'user' 
