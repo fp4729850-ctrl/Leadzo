@@ -68,11 +68,11 @@ export function VapiVoiceAgent() {
             try {
               const canvas = await html2canvas(document.body, { 
                 useCORS: true,
-                scale: 1, 
+                scale: 0.5, // Reduce size by half
                 logging: false,
                 ignoreElements: (element) => element.classList.contains("group") // Ignore the voice widget itself if needed
               });
-              const base64Image = canvas.toDataURL("image/jpeg", 0.5).split(",")[1];
+              const base64Image = canvas.toDataURL("image/jpeg", 0.4).split(",")[1]; // Lower quality to 40%
               
               const { data, error } = await supabase.functions.invoke("vapi_analyze_screen", {
                 body: { image_base64: base64Image },
@@ -88,9 +88,9 @@ export function VapiVoiceAgent() {
                 }
               });
               toast.success("Screen analyzed!", { id: "screenshot-toast" });
-            } catch (err) {
+            } catch (err: any) {
               console.error("Screenshot error:", err);
-              toast.error("Failed to analyze screen", { id: "screenshot-toast" });
+              toast.error(`Failed to analyze: ${err.message || err}`, { id: "screenshot-toast", duration: 10000 });
             }
           }
         });

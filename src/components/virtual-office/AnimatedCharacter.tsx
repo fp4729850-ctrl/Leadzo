@@ -1,5 +1,5 @@
-import type { AgentRole } from "./AgentAvatar";
-import { motion } from "framer-motion";
+import { AgentRole } from "./AgentAvatar";
+import { useEffect, useState } from "react";
 
 interface AnimatedCharacterProps {
   role: AgentRole;
@@ -8,49 +8,55 @@ interface AnimatedCharacterProps {
 
 const roleSeeds: Record<AgentRole, string> = {
   boss: "Felix",
-  manager: "Felix",
   support: "Lily",
   marketing: "Oliver",
-  analytics: "Jack",
-  operation: "Sam",
-  research: "Mia"
+  analyst: "Leo",
 };
 
-export const AnimatedCharacter = ({ role, isMoving = false }: AnimatedCharacterProps) => {
-  const seed = roleSeeds[role];
-  const avatarUrl = `https://api.dicebear.com/7.x/micah/svg?seed=${seed}&backgroundColor=transparent`;
+export function AnimatedCharacter({ role, isMoving }: AnimatedCharacterProps) {
+  const seed = roleSeeds[role] || "Felix";
+  const headUrl = `https://api.dicebear.com/7.x/micah/svg?seed=${seed}&backgroundColor=transparent`;
 
   return (
-    <div className="relative w-16 h-24 flex flex-col items-center justify-end">
+    <div className={`relative flex flex-col items-center justify-end h-full w-full ${isMoving ? 'animate-bounce' : 'animate-[rocking_3s_ease-in-out_infinite]'}`}>
+      
       {/* Head */}
-      <motion.div 
-        className="absolute top-0 z-10 w-12 h-12"
-        animate={isMoving ? { y: [-2, 2, -2], rotate: [-2, 2, -2] } : { y: [-1, 1, -1] }}
-        transition={{ duration: isMoving ? 0.5 : 2, repeat: Infinity, ease: "easeInOut" }}
-      >
-        <img src={avatarUrl} alt={role} className="w-full h-full object-contain drop-shadow-md" />
-      </motion.div>
+      <div className="z-10 w-12 h-12 -mb-2 relative">
+        <img 
+          src={headUrl} 
+          alt={`${role} head`} 
+          className="w-full h-full object-contain drop-shadow-md"
+        />
+      </div>
 
       {/* Body */}
-      <motion.div 
-        className="relative w-10 h-12 bg-gradient-to-b from-blue-500 to-blue-700 rounded-t-xl rounded-b-md shadow-inner"
-        animate={isMoving ? { rotate: [-5, 5, -5] } : { rotate: [-1, 1, -1] }}
-        transition={{ duration: isMoving ? 0.5 : 3, repeat: Infinity, ease: "easeInOut" }}
-      >
-        {/* Left Arm (Typing) */}
-        <motion.div 
-          className="absolute top-2 -left-2 w-3 h-7 bg-blue-600 rounded-full origin-top"
-          animate={{ rotateZ: [-20, -50, -20] }}
-          transition={{ duration: 0.15, repeat: Infinity, repeatType: "mirror", ease: "linear" }}
-        />
+      <div className="relative w-14 h-16 bg-gradient-to-b from-indigo-500 to-indigo-700 rounded-t-xl rounded-b-md shadow-lg overflow-hidden">
+        {/* Collar / Neck detail */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-3 bg-indigo-300 rounded-b-full opacity-50"></div>
         
-        {/* Right Arm (Typing) */}
-        <motion.div 
-          className="absolute top-2 -right-2 w-3 h-7 bg-blue-600 rounded-full origin-top"
-          animate={{ rotateZ: [-50, -20, -50] }}
-          transition={{ duration: 0.18, repeat: Infinity, repeatType: "mirror", ease: "linear" }}
-        />
-      </motion.div>
+        {/* Arms (Typing animation) */}
+        {!isMoving && (
+          <>
+            <div className="absolute top-4 -left-1 w-3 h-10 bg-indigo-600 rounded-full origin-top transform rotate-12 animate-[typing-left_0.5s_ease-in-out_infinite_alternate] shadow-sm border border-indigo-800/30 z-20"></div>
+            <div className="absolute top-4 -right-1 w-3 h-10 bg-indigo-600 rounded-full origin-top transform -rotate-12 animate-[typing-right_0.4s_ease-in-out_infinite_alternate] shadow-sm border border-indigo-800/30 z-20"></div>
+          </>
+        )}
+      </div>
+
+      <style jsx>{`
+        @keyframes rocking {
+          0%, 100% { transform: rotate(-2deg) translateY(0); }
+          50% { transform: rotate(2deg) translateY(-2px); }
+        }
+        @keyframes typing-left {
+          0% { transform: rotate(10deg) translateY(0); }
+          100% { transform: rotate(25deg) translateY(-3px); }
+        }
+        @keyframes typing-right {
+          0% { transform: rotate(-10deg) translateY(0); }
+          100% { transform: rotate(-25deg) translateY(-2px); }
+        }
+      `}</style>
     </div>
   );
-};
+}
