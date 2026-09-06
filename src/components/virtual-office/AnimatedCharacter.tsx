@@ -1,4 +1,4 @@
-import { AgentRole } from "./AgentAvatar";
+import type { AgentRole } from "./AgentAvatar";
 import { useEffect, useState } from "react";
 
 interface AnimatedCharacterProps {
@@ -6,11 +6,11 @@ interface AnimatedCharacterProps {
   isMoving?: boolean;
 }
 
-const roleSeeds: Record<AgentRole, string> = {
+const roleSeeds: Partial<Record<AgentRole, string>> = {
   boss: "Felix",
   support: "Lily",
   marketing: "Oliver",
-  analyst: "Leo",
+  analytics: "Leo",
 };
 
 export function AnimatedCharacter({ role, isMoving }: AnimatedCharacterProps) {
@@ -43,7 +43,7 @@ export function AnimatedCharacter({ role, isMoving }: AnimatedCharacterProps) {
         )}
       </div>
 
-      <style jsx>{`
+      <style>{`
         @keyframes rocking {
           0%, 100% { transform: rotate(-2deg) translateY(0); }
           50% { transform: rotate(2deg) translateY(-2px); }
