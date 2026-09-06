@@ -19,6 +19,11 @@ export function VapiVoiceAgent() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isSystemReady, setIsSystemReady] = useState(false);
   
+  const messagesRef = useRef<Message[]>([]);
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const synthRef = useRef<SpeechSynthesis | null>(null);
@@ -292,9 +297,9 @@ If the user asks you to set up Leadzo for their website, use the setup_business_
     synthRef.current.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
-    // Try to pick a decent English voice
     const voices = synthRef.current.getVoices();
-    const englishVoice = voices.find(v => v.lang.startsWith('en-') && !v.name.includes('Google')); // Prefer OS voices
+    const englishVoice = voices.find(v => v.name.includes('Samantha') || v.name.includes('Daniel') || v.name.includes('Google US English') || v.name.includes('Premium')) 
+                         || voices.find(v => v.lang.startsWith('en-') && !v.name.includes('Google')); 
     if (englishVoice) {
       utterance.voice = englishVoice;
     }
@@ -313,7 +318,7 @@ If the user asks you to set up Leadzo for their website, use the setup_business_
       if (synthRef.current) synthRef.current.cancel();
       setStatus("idle");
     } else {
-      let currentMsgs = messages;
+      let currentMsgs = messagesRef.current;
       if (!isSystemReady) {
         currentMsgs = await initSystemPrompt();
       }
@@ -338,7 +343,7 @@ If the user asks you to set up Leadzo for their website, use the setup_business_
       setInputText("");
     }
     
-    let currentMsgs = messages;
+    let currentMsgs = messagesRef.current;
     if (!isSystemReady) {
       currentMsgs = await initSystemPrompt();
     }
