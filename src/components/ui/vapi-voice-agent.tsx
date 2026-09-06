@@ -107,6 +107,13 @@ Briefly explain in 1-2 short Hinglish sentences what this button does and what t
   };
 
 const PAGE_KNOWLEDGE_MAP: Record<string, string> = {
+  "/hotel-management": `PAGE: Hotel Lead & Multi-OTA Channel Manager
+DEEP SECTION MANUAL:
+1. Live Room Availability Matrix: View dates vs room occupancy grid. Color badges show Booking.com (blue), Airbnb (rose), Agoda (amber), and Direct/AI (green). Click any available cell to reserve/block.
+2. Master Export iCal: Copy the Master iCal Link and paste into Booking.com, Airbnb, and Agoda to auto-block booked dates across all OTAs and prevent double-booking.
+3. Multi-OTA Channel Sync: Paste iCal URLs for Booking.com, Airbnb, Agoda, and Goibibo. Click 'Sync Now' or 'Sync OTA Channels' to pull live reservations.
+4. AI Hotel Receptionist: Set check-in/out times, hotel amenities, cancellation policy, and WhatsApp direct booking link for automated phone & WhatsApp inquiries.
+5. All Reservations: Searchable table of all guest reservations, OTA sources, amounts, and statuses.`,
   "/bulk-calling": `PAGE: Bulk Calling (AI Voice Outbound Calls)
 DEEP SECTION MANUAL:
 1. AI Brain Setup (Vapi.ai): Type your business website URL (e.g. https://example.com) and click 'Scan & Learn' to auto-train the AI caller on your business in seconds.

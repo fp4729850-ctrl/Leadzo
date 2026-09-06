@@ -2,7 +2,7 @@ import { Outlet, NavLink, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import {
   Trophy, Layers, MessageSquareCode, BarChart4, Settings2,
-  Send, Mail, Camera, Search, Zap, LayoutDashboard, BarChart3, Wand2, Rocket, SlidersHorizontal, Users, Settings, Brain, Phone, TrendingUp, LogIn, LogOut, MessageCircle, CreditCard, MessageSquareShare, BrainCircuit, Bot, Building2
+  Send, Mail, Camera, Search, Zap, LayoutDashboard, BarChart3, Wand2, Rocket, SlidersHorizontal, Users, Settings, Brain, Phone, TrendingUp, LogIn, LogOut, MessageCircle, CreditCard, MessageSquareShare, BrainCircuit, Bot, Building2, Hotel
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth.ts";
 import { Button } from "@/components/ui/button.tsx";
@@ -15,6 +15,7 @@ const NAV_ITEMS = [
   { path: "/wa-sender", label: "Bulk Whatsapp", icon: Send },
   { path: "/rcs-sender", label: "Bulk RCS", icon: MessageSquareShare },
   { path: "/bulk-calling", label: "Bulk Calling", icon: Phone },
+  { path: "/hotel-management", label: "Hotel Lead Manager", icon: Hotel, isNew: true },
   { path: "/email-campaign", label: "Bulk Email", icon: Mail },
   { path: "/ai-brain", label: "AI Brain 🧠", icon: BrainCircuit, isNew: true },
   { path: "/virtual-office", label: "Virtual Office", icon: Building2, isNew: true },
@@ -39,7 +40,7 @@ const NAV_ITEMS = [
   { path: "/settings", label: "Settings", icon: Settings },
 ] as const;
 
-const LIVE_PATHS = ["/ai-brain", "/virtual-office", "/dashboard", "/pipeline", "/inbox", "/analytics", "/ceo-dashboard", "/market-intelligence", "/creative-generation", "/campaign-launch", "/optimization", "/learning-agent", "/crm", "/wa-sender", "/rcs-sender", "/email-campaign", "/insta-campaign", "/bulk-calling", "/ai-reminders", "/seo-agent", "/ai-ranking-os", "/reddit-agent", "/gsc-dashboard", "/pricing", "/settings"];
+const LIVE_PATHS = ["/hotel-management", "/ai-brain", "/virtual-office", "/dashboard", "/pipeline", "/inbox", "/analytics", "/ceo-dashboard", "/market-intelligence", "/creative-generation", "/campaign-launch", "/optimization", "/learning-agent", "/crm", "/wa-sender", "/rcs-sender", "/email-campaign", "/insta-campaign", "/bulk-calling", "/ai-reminders", "/seo-agent", "/ai-ranking-os", "/reddit-agent", "/gsc-dashboard", "/pricing", "/settings"];
 
 import InstallBanner from "@/components/install-banner.tsx";
 import { VapiVoiceAgent } from "@/components/ui/vapi-voice-agent.tsx";
