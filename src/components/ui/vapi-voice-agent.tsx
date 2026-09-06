@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import html2canvas from "html2canvas";
+import * as htmlToImage from "html-to-image";
 import Vapi from "@vapi-ai/web";
 import { Mic, Loader2, Square, PhoneOff } from "lucide-react";
 import { toast } from "sonner";
@@ -66,13 +66,13 @@ export function VapiVoiceAgent() {
           else if (functionName === "analyze_current_screen") {
             toast.loading("Taking a look at your screen...", { id: "screenshot-toast" });
             try {
-              const canvas = await html2canvas(document.body, { 
-                useCORS: true,
-                scale: 0.5, // Reduce size by half
-                logging: false,
-                ignoreElements: (element) => element.classList.contains("group") // Ignore the voice widget itself if needed
+              const dataUrl = await htmlToImage.toJpeg(document.body, { 
+                quality: 0.4,
+                canvasWidth: Math.floor(document.body.clientWidth * 0.5),
+                canvasHeight: Math.floor(document.body.clientHeight * 0.5),
+                filter: (node: any) => !node.classList?.contains('group') // Ignore the voice widget itself
               });
-              const base64Image = canvas.toDataURL("image/jpeg", 0.4).split(",")[1]; // Lower quality to 40%
+              const base64Image = dataUrl.split(",")[1];
               
               const { data, error } = await supabase.functions.invoke("vapi_analyze_screen", {
                 body: { image_base64: base64Image },
