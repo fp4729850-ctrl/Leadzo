@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge.tsx";
 import { Card, CardContent } from "@/components/ui/card.tsx";
 import { 
   Play, Pause, RotateCcw, Volume2, VolumeX, Sparkles, CheckCircle2, 
-  PhoneCall, Rocket, Hotel, Building2, TrendingUp, ArrowRight, ShieldCheck, Zap, Layers, Video, MonitorPlay, ExternalLink
+  PhoneCall, Rocket, Hotel, Building2, TrendingUp, ArrowRight, ShieldCheck, Zap, Layers, Video, MonitorPlay, ExternalLink, Maximize2
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils.ts";
@@ -19,16 +19,10 @@ interface Scene {
   subtitle: string;
   badge: string;
   duration: number; // in seconds
-  voiceover: string;
   icon: any;
   color: string;
   videoUrl: string;
-  visualContent: {
-    headline: string;
-    subtext: string;
-    highlights: string[];
-    mockupType: "pain" | "solution" | "voice" | "hotel" | "office" | "cta";
-  };
+  highlights: string[];
 }
 
 const SCENES: Scene[] = [
@@ -41,17 +35,11 @@ const SCENES: Scene[] = [
     icon: Zap,
     color: "from-rose-500/20 to-orange-500/20 text-rose-400 border-rose-500/30",
     videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
-    voiceover: "Sach batao... Aap din mein kitne ad leads miss kar dete hain? Sales reps ko call karne mein ghante lag jate hain tab tak customer kisi aur se deal final kar chuka hota hai. Stop losing revenue!",
-    visualContent: {
-      headline: "Average Lead Response Time: 4 Hours ⚠️",
-      subtext: "Customers expect a response in under 60 seconds. Late response = Lost revenue.",
-      highlights: [
-        "90% of local business leads go unanswered on time",
-        "5+ fragmented subscriptions cost ₹50,000+/month",
-        "Zero automated follow-up when ad leads land"
-      ],
-      mockupType: "pain"
-    }
+    highlights: [
+      "90% of local business leads go unanswered on time",
+      "5+ fragmented subscriptions cost ₹50,000+/month",
+      "Zero automated follow-up when ad leads land"
+    ]
   },
   {
     id: 2,
@@ -62,17 +50,11 @@ const SCENES: Scene[] = [
     icon: Sparkles,
     color: "from-indigo-500/20 to-purple-500/20 text-indigo-400 border-indigo-500/30",
     videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
-    voiceover: "Meet Leadzo AI — World’s 1st Autonomous AI Business Operating System. Jo aapke saare ad campaigns, voice calling, CRM, aur team collaboration ko ONE single intelligent platform par le aata hai!",
-    visualContent: {
-      headline: "6 Expensive SaaS Tools Replaced by 1 AI Engine 🧠",
-      subtext: "Ad Manager + AI Voice Caller + CRM + Bulk WhatsApp/RCS + SEO Agent + Virtual Office",
-      highlights: [
-        "Unified Dashboard for all incoming Meta & Google leads",
-        "Autonomous AI Agents working 24/7 on autopilot",
-        "Saves 80% on monthly software subscription expenses"
-      ],
-      mockupType: "solution"
-    }
+    highlights: [
+      "Unified Dashboard for all incoming Meta & Google leads",
+      "Autonomous AI Agents working 24/7 on autopilot",
+      "Saves 80% on monthly software subscription expenses"
+    ]
   },
   {
     id: 3,
@@ -83,17 +65,11 @@ const SCENES: Scene[] = [
     icon: PhoneCall,
     color: "from-emerald-500/20 to-teal-500/20 text-emerald-400 border-emerald-500/30",
     videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
-    voiceover: "Jaise hi Insta ya Google Ad par lead aati hai, Leadzo ka AI Voice Agent 5 seconds ke andar customer ko call karta hai, Hindi & English mein natural baat karta hai, aur instant WhatsApp link bhej deta hai!",
-    visualContent: {
-      headline: "Lead Submitted → AI Ringing Customer in 5 Seconds 📱",
-      subtext: "Natural multilingual conversation (Hindi, English, Hinglish) with instant calendar booking.",
-      highlights: [
-        "Instant Outbound AI Call powered by Vapi Engine",
-        "Automatic WhatsApp confirmation with booking payment link",
-        "300% Higher conversion rate guaranteed"
-      ],
-      mockupType: "voice"
-    }
+    highlights: [
+      "Instant Outbound AI Call powered by Vapi Engine",
+      "Automatic WhatsApp confirmation with booking payment link",
+      "300% Higher conversion rate guaranteed"
+    ]
   },
   {
     id: 4,
@@ -104,17 +80,11 @@ const SCENES: Scene[] = [
     icon: Hotel,
     color: "from-amber-500/20 to-yellow-500/20 text-amber-400 border-amber-500/30",
     videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4",
-    voiceover: "Hotel owners? Dedicated Hotel Lead Manager include kiya gaya hai! Direct city-wise ad campaigns chalayein (Goa, Udaipur, Manali), 0% commission direct bookings lein, aur iCal sync guard se double bookings rokein!",
-    visualContent: {
-      headline: "City-Targeted Campaigns & 0% OTA Commission 🏖️",
-      subtext: "Auto-sync Booking.com, Airbnb, Agoda & direct AI Phone Receptionist.",
-      highlights: [
-        "Per-Room iCal Sync Guard prevents double bookings",
-        "Target tourist regions (Goa, Udaipur, Manali, etc.)",
-        "Save 15%-25% hefty OTA booking commissions"
-      ],
-      mockupType: "hotel"
-    }
+    highlights: [
+      "Per-Room iCal Sync Guard prevents double bookings",
+      "Target tourist regions (Goa, Udaipur, Manali, etc.)",
+      "Save 15%-25% hefty OTA booking commissions"
+    ]
   },
   {
     id: 5,
@@ -125,17 +95,11 @@ const SCENES: Scene[] = [
     icon: Building2,
     color: "from-blue-500/20 to-cyan-500/20 text-blue-400 border-blue-500/30",
     videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoydates.mp4",
-    voiceover: "Step into Leadzo's Interactive Virtual Office. 2D floor plans par walk karein, Live AI Avatars se interact karein, aur apni remote team ke sath real-time workspace ka maza lein!",
-    visualContent: {
-      headline: "Interactive Remote Workspace for Modern Teams 🎧",
-      subtext: "Walk up to desks, trigger video calls, and interact with live AI avatars.",
-      highlights: [
-        "Real-time audio/video proximity communication",
-        "Integrated HeyGen AI video avatars",
-        "Live office map with room presence indicators"
-      ],
-      mockupType: "office"
-    }
+    highlights: [
+      "Real-time audio/video proximity communication",
+      "Integrated HeyGen AI video avatars",
+      "Live office map with room presence indicators"
+    ]
   },
   {
     id: 6,
@@ -146,17 +110,11 @@ const SCENES: Scene[] = [
     icon: Rocket,
     color: "from-rose-500/20 to-indigo-500/20 text-indigo-400 border-indigo-500/30",
     videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4",
-    voiceover: "Replaces 6 expensive tools. Triples your lead conversion. Scales your business on autopilot. Welcome to the future of business. Start your free trial today at Leadzo.ai!",
-    visualContent: {
-      headline: "300% Higher Conversions. 80% Software Cost Saved. 📈",
-      subtext: "Join thousands of high-growth businesses using Leadzo AI to automate sales.",
-      highlights: [
-        "Zero coding required — Instant 2-minute onboarding",
-        "Dedicated onboarding support & live voice assistant",
-        "14-Day Free Trial — Cancel anytime"
-      ],
-      mockupType: "cta"
-    }
+    highlights: [
+      "Zero coding required — Instant 2-minute onboarding",
+      "Dedicated onboarding support & live voice assistant",
+      "14-Day Free Trial — Cancel anytime"
+    ]
   }
 ];
 
@@ -170,189 +128,110 @@ export function OnboardingDemoModal({
   const [currentSceneIdx, setCurrentSceneIdx] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
   const [isMuted, setIsMuted] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [viewMode, setViewMode] = useState<"interactive" | "video">("video");
-  const [hasStartedAudio, setHasStartedAudio] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
-
   const activeScene = SCENES[currentSceneIdx];
 
-  // Web Speech Synthesis AI Voiceover Handler
+  // Control video element playback directly
   useEffect(() => {
-    if (!isOpen || isMuted || !("speechSynthesis" in window)) {
-      window.speechSynthesis?.cancel();
-      return;
-    }
+    if (!isOpen) return;
 
-    if (isPlaying) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(activeScene.voiceover);
-      utterance.rate = 1.0;
-      utterance.pitch = 1.0;
-      
-      const voices = window.speechSynthesis.getVoices();
-      const preferredVoice = voices.find(v => 
-        v.lang.includes("hi") || v.lang.includes("en-IN") || v.lang.includes("en-US")
-      );
-      if (preferredVoice) utterance.voice = preferredVoice;
-
-      window.speechSynthesis.speak(utterance);
-    } else {
-      window.speechSynthesis.cancel();
-    }
-
-    return () => {
-      window.speechSynthesis?.cancel();
-    };
-  }, [isOpen, isPlaying, isMuted, currentSceneIdx]);
-
-  // Auto-play progress timer
-  useEffect(() => {
-    if (!isOpen || !isPlaying) return;
-
-    const interval = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 100) {
-          if (currentSceneIdx < SCENES.length - 1) {
-            setCurrentSceneIdx(currentSceneIdx + 1);
-            return 0;
-          } else {
-            setIsPlaying(false);
-            return 100;
-          }
-        }
-        return prev + (100 / (activeScene.duration * 10));
-      });
-    }, 100);
-
-    return () => clearInterval(interval);
-  }, [isOpen, isPlaying, currentSceneIdx, activeScene.duration]);
-
-  // Sync Video Element playback on scene / mode change
-  useEffect(() => {
     if (videoRef.current) {
       if (isPlaying) {
         videoRef.current.play().catch(() => {});
       } else {
         videoRef.current.pause();
       }
+      videoRef.current.muted = isMuted;
     }
-  }, [currentSceneIdx, isPlaying, viewMode]);
-
-  const handleStartPlay = () => {
-    setHasStartedAudio(true);
-    setIsPlaying(true);
-    setIsMuted(false);
-    if (videoRef.current) {
-      videoRef.current.muted = false;
-      videoRef.current.play().catch(() => {});
-    }
-  };
+  }, [isOpen, currentSceneIdx, isPlaying, isMuted]);
 
   const handleSelectScene = (idx: number) => {
     setCurrentSceneIdx(idx);
-    setProgress(0);
     setIsPlaying(true);
-    if (!hasStartedAudio) setHasStartedAudio(true);
   };
 
   const togglePlay = () => {
-    if (!hasStartedAudio) setHasStartedAudio(true);
-    const nextPlaying = !isPlaying;
-    setIsPlaying(nextPlaying);
     if (videoRef.current) {
-      if (nextPlaying) videoRef.current.play().catch(() => {});
-      else videoRef.current.pause();
+      if (isPlaying) {
+        videoRef.current.pause();
+        setIsPlaying(false);
+      } else {
+        videoRef.current.play().catch(() => {});
+        setIsPlaying(true);
+      }
+    } else {
+      setIsPlaying(!isPlaying);
+    }
+  };
+
+  const toggleMute = () => {
+    const nextMute = !isMuted;
+    setIsMuted(nextMute);
+    if (videoRef.current) {
+      videoRef.current.muted = nextMute;
     }
   };
 
   const handleRestart = () => {
     setCurrentSceneIdx(0);
-    setProgress(0);
     setIsPlaying(true);
-    if (!hasStartedAudio) setHasStartedAudio(true);
+    if (videoRef.current) {
+      videoRef.current.currentTime = 0;
+      videoRef.current.play().catch(() => {});
+    }
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => {
-      if (!open) {
-        window.speechSynthesis?.cancel();
-        onClose();
-      }
-    }}>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-4xl w-[95vw] p-0 overflow-hidden bg-slate-950 border-slate-800 text-slate-100 shadow-2xl rounded-2xl">
         {/* Header Bar */}
-        <div className="p-4 bg-slate-900/80 border-b border-slate-800 flex items-center justify-between flex-wrap gap-2">
+        <div className="p-4 bg-slate-900/90 border-b border-slate-800 flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-3">
             <div className="size-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-rose-500 p-0.5 shadow-lg">
               <div className="w-full h-full bg-slate-950 rounded-[10px] flex items-center justify-center">
-                <Sparkles className="size-5 text-indigo-400" />
+                <Video className="size-5 text-indigo-400" />
               </div>
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <DialogTitle className="text-base font-bold font-serif text-white">
-                  Leadzo AI — Official Product Onboarding Tour
+                  Leadzo AI — Official Product Demo Video
                 </DialogTitle>
-                <Badge variant="outline" className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-[10px] gap-1">
-                  <span className="size-1.5 rounded-full bg-emerald-400 animate-ping" /> AI Voice Active 🔊
+                <Badge variant="outline" className="bg-indigo-500/10 text-indigo-400 border-indigo-500/20 text-[10px] gap-1">
+                  <span className="size-1.5 rounded-full bg-indigo-400 animate-ping" /> HD Video Player 🎬
                 </Badge>
               </div>
               <DialogDescription className="text-xs text-slate-400">
-                Discover how Leadzo AI automates lead response in 5 seconds & replaces 6 expensive SaaS tools.
+                Watch full product walkthrough & feature highlights in 1080p HD.
               </DialogDescription>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="flex items-center p-1 bg-slate-900 border border-slate-800 rounded-lg text-xs">
-              <button
-                onClick={() => setViewMode("video")}
-                className={cn(
-                  "px-2.5 py-1 rounded-md text-[11px] font-medium transition-all flex items-center gap-1 cursor-pointer",
-                  viewMode === "video" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-white"
-                )}
-              >
-                <Video size={12} /> Video Player
-              </button>
-              <button
-                onClick={() => setViewMode("interactive")}
-                className={cn(
-                  "px-2.5 py-1 rounded-md text-[11px] font-medium transition-all flex items-center gap-1 cursor-pointer",
-                  viewMode === "interactive" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-white"
-                )}
-              >
-                <MonitorPlay size={12} /> Interactive Tour
-              </button>
-            </div>
-
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => {
-                const nextMute = !isMuted;
-                setIsMuted(nextMute);
-                if (nextMute) window.speechSynthesis?.cancel();
-              }}
+              onClick={toggleMute}
               className="size-8 text-slate-400 hover:text-white"
-              title={isMuted ? "Unmute Voiceover" : "Mute Voiceover"}
+              title={isMuted ? "Unmute Video Sound" : "Mute Video Sound"}
             >
-              {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} className="text-emerald-400" />}
+              {isMuted ? <VolumeX size={16} className="text-rose-400" /> : <Volume2 size={16} className="text-emerald-400" />}
             </Button>
+
             <Button
               variant="outline"
               size="sm"
               onClick={handleRestart}
               className="gap-1.5 text-xs border-slate-700 hover:bg-slate-800 text-slate-300 hidden sm:inline-flex"
             >
-              <RotateCcw size={13} /> Restart
+              <RotateCcw size={13} /> Replay Video
             </Button>
           </div>
         </div>
 
-        {/* Scene Navigation Tabs */}
-        <div className="px-4 py-2 bg-slate-900/40 border-b border-slate-800/80 flex items-center gap-2 overflow-x-auto no-scrollbar">
+        {/* Scene Chapter Navigation Tabs */}
+        <div className="px-4 py-2 bg-slate-900/50 border-b border-slate-800 flex items-center gap-2 overflow-x-auto no-scrollbar">
           {SCENES.map((scene, idx) => {
             const Icon = scene.icon;
             const isCurrent = currentSceneIdx === idx;
@@ -374,208 +253,45 @@ export function OnboardingDemoModal({
           })}
         </div>
 
-        {/* Main Cinema Screen Player */}
-        <div className="p-6 relative min-h-[400px] bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 flex flex-col justify-between overflow-hidden">
-          {/* Progress Bar Top */}
-          <div className="w-full h-1 bg-slate-800 rounded-full overflow-hidden mb-4">
-            <div 
-              className="h-full bg-gradient-to-r from-indigo-500 via-rose-500 to-amber-400 transition-all duration-100 ease-linear"
-              style={{ width: `${progress}%` }}
+        {/* Main HD MP4 Video Player Container */}
+        <div className="p-4 md:p-6 bg-slate-950 flex flex-col items-center justify-center space-y-4">
+          <div className="w-full aspect-video max-h-[380px] rounded-xl overflow-hidden bg-slate-900 border border-slate-800 shadow-2xl relative flex items-center justify-center group">
+            {/* HTML5 Native Video Tag with Audio & Video Stream */}
+            <video 
+              ref={videoRef}
+              key={activeScene.videoUrl}
+              src={activeScene.videoUrl}
+              controls 
+              autoPlay
+              playsInline
+              muted={isMuted}
+              onEnded={() => {
+                if (currentSceneIdx < SCENES.length - 1) {
+                  setCurrentSceneIdx(currentSceneIdx + 1);
+                } else {
+                  setIsPlaying(false);
+                }
+              }}
+              className="w-full h-full object-cover"
             />
+
+            <div className="absolute top-3 left-3 bg-slate-950/80 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-mono text-indigo-400 border border-indigo-500/30 flex items-center gap-1.5 pointer-events-none">
+              <span className="size-2 rounded-full bg-emerald-400 animate-ping" />
+              {activeScene.title} (1080p HD Video)
+            </div>
           </div>
 
-          {viewMode === "video" ? (
-            /* Video Player Screen View with Audio Unlock Overlay */
-            <div className="w-full h-full flex flex-col items-center justify-center space-y-4 py-2">
-              <div className="w-full aspect-video max-h-[320px] rounded-xl overflow-hidden bg-slate-900 border border-slate-800 shadow-2xl relative flex items-center justify-center group">
-                {/* HTML5 Video Element */}
-                <video 
-                  ref={videoRef}
-                  src={activeScene.videoUrl}
-                  controls 
-                  playsInline
-                  autoPlay
-                  className="w-full h-full object-cover"
-                />
-
-                {/* Initial Click-to-Play Overlay to bypass browser audio autoplay restrictions */}
-                {!hasStartedAudio && (
-                  <div 
-                    onClick={handleStartPlay}
-                    className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm flex flex-col items-center justify-center gap-3 cursor-pointer z-20 group hover:bg-slate-950/70 transition-all"
-                  >
-                    <div className="size-16 rounded-full bg-gradient-to-tr from-indigo-600 to-rose-500 p-0.5 shadow-2xl group-hover:scale-110 transition-transform">
-                      <div className="w-full h-full bg-slate-950 rounded-full flex items-center justify-center">
-                        <Play size={28} className="text-white fill-white ml-1" />
-                      </div>
-                    </div>
-                    <div className="text-center space-y-1">
-                      <p className="text-sm font-bold text-white flex items-center gap-1.5 justify-center">
-                        <Volume2 size={16} className="text-emerald-400 animate-pulse" /> Click to Play HD Video with AI Voice 🔊
-                      </p>
-                      <p className="text-xs text-slate-400">Unlocks browser audio for full voiceover experience</p>
-                    </div>
-                  </div>
-                )}
-
-                <div className="absolute top-3 left-3 bg-slate-950/80 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-mono text-indigo-400 border border-indigo-500/30 flex items-center gap-1.5 pointer-events-none">
-                  <span className="size-2 rounded-full bg-rose-500 animate-ping" />
-                  {activeScene.title} (HD Video)
+          {/* Active Scene Highlights & Info */}
+          <div className="w-full grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {activeScene.highlights.map((point, i) => (
+              <div key={i} className="p-2.5 rounded-lg bg-slate-900/80 border border-slate-800 flex items-center gap-2 text-xs text-slate-300">
+                <div className="size-4 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0">
+                  <CheckCircle2 size={12} />
                 </div>
+                <span className="truncate">{point}</span>
               </div>
-
-              {/* Dynamic Voiceover Narration Bar */}
-              <div className="w-full p-3 rounded-xl bg-slate-900/90 border border-slate-800 flex items-center gap-3">
-                <div className="size-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0">
-                  <Volume2 size={16} className={cn(isPlaying && !isMuted && "animate-pulse text-emerald-400")} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[10px] font-mono uppercase tracking-wider text-emerald-400 font-semibold flex items-center gap-1">
-                    AI Voiceover Narration {!isMuted ? "(Playing Sound 🔊)" : "(Muted 🔇)"}
-                  </p>
-                  <p className="text-xs text-slate-200 font-medium truncate">
-                    "{activeScene.voiceover}"
-                  </p>
-                </div>
-              </div>
-            </div>
-          ) : (
-            /* Interactive Simulation Screen View */
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={activeScene.id}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -12 }}
-                transition={{ duration: 0.3 }}
-                className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center"
-              >
-                {/* Left Column: Visual Details */}
-                <div className="md:col-span-7 space-y-4">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className={cn("text-xs font-semibold px-2.5 py-0.5 border", activeScene.color)}>
-                      {activeScene.badge}
-                    </Badge>
-                    <span className="text-[11px] font-mono text-slate-400">Scene {activeScene.id} / {SCENES.length}</span>
-                  </div>
-
-                  <h3 className="text-xl font-bold text-white font-serif tracking-tight leading-snug">
-                    {activeScene.visualContent.headline}
-                  </h3>
-                  
-                  <p className="text-xs text-slate-300 leading-relaxed">
-                    {activeScene.visualContent.subtext}
-                  </p>
-
-                  <div className="space-y-2 pt-2">
-                    {activeScene.visualContent.highlights.map((point, i) => (
-                      <div key={i} className="flex items-start gap-2.5 text-xs text-slate-200">
-                        <div className="size-4 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
-                          <CheckCircle2 size={12} />
-                        </div>
-                        <span>{point}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Right Column: Interactive Card */}
-                <div className="md:col-span-5">
-                  <Card className="border-slate-800 bg-slate-900/90 shadow-2xl relative overflow-hidden">
-                    <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
-                      <div className="flex items-center gap-2">
-                        <span className="size-2 rounded-full bg-emerald-500 animate-ping" />
-                        <span className="text-[11px] font-mono text-emerald-400 font-semibold uppercase tracking-wider">
-                          Live Interactive Tour
-                        </span>
-                      </div>
-                    </div>
-
-                    <CardContent className="p-5 space-y-4">
-                      {activeScene.visualContent.mockupType === "pain" && (
-                        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 space-y-2">
-                          <div className="flex items-center justify-between text-xs font-semibold">
-                            <span>Missed Customer Call</span>
-                            <span className="text-[10px] font-mono text-rose-400">4 Hours Ago</span>
-                          </div>
-                          <p className="text-xs text-slate-300">"Looking for hotel room in Goa for 3 nights. Please call urgently!"</p>
-                          <p className="text-[10px] text-rose-400 font-mono">Status: Lost to Competitor ❌</p>
-                        </div>
-                      )}
-
-                      {activeScene.visualContent.mockupType === "solution" && (
-                        <div className="p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 space-y-2">
-                          <div className="flex items-center justify-between text-xs font-semibold">
-                            <span>Leadzo Autonomous Engine</span>
-                            <span className="text-[10px] font-mono text-emerald-400">Active ⚡</span>
-                          </div>
-                          <div className="grid grid-cols-2 gap-2 text-[11px] font-mono pt-1">
-                            <div className="p-2 bg-slate-950 rounded border border-slate-800">Meta Ads API: ✅</div>
-                            <div className="p-2 bg-slate-950 rounded border border-slate-800">Google Ads API: ✅</div>
-                            <div className="p-2 bg-slate-950 rounded border border-slate-800">Vapi AI Voice: ✅</div>
-                            <div className="p-2 bg-slate-950 rounded border border-slate-800">WhatsApp API: ✅</div>
-                          </div>
-                        </div>
-                      )}
-
-                      {activeScene.visualContent.mockupType === "voice" && (
-                        <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 space-y-2">
-                          <div className="flex items-center justify-between text-xs font-semibold text-emerald-300">
-                            <span className="flex items-center gap-1.5">
-                              <PhoneCall size={13} className="animate-bounce text-emerald-400" /> Outbound AI Voice Call
-                            </span>
-                            <span className="text-[10px] font-mono text-emerald-400">00:14s</span>
-                          </div>
-                          <p className="text-xs text-slate-200 italic font-mono bg-slate-950/60 p-2.5 rounded border border-slate-800">
-                            "Namaste Rahul ji! Aapne Goa hotel staycation ke liye inquire kiya tha. Kya main instant availability aur 25% discount link WhatsApp kar doon?"
-                          </p>
-                        </div>
-                      )}
-
-                      {activeScene.visualContent.mockupType === "hotel" && (
-                        <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 space-y-2">
-                          <div className="flex items-center justify-between text-xs font-semibold text-amber-300">
-                            <span>Per-Room iCal Sync Guard</span>
-                            <span className="text-[10px] font-mono text-emerald-400">100% Protected</span>
-                          </div>
-                          <div className="text-[11px] text-slate-300 space-y-1 font-mono">
-                            <p>✓ Booking.com Reserved → Room 101 Blocked</p>
-                            <p>✓ Airbnb Calendar → Auto-Synced</p>
-                            <p>✓ Agoda Calendar → Auto-Synced</p>
-                          </div>
-                        </div>
-                      )}
-
-                      {activeScene.visualContent.mockupType === "office" && (
-                        <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20 space-y-2">
-                          <div className="flex items-center justify-between text-xs font-semibold text-blue-300">
-                            <span>2D Virtual Office Floor Plan</span>
-                            <span className="text-[10px] font-mono text-cyan-400">4 Team Members Online</span>
-                          </div>
-                          <p className="text-xs text-slate-300">Live proximity audio chat & HeyGen Avatar assistant active.</p>
-                        </div>
-                      )}
-
-                      {activeScene.visualContent.mockupType === "cta" && (
-                        <div className="p-4 rounded-xl bg-gradient-to-r from-indigo-600 to-rose-600 text-white text-center space-y-2 shadow-lg">
-                          <p className="text-sm font-bold">Ready to automate your sales?</p>
-                          <Button 
-                            onClick={() => {
-                              toast.success("Welcome to Leadzo 14-Day Free Trial!");
-                              onClose();
-                            }} 
-                            className="w-full bg-white text-slate-950 hover:bg-slate-100 font-bold text-xs cursor-pointer gap-2"
-                          >
-                            <Rocket size={14} /> Start 14-Day Free Trial <ArrowRight size={14} />
-                          </Button>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </div>
-              </motion.div>
-            </AnimatePresence>
-          )}
+            ))}
+          </div>
         </div>
 
         {/* Footer Control Bar */}
@@ -588,13 +304,12 @@ export function OnboardingDemoModal({
               className="gap-2 text-xs bg-indigo-600 hover:bg-indigo-700 text-white border-none cursor-pointer"
             >
               {isPlaying ? <Pause size={14} /> : <Play size={14} />}
-              {isPlaying ? "Pause Tour" : "Play Tour"}
+              {isPlaying ? "Pause Video" : "Play Video"}
             </Button>
             <Button
               onClick={() => {
                 if (currentSceneIdx < SCENES.length - 1) {
                   setCurrentSceneIdx(currentSceneIdx + 1);
-                  setProgress(0);
                 } else {
                   handleRestart();
                 }
