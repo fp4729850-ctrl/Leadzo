@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge.tsx";
 import { Card, CardContent } from "@/components/ui/card.tsx";
 import { 
   Play, Pause, RotateCcw, Volume2, VolumeX, Sparkles, CheckCircle2, 
-  PhoneCall, Rocket, Hotel, Building2, TrendingUp, ArrowRight, ShieldCheck, Zap, Layers
+  PhoneCall, Rocket, Hotel, Building2, TrendingUp, ArrowRight, ShieldCheck, Zap, Layers, Video, MonitorPlay, ExternalLink
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils.ts";
@@ -22,6 +22,7 @@ interface Scene {
   voiceover: string;
   icon: any;
   color: string;
+  videoUrl?: string;
   visualContent: {
     headline: string;
     subtext: string;
@@ -164,12 +165,13 @@ export function OnboardingDemoModal({
   const [isPlaying, setIsPlaying] = useState(true);
   const [isMuted, setIsMuted] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [viewMode, setViewMode] = useState<"interactive" | "video">("interactive");
 
   const activeScene = SCENES[currentSceneIdx];
 
   // Auto-play progress timer
   useEffect(() => {
-    if (!isOpen || !isPlaying) return;
+    if (!isOpen || !isPlaying || viewMode === "video") return;
 
     const interval = setInterval(() => {
       setProgress((prev) => {
@@ -187,7 +189,7 @@ export function OnboardingDemoModal({
     }, 100);
 
     return () => clearInterval(interval);
-  }, [isOpen, isPlaying, currentSceneIdx, activeScene.duration]);
+  }, [isOpen, isPlaying, currentSceneIdx, activeScene.duration, viewMode]);
 
   const handleSelectScene = (idx: number) => {
     setCurrentSceneIdx(idx);
@@ -209,7 +211,7 @@ export function OnboardingDemoModal({
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-4xl w-[95vw] p-0 overflow-hidden bg-slate-950 border-slate-800 text-slate-100 shadow-2xl rounded-2xl">
         {/* Header Bar */}
-        <div className="p-4 bg-slate-900/80 border-b border-slate-800 flex items-center justify-between">
+        <div className="p-4 bg-slate-900/80 border-b border-slate-800 flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-3">
             <div className="size-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-rose-500 p-0.5 shadow-lg">
               <div className="w-full h-full bg-slate-950 rounded-[10px] flex items-center justify-center">
@@ -222,7 +224,7 @@ export function OnboardingDemoModal({
                   Leadzo AI — Official Product Onboarding Tour
                 </DialogTitle>
                 <Badge variant="outline" className="bg-indigo-500/10 text-indigo-400 border-indigo-500/20 text-[10px]">
-                  2-Min HD Walkthrough 🎬
+                  2-Min Walkthrough 🎬
                 </Badge>
               </div>
               <DialogDescription className="text-xs text-slate-400">
@@ -232,6 +234,27 @@ export function OnboardingDemoModal({
           </div>
 
           <div className="flex items-center gap-2">
+            <div className="flex items-center p-1 bg-slate-900 border border-slate-800 rounded-lg text-xs">
+              <button
+                onClick={() => setViewMode("interactive")}
+                className={cn(
+                  "px-2.5 py-1 rounded-md text-[11px] font-medium transition-all flex items-center gap-1 cursor-pointer",
+                  viewMode === "interactive" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-white"
+                )}
+              >
+                <MonitorPlay size={12} /> Interactive Tour
+              </button>
+              <button
+                onClick={() => setViewMode("video")}
+                className={cn(
+                  "px-2.5 py-1 rounded-md text-[11px] font-medium transition-all flex items-center gap-1 cursor-pointer",
+                  viewMode === "video" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-white"
+                )}
+              >
+                <Video size={12} /> Video Player
+              </button>
+            </div>
+
             <Button
               variant="ghost"
               size="icon"
@@ -245,7 +268,7 @@ export function OnboardingDemoModal({
               variant="outline"
               size="sm"
               onClick={handleRestart}
-              className="gap-1.5 text-xs border-slate-700 hover:bg-slate-800 text-slate-300"
+              className="gap-1.5 text-xs border-slate-700 hover:bg-slate-800 text-slate-300 hidden sm:inline-flex"
             >
               <RotateCcw size={13} /> Restart
             </Button>
@@ -253,189 +276,230 @@ export function OnboardingDemoModal({
         </div>
 
         {/* Scene Navigation Tabs */}
-        <div className="px-4 py-2 bg-slate-900/40 border-b border-slate-800/80 flex items-center gap-2 overflow-x-auto no-scrollbar">
-          {SCENES.map((scene, idx) => {
-            const Icon = scene.icon;
-            const isCurrent = currentSceneIdx === idx;
-            return (
-              <button
-                key={scene.id}
-                onClick={() => handleSelectScene(idx)}
-                className={cn(
-                  "px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 shrink-0 transition-all cursor-pointer border",
-                  isCurrent 
-                    ? "bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-500/20"
-                    : "bg-slate-900/60 text-slate-400 border-slate-800 hover:bg-slate-800 hover:text-slate-200"
-                )}
-              >
-                <Icon size={13} className={isCurrent ? "text-white" : "text-slate-400"} />
-                <span>{scene.title.split(". ")[1]}</span>
-              </button>
-            );
-          })}
-        </div>
+        {viewMode === "interactive" && (
+          <div className="px-4 py-2 bg-slate-900/40 border-b border-slate-800/80 flex items-center gap-2 overflow-x-auto no-scrollbar">
+            {SCENES.map((scene, idx) => {
+              const Icon = scene.icon;
+              const isCurrent = currentSceneIdx === idx;
+              return (
+                <button
+                  key={scene.id}
+                  onClick={() => handleSelectScene(idx)}
+                  className={cn(
+                    "px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 shrink-0 transition-all cursor-pointer border",
+                    isCurrent 
+                      ? "bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-500/20"
+                      : "bg-slate-900/60 text-slate-400 border-slate-800 hover:bg-slate-800 hover:text-slate-200"
+                  )}
+                >
+                  <Icon size={13} className={isCurrent ? "text-white" : "text-slate-400"} />
+                  <span>{scene.title.split(". ")[1]}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {/* Main Cinema Screen Player */}
         <div className="p-6 relative min-h-[380px] bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 flex flex-col justify-between overflow-hidden">
-          {/* Progress Bar Top */}
-          <div className="w-full h-1 bg-slate-800 rounded-full overflow-hidden mb-6">
-            <div 
-              className="h-full bg-gradient-to-r from-indigo-500 via-rose-500 to-amber-400 transition-all duration-100 ease-linear"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-
-          {/* Animated Scene Canvas */}
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={activeScene.id}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -12 }}
-              transition={{ duration: 0.3 }}
-              className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center"
-            >
-              {/* Left Column: Visual Mockup */}
-              <div className="md:col-span-7 space-y-4">
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className={cn("text-xs font-semibold px-2.5 py-0.5 border", activeScene.color)}>
-                    {activeScene.badge}
-                  </Badge>
-                  <span className="text-[11px] font-mono text-slate-400">Scene {activeScene.id} / {SCENES.length}</span>
-                </div>
-
-                <h3 className="text-xl font-bold text-white font-serif tracking-tight leading-snug">
-                  {activeScene.visualContent.headline}
-                </h3>
-                
-                <p className="text-xs text-slate-300 leading-relaxed">
-                  {activeScene.visualContent.subtext}
-                </p>
-
-                <div className="space-y-2 pt-2">
-                  {activeScene.visualContent.highlights.map((point, i) => (
-                    <div key={i} className="flex items-start gap-2.5 text-xs text-slate-200">
-                      <div className="size-4 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
-                        <CheckCircle2 size={12} />
-                      </div>
-                      <span>{point}</span>
-                    </div>
-                  ))}
-                </div>
+          {viewMode === "interactive" ? (
+            <>
+              {/* Progress Bar Top */}
+              <div className="w-full h-1 bg-slate-800 rounded-full overflow-hidden mb-6">
+                <div 
+                  className="h-full bg-gradient-to-r from-indigo-500 via-rose-500 to-amber-400 transition-all duration-100 ease-linear"
+                  style={{ width: `${progress}%` }}
+                />
               </div>
 
-              {/* Right Column: Simulated Live Player Card */}
-              <div className="md:col-span-5">
-                <Card className="border-slate-800 bg-slate-900/90 shadow-2xl relative overflow-hidden">
-                  <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
+              {/* Animated Scene Canvas */}
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={activeScene.id}
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -12 }}
+                  transition={{ duration: 0.3 }}
+                  className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center"
+                >
+                  {/* Left Column: Visual Mockup */}
+                  <div className="md:col-span-7 space-y-4">
                     <div className="flex items-center gap-2">
-                      <span className="size-2 rounded-full bg-emerald-500 animate-ping" />
-                      <span className="text-[11px] font-mono text-emerald-400 font-semibold uppercase tracking-wider">
-                        Live Simulation
-                      </span>
+                      <Badge variant="outline" className={cn("text-xs font-semibold px-2.5 py-0.5 border", activeScene.color)}>
+                        {activeScene.badge}
+                      </Badge>
+                      <span className="text-[11px] font-mono text-slate-400">Scene {activeScene.id} / {SCENES.length}</span>
                     </div>
-                    <span className="text-[10px] font-mono text-slate-500">4K Ultra HD</span>
+
+                    <h3 className="text-xl font-bold text-white font-serif tracking-tight leading-snug">
+                      {activeScene.visualContent.headline}
+                    </h3>
+                    
+                    <p className="text-xs text-slate-300 leading-relaxed">
+                      {activeScene.visualContent.subtext}
+                    </p>
+
+                    <div className="space-y-2 pt-2">
+                      {activeScene.visualContent.highlights.map((point, i) => (
+                        <div key={i} className="flex items-start gap-2.5 text-xs text-slate-200">
+                          <div className="size-4 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
+                            <CheckCircle2 size={12} />
+                          </div>
+                          <span>{point}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
 
-                  <CardContent className="p-5 space-y-4">
-                    {activeScene.visualContent.mockupType === "pain" && (
-                      <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 space-y-2">
-                        <div className="flex items-center justify-between text-xs font-semibold">
-                          <span>Missed Customer Call</span>
-                          <span className="text-[10px] font-mono text-rose-400">4 Hours Ago</span>
-                        </div>
-                        <p className="text-xs text-slate-300">"Looking for hotel room in Goa for 3 nights. Please call urgently!"</p>
-                        <p className="text-[10px] text-rose-400 font-mono">Status: Lost to Competitor ❌</p>
-                      </div>
-                    )}
-
-                    {activeScene.visualContent.mockupType === "solution" && (
-                      <div className="p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 space-y-2">
-                        <div className="flex items-center justify-between text-xs font-semibold">
-                          <span>Leadzo Autonomous Engine</span>
-                          <span className="text-[10px] font-mono text-emerald-400">Active ⚡</span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2 text-[11px] font-mono pt-1">
-                          <div className="p-2 bg-slate-950 rounded border border-slate-800">Meta Ads API: ✅</div>
-                          <div className="p-2 bg-slate-950 rounded border border-slate-800">Google Ads API: ✅</div>
-                          <div className="p-2 bg-slate-950 rounded border border-slate-800">Vapi AI Voice: ✅</div>
-                          <div className="p-2 bg-slate-950 rounded border border-slate-800">WhatsApp API: ✅</div>
-                        </div>
-                      </div>
-                    )}
-
-                    {activeScene.visualContent.mockupType === "voice" && (
-                      <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 space-y-2">
-                        <div className="flex items-center justify-between text-xs font-semibold text-emerald-300">
-                          <span className="flex items-center gap-1.5">
-                            <PhoneCall size={13} className="animate-bounce text-emerald-400" /> Outbound AI Voice Call
+                  {/* Right Column: Simulated Live Player Card */}
+                  <div className="md:col-span-5">
+                    <Card className="border-slate-800 bg-slate-900/90 shadow-2xl relative overflow-hidden">
+                      <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
+                        <div className="flex items-center gap-2">
+                          <span className="size-2 rounded-full bg-emerald-500 animate-ping" />
+                          <span className="text-[11px] font-mono text-emerald-400 font-semibold uppercase tracking-wider">
+                            Live Simulation
                           </span>
-                          <span className="text-[10px] font-mono text-emerald-400">00:14s</span>
                         </div>
-                        <p className="text-xs text-slate-200 italic font-mono bg-slate-950/60 p-2.5 rounded border border-slate-800">
-                          "Namaste Rahul ji! Aapne Goa hotel staycation ke liye inquire kiya tha. Kya main instant availability aur 25% discount link WhatsApp kar doon?"
-                        </p>
+                        <span className="text-[10px] font-mono text-slate-500">4K Ultra HD</span>
                       </div>
-                    )}
 
-                    {activeScene.visualContent.mockupType === "hotel" && (
-                      <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 space-y-2">
-                        <div className="flex items-center justify-between text-xs font-semibold text-amber-300">
-                          <span>Per-Room iCal Sync Guard</span>
-                          <span className="text-[10px] font-mono text-emerald-400">100% Protected</span>
-                        </div>
-                        <div className="text-[11px] text-slate-300 space-y-1 font-mono">
-                          <p>✓ Booking.com Reserved → Room 101 Blocked</p>
-                          <p>✓ Airbnb Calendar → Auto-Synced</p>
-                          <p>✓ Agoda Calendar → Auto-Synced</p>
-                        </div>
-                      </div>
-                    )}
+                      <CardContent className="p-5 space-y-4">
+                        {activeScene.visualContent.mockupType === "pain" && (
+                          <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 space-y-2">
+                            <div className="flex items-center justify-between text-xs font-semibold">
+                              <span>Missed Customer Call</span>
+                              <span className="text-[10px] font-mono text-rose-400">4 Hours Ago</span>
+                            </div>
+                            <p className="text-xs text-slate-300">"Looking for hotel room in Goa for 3 nights. Please call urgently!"</p>
+                            <p className="text-[10px] text-rose-400 font-mono">Status: Lost to Competitor ❌</p>
+                          </div>
+                        )}
 
-                    {activeScene.visualContent.mockupType === "office" && (
-                      <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20 space-y-2">
-                        <div className="flex items-center justify-between text-xs font-semibold text-blue-300">
-                          <span>2D Virtual Office Floor Plan</span>
-                          <span className="text-[10px] font-mono text-cyan-400">4 Team Members Online</span>
-                        </div>
-                        <p className="text-xs text-slate-300">Live proximity audio chat & HeyGen Avatar assistant active.</p>
-                      </div>
-                    )}
+                        {activeScene.visualContent.mockupType === "solution" && (
+                          <div className="p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 space-y-2">
+                            <div className="flex items-center justify-between text-xs font-semibold">
+                              <span>Leadzo Autonomous Engine</span>
+                              <span className="text-[10px] font-mono text-emerald-400">Active ⚡</span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 text-[11px] font-mono pt-1">
+                              <div className="p-2 bg-slate-950 rounded border border-slate-800">Meta Ads API: ✅</div>
+                              <div className="p-2 bg-slate-950 rounded border border-slate-800">Google Ads API: ✅</div>
+                              <div className="p-2 bg-slate-950 rounded border border-slate-800">Vapi AI Voice: ✅</div>
+                              <div className="p-2 bg-slate-950 rounded border border-slate-800">WhatsApp API: ✅</div>
+                            </div>
+                          </div>
+                        )}
 
-                    {activeScene.visualContent.mockupType === "cta" && (
-                      <div className="p-4 rounded-xl bg-gradient-to-r from-indigo-600 to-rose-600 text-white text-center space-y-2 shadow-lg">
-                        <p className="text-sm font-bold">Ready to automate your sales?</p>
-                        <Button 
-                          onClick={() => {
-                            toast.success("Welcome to Leadzo 14-Day Free Trial!");
-                            onClose();
-                          }} 
-                          className="w-full bg-white text-slate-950 hover:bg-slate-100 font-bold text-xs cursor-pointer gap-2"
-                        >
-                          <Rocket size={14} /> Start 14-Day Free Trial <ArrowRight size={14} />
-                        </Button>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
+                        {activeScene.visualContent.mockupType === "voice" && (
+                          <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 space-y-2">
+                            <div className="flex items-center justify-between text-xs font-semibold text-emerald-300">
+                              <span className="flex items-center gap-1.5">
+                                <PhoneCall size={13} className="animate-bounce text-emerald-400" /> Outbound AI Voice Call
+                              </span>
+                              <span className="text-[10px] font-mono text-emerald-400">00:14s</span>
+                            </div>
+                            <p className="text-xs text-slate-200 italic font-mono bg-slate-950/60 p-2.5 rounded border border-slate-800">
+                              "Namaste Rahul ji! Aapne Goa hotel staycation ke liye inquire kiya tha. Kya main instant availability aur 25% discount link WhatsApp kar doon?"
+                            </p>
+                          </div>
+                        )}
+
+                        {activeScene.visualContent.mockupType === "hotel" && (
+                          <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 space-y-2">
+                            <div className="flex items-center justify-between text-xs font-semibold text-amber-300">
+                              <span>Per-Room iCal Sync Guard</span>
+                              <span className="text-[10px] font-mono text-emerald-400">100% Protected</span>
+                            </div>
+                            <div className="text-[11px] text-slate-300 space-y-1 font-mono">
+                              <p>✓ Booking.com Reserved → Room 101 Blocked</p>
+                              <p>✓ Airbnb Calendar → Auto-Synced</p>
+                              <p>✓ Agoda Calendar → Auto-Synced</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {activeScene.visualContent.mockupType === "office" && (
+                          <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20 space-y-2">
+                            <div className="flex items-center justify-between text-xs font-semibold text-blue-300">
+                              <span>2D Virtual Office Floor Plan</span>
+                              <span className="text-[10px] font-mono text-cyan-400">4 Team Members Online</span>
+                            </div>
+                            <p className="text-xs text-slate-300">Live proximity audio chat & HeyGen Avatar assistant active.</p>
+                          </div>
+                        )}
+
+                        {activeScene.visualContent.mockupType === "cta" && (
+                          <div className="p-4 rounded-xl bg-gradient-to-r from-indigo-600 to-rose-600 text-white text-center space-y-2 shadow-lg">
+                            <p className="text-sm font-bold">Ready to automate your sales?</p>
+                            <Button 
+                              onClick={() => {
+                                toast.success("Welcome to Leadzo 14-Day Free Trial!");
+                                onClose();
+                              }} 
+                              className="w-full bg-white text-slate-950 hover:bg-slate-100 font-bold text-xs cursor-pointer gap-2"
+                            >
+                              <Rocket size={14} /> Start 14-Day Free Trial <ArrowRight size={14} />
+                            </Button>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </div>
+                </motion.div>
+              </AnimatePresence>
+
+              {/* Voiceover Caption Box */}
+              <div className="mt-6 p-3 rounded-xl bg-slate-900/90 border border-slate-800 flex items-center gap-3">
+                <div className="size-8 rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center shrink-0">
+                  <Volume2 size={16} className={cn(isPlaying && !isMuted && "animate-pulse text-indigo-400")} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] font-mono uppercase tracking-wider text-indigo-400 font-semibold">
+                    AI Voiceover Script {!isMuted ? "(Audio Active)" : "(Muted)"}
+                  </p>
+                  <p className="text-xs text-slate-300 font-medium truncate">
+                    "{activeScene.voiceover}"
+                  </p>
+                </div>
               </div>
-            </motion.div>
-          </AnimatePresence>
+            </>
+          ) : (
+            /* Video Player Screen View */
+            <div className="w-full h-full flex flex-col items-center justify-center space-y-4 py-6">
+              <div className="w-full aspect-video rounded-xl overflow-hidden bg-slate-900 border border-slate-800 shadow-2xl relative flex items-center justify-center group">
+                {/* HTML5 Video Element with Fallback Poster Stream */}
+                <video 
+                  controls 
+                  autoPlay 
+                  loop 
+                  muted={isMuted}
+                  className="w-full h-full object-cover"
+                  poster="https://images.unsplash.com/photo-1551836022-d5d88e9218df?auto=format&fit=crop&w=1200&q=80"
+                >
+                  <source src="https://assets.mixkit.co/videos/preview/mixkit-software-developer-working-on-code-42898-large.mp4" type="video/mp4" />
+                  Your browser does not support video playback.
+                </video>
 
-          {/* Voiceover Caption Box */}
-          <div className="mt-6 p-3 rounded-xl bg-slate-900/90 border border-slate-800 flex items-center gap-3">
-            <div className="size-8 rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center shrink-0">
-              <Volume2 size={16} className={cn(isPlaying && !isMuted && "animate-pulse text-indigo-400")} />
+                <div className="absolute top-3 left-3 bg-slate-950/80 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-mono text-indigo-400 border border-indigo-500/30 flex items-center gap-1.5">
+                  <span className="size-2 rounded-full bg-rose-500 animate-ping" />
+                  Leadzo AI Official Product Demo (HD)
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between w-full text-xs text-slate-400 px-1">
+                <span>Duration: 02:30 Min</span>
+                <a 
+                  href="https://assets.mixkit.co/videos/preview/mixkit-software-developer-working-on-code-42898-large.mp4" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="text-indigo-400 hover:underline flex items-center gap-1 font-mono text-[11px]"
+                >
+                  Open HD Video Link <ExternalLink size={12} />
+                </a>
+              </div>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[10px] font-mono uppercase tracking-wider text-indigo-400 font-semibold">
-                AI Voiceover Script {!isMuted ? "(Audio Active)" : "(Muted)"}
-              </p>
-              <p className="text-xs text-slate-300 font-medium truncate">
-                "{activeScene.voiceover}"
-              </p>
-            </div>
-          </div>
+          )}
         </div>
 
         {/* Footer Control Bar */}
