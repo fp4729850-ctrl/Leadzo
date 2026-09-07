@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { CheckCircle2, Link2, KeyRound, Save, Loader2, Plus, Trash2 } from "lucide-react";
+import { CheckCircle2, Link2, KeyRound, Save, Loader2, Plus, Trash2, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { useMutation } from "@/lib/convex-supabase-adapter";
 import { api } from "@/convex/_generated/api.js";
@@ -552,8 +552,18 @@ export function ApiIntegrationsModal({ isOpen, onClose }: { isOpen: boolean; onC
                       </p>
                       
                       <div className="space-y-2 mt-2">
-                        <div className="bg-white p-3 rounded-md border border-orange-100 text-xs text-slate-700">
-                          <strong>Step 1:</strong> Complete your KYC on Exotel and purchase a virtual number.
+                        <div className="bg-white p-3 rounded-md border border-orange-100 text-xs text-slate-700 space-y-1">
+                          <div>
+                            <strong>Step 1:</strong> Complete your KYC on Exotel and purchase a virtual number.
+                          </div>
+                          <a 
+                            href="https://my.exotel.com" 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-orange-600 hover:text-orange-700 hover:underline mt-1"
+                          >
+                            Go to Exotel Dashboard <ExternalLink size={12} />
+                          </a>
                         </div>
                         <div className="bg-white p-3 rounded-md border border-orange-100 text-xs text-slate-700">
                           <strong>Step 2:</strong> Create a SIP Trunk in Exotel and route calls to Vapi's SIP URI:
@@ -561,8 +571,18 @@ export function ApiIntegrationsModal({ isOpen, onClose }: { isOpen: boolean; onC
                             sip:sip.vapi.ai
                           </div>
                         </div>
-                        <div className="bg-white p-3 rounded-md border border-orange-100 text-xs text-slate-700">
-                          <strong>Step 3:</strong> Once Exotel support confirms the SIP Trunk is active, import your SIP connection in your Vapi Dashboard.
+                        <div className="bg-white p-3 rounded-md border border-orange-100 text-xs text-slate-700 space-y-1">
+                          <div>
+                            <strong>Step 3:</strong> Once Exotel support confirms the SIP Trunk is active, import your SIP connection in your Vapi Dashboard.
+                          </div>
+                          <a 
+                            href="https://dashboard.vapi.ai/phone-numbers" 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-600 hover:text-indigo-700 hover:underline mt-1"
+                          >
+                            Go to Vapi Phone Numbers Dashboard <ExternalLink size={12} />
+                          </a>
                         </div>
                         <div className="bg-white p-3 rounded-md border border-orange-100 text-xs text-slate-700">
                           <strong>Step 4:</strong> Click "Fetch My Vapi Numbers" above, select your new Exotel number, and click Save.
