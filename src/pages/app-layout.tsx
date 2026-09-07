@@ -1,14 +1,18 @@
+import { useState } from "react";
 import { Outlet, NavLink, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import {
   Trophy, Layers, MessageSquareCode, BarChart4, Settings2,
-  Send, Mail, Camera, Search, Zap, LayoutDashboard, BarChart3, Wand2, Rocket, SlidersHorizontal, Users, Settings, Brain, Phone, TrendingUp, LogIn, LogOut, MessageCircle, CreditCard, MessageSquareShare, BrainCircuit, Bot, Building2, Hotel
+  Send, Mail, Camera, Search, Zap, LayoutDashboard, BarChart3, Wand2, Rocket, SlidersHorizontal, Users, Settings, Brain, Phone, TrendingUp, LogIn, LogOut, MessageCircle, CreditCard, MessageSquareShare, BrainCircuit, Bot, Building2, Hotel, Sparkles
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { cn } from "@/lib/utils.ts";
 import { Badge } from "@/components/ui/badge.tsx";
 import { Separator } from "@/components/ui/separator.tsx";
+import InstallBanner from "@/components/install-banner.tsx";
+import { VapiVoiceAgent } from "@/components/ui/vapi-voice-agent.tsx";
+import { OnboardingDemoModal } from "@/components/onboarding/OnboardingDemoModal.tsx";
 
 const NAV_ITEMS = [
   { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -42,12 +46,10 @@ const NAV_ITEMS = [
 
 const LIVE_PATHS = ["/hotel-management", "/ai-brain", "/virtual-office", "/dashboard", "/pipeline", "/inbox", "/analytics", "/ceo-dashboard", "/market-intelligence", "/creative-generation", "/campaign-launch", "/optimization", "/learning-agent", "/crm", "/wa-sender", "/rcs-sender", "/email-campaign", "/insta-campaign", "/bulk-calling", "/ai-reminders", "/seo-agent", "/ai-ranking-os", "/reddit-agent", "/gsc-dashboard", "/pricing", "/settings"];
 
-import InstallBanner from "@/components/install-banner.tsx";
-import { VapiVoiceAgent } from "@/components/ui/vapi-voice-agent.tsx";
-
 export default function AppLayout() {
   const location = useLocation();
   const { user, signin, signout } = useAuth();
+  const [isDemoOpen, setIsDemoOpen] = useState(false);
 
   const comingSoon = (e: React.MouseEvent, label: string) => {
     e.preventDefault();
@@ -130,10 +132,17 @@ export default function AppLayout() {
         </nav>
 
         <Separator className="bg-sidebar-border" />
-        <div className="p-4 flex flex-col gap-2">
-          <div className="flex items-center gap-2">
+        <div className="p-3 flex flex-col gap-2">
+          <Button 
+            onClick={() => setIsDemoOpen(true)} 
+            className="w-full justify-center text-xs h-9 bg-gradient-to-r from-indigo-600 via-purple-600 to-rose-600 hover:from-indigo-700 hover:to-rose-700 text-white font-bold gap-1.5 cursor-pointer shadow-lg shadow-indigo-500/20"
+          >
+            <Sparkles size={14} /> Watch Demo Tour 🎬
+          </Button>
+
+          <div className="flex items-center gap-2 pt-1">
             <Zap size={12} className="text-chart-4" />
-            <span className="text-xs text-sidebar-foreground/40">PraisonAI Agents</span>
+            <span className="text-xs text-sidebar-foreground/40">Leadzo AI Agents</span>
           </div>
           {user ? (
             <Button variant="outline" size="sm" onClick={signout} className="w-full justify-start text-xs h-8 border-sidebar-border bg-sidebar-accent/50 hover:bg-sidebar-accent text-sidebar-foreground">
@@ -204,6 +213,7 @@ export default function AppLayout() {
       </div>
       <InstallBanner />
       <VapiVoiceAgent />
+      <OnboardingDemoModal isOpen={isDemoOpen} onClose={() => setIsDemoOpen(false)} />
     </div>
   );
 }
