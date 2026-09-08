@@ -15,7 +15,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs.t
 import { Textarea } from "@/components/ui/textarea.tsx";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog.tsx";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils.ts";
+import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
 
 interface OtaChannel {
   id: string;
@@ -64,6 +65,7 @@ export default function HotelLeadManagerPage() {
   const [isSyncingAll, setIsSyncingAll] = useState(false);
   const [selectedRoomForIcal, setSelectedRoomForIcal] = useState<Room | null>(null);
   const [isAiMatching, setIsAiMatching] = useState(false);
+  const [isBuyingNumber, setIsBuyingNumber] = useState(false);
 
   // OTA Channels with Dual Connect Mode (AI Login & Password vs Direct iCal)
   const [channels, setChannels] = useState<OtaChannel[]>([
@@ -169,6 +171,32 @@ export default function HotelLeadManagerPage() {
       const currentIdx = dates.indexOf(date);
       return currentIdx >= startIdx && currentIdx < endIdx;
     });
+  };
+
+  const handleBuyVapiNumber = async () => {
+    setIsBuyingNumber(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('vapi_phone_numbers', { method: 'POST' });
+      if (error) {
+        let errorMessage = error.message;
+        try {
+          if (error.context && typeof error.context.json === 'function') {
+             const body = await error.context.json();
+             if (body && body.error) errorMessage = body.error;
+          }
+        } catch(e) {}
+        throw new Error(errorMessage);
+      }
+      if (data?.success && data?.number?.number) {
+        toast.success(`Successfully purchased Vapi number: ${data.number.number}`, { duration: 8000 });
+      } else {
+        throw new Error(data?.error || "Failed to parse API response");
+      }
+    } catch (e: any) {
+      toast.error(e.message || "Failed to purchase number", { duration: 8000 });
+    } finally {
+      setIsBuyingNumber(false);
+    }
   };
 
   return (
@@ -568,7 +596,16 @@ export default function HotelLeadManagerPage() {
 
                 <div className="space-y-1">
                   <Label className="text-xs text-indigo-300">Leadzo AI Virtual Inbound Number</Label>
-                  <Input readOnly value="+91 11 4084 5918" className="text-xs font-mono bg-indigo-500/10 border-indigo-500/30 text-indigo-200 font-bold" />
+                  <div className="flex gap-2">
+                    <Input readOnly value="+91 11 4084 5918" className="text-xs font-mono bg-indigo-500/10 border-indigo-500/30 text-indigo-200 font-bold" />
+                    <Button 
+                      onClick={handleBuyVapiNumber} 
+                      disabled={isBuyingNumber} 
+                      className={`shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer h-9 px-3 text-xs ${isBuyingNumber ? 'opacity-50' : ''}`}
+                    >
+                      {isBuyingNumber ? "Buying..." : "Buy via Vapi"}
+                    </Button>
+                  </div>
                   <p className="text-[10px] text-indigo-300/70">Target AI Number for Call Forwarding</p>
                 </div>
               </div>
