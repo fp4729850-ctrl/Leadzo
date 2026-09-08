@@ -141,14 +141,44 @@ export default function HotelLeadManagerPage() {
         masterExportIcal: r.master_export_ical, icalLinks: r.ical_links || {}
       })));
 
-      // 2. Channels
+      // 2. Channels: Merge Airbnb and Goibibo into single channel "Airbnb / Goibibo"
+      await supabase.from('hotel_channels').delete().eq('user_id', user.id).eq('channel_id', 'goibibo');
+      await supabase.from('hotel_channels').update({ name: 'Airbnb / Goibibo' }).eq('user_id', user.id).eq('channel_id', 'airbnb');
+
       const finalChannels = channelsRes.data && channelsRes.data.length > 0 ? channelsRes.data : [];
       if (finalChannels.length > 0) {
-        setChannels(finalChannels.map((c: any) => ({
-          id: c.channel_id, name: c.name, iconColor: c.icon_color, badgeBg: c.badge_bg,
-          connectMode: c.connect_mode, email: c.email || '', password: c.password || '',
-          icalUrl: c.ical_url || '', status: c.status, lastSync: c.last_sync || 'Never'
-        })));
+        const mergedList: OtaChannel[] = [];
+        finalChannels.forEach((c: any) => {
+          if (c.channel_id === 'goibibo') return; // skip separate goibibo
+          if (c.channel_id === 'airbnb') {
+            mergedList.push({
+              id: 'airbnb',
+              name: 'Airbnb / Goibibo',
+              iconColor: 'text-rose-400',
+              badgeBg: 'bg-rose-500/10 text-rose-400 border-rose-500/20',
+              connectMode: c.connect_mode || 'ai',
+              email: c.email || 'host@airbnb.com',
+              password: c.password || '••••••••',
+              icalUrl: c.ical_url || '',
+              status: c.status || 'connected',
+              lastSync: c.last_sync || '5 mins ago'
+            });
+            return;
+          }
+          mergedList.push({
+            id: c.channel_id,
+            name: c.name,
+            iconColor: c.icon_color,
+            badgeBg: c.badge_bg,
+            connectMode: c.connect_mode,
+            email: c.email || '',
+            password: c.password || '',
+            icalUrl: c.ical_url || '',
+            status: c.status,
+            lastSync: c.last_sync || 'Never'
+          });
+        });
+        setChannels(mergedList);
       }
 
       // 3. Purge mock / demo bookings (Rahul Verma, Elena Rostova, Aman Sharma, Vikram Malhotra)
@@ -191,8 +221,8 @@ export default function HotelLeadManagerPage() {
                     let guestDisplay = curEvent.guest_name || "King Villa Guest";
 
                     if (curEvent.ical_uid.includes('GoibiboMMT') || curEvent.guest_name?.includes('Goibibo') || curEvent.guest_name === 'OTA Booking') {
-                      platformSource = 'Goibibo / MMT';
-                      guestDisplay = 'Goibibo OTA Guest';
+                      platformSource = 'Airbnb / Goibibo';
+                      guestDisplay = 'Airbnb / Goibibo Guest';
                     } else if (curEvent.ical_uid.startsWith('BLOCK') || curEvent.guest_name?.includes('Direct')) {
                       platformSource = 'King Villa Direct';
                       guestDisplay = 'Direct Booking (King Villa)';
@@ -511,10 +541,11 @@ export default function HotelLeadManagerPage() {
   // Source breakdown for pie chart
   const sourceColors: Record<string, string> = {
     "Booking.com": "#3b82f6",
+    "Airbnb / Goibibo": "#f43f5e",
     "Airbnb": "#f43f5e",
+    "Goibibo / MMT": "#f43f5e",
+    "Goibibo": "#f43f5e",
     "Agoda": "#f59e0b",
-    "Goibibo / MMT": "#f97316",
-    "Goibibo": "#f97316",
     "King Villa Direct": "#a855f7",
     "King Villa": "#a855f7",
     "Direct / AI Agent": "#10b981",
@@ -899,9 +930,8 @@ export default function HotelLeadManagerPage() {
               </div>
               <div className="flex items-center gap-3 text-xs flex-wrap">
                 <span className="flex items-center gap-1"><span className="size-2.5 rounded-full bg-blue-500 inline-block"></span> Booking.com</span>
-                <span className="flex items-center gap-1"><span className="size-2.5 rounded-full bg-rose-500 inline-block"></span> Airbnb</span>
+                <span className="flex items-center gap-1"><span className="size-2.5 rounded-full bg-rose-500 inline-block"></span> Airbnb / Goibibo</span>
                 <span className="flex items-center gap-1"><span className="size-2.5 rounded-full bg-amber-500 inline-block"></span> Agoda</span>
-                <span className="flex items-center gap-1"><span className="size-2.5 rounded-full bg-orange-500 inline-block"></span> Goibibo / MMT</span>
                 <span className="flex items-center gap-1"><span className="size-2.5 rounded-full bg-purple-500 inline-block"></span> King Villa</span>
                 <span className="flex items-center gap-1"><span className="size-2.5 rounded-full bg-emerald-500 inline-block"></span> Direct / AI</span>
               </div>
@@ -930,7 +960,7 @@ export default function HotelLeadManagerPage() {
                     rooms.map((room) => (
                     <tr key={room.id} className="hover:bg-muted/10 transition-colors">
                       <td className="p-3 font-semibold">
-                        <p className="font-mono text-sm">Room {room.number}</p>
+                        <p className="font-mono text-sm">{room.number.startsWith('Room') ? room.number : `Room ${room.number}`}</p>
                         <p className="text-[11px] text-muted-foreground font-normal">{room.type} (₹{room.pricePerNight})</p>
                       </td>
 
@@ -1037,9 +1067,8 @@ export default function HotelLeadManagerPage() {
                                 className={cn(
                                   "h-full w-full rounded-md p-1.5 flex flex-col justify-between text-[10px] font-medium transition-all shadow-sm",
                                   booking.source === "Booking.com" && "bg-blue-500/20 text-blue-300 border border-blue-500/40",
-                                  booking.source === "Airbnb" && "bg-rose-500/20 text-rose-300 border border-rose-500/40",
+                                  (booking.source.includes("Airbnb") || booking.source.includes("Goibibo") || booking.source.includes("MMT")) && "bg-rose-500/20 text-rose-300 border border-rose-500/40",
                                   booking.source === "Agoda" && "bg-amber-500/20 text-amber-300 border border-amber-500/40",
-                                  (booking.source === "Goibibo" || booking.source.includes("Goibibo") || booking.source.includes("MMT")) && "bg-orange-500/20 text-orange-300 border border-orange-500/40",
                                   (booking.source === "King Villa" || booking.source.includes("King Villa")) && "bg-purple-500/20 text-purple-300 border border-purple-500/40",
                                   booking.source === "Direct / AI Agent" && booking.status !== "blocked" && "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40",
                                   booking.status === "blocked" && "bg-slate-800 text-slate-400 border border-slate-700"
