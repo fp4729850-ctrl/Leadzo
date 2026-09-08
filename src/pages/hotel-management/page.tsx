@@ -336,7 +336,7 @@ export default function HotelLeadManagerPage() {
             </div>
             <div>
               <p className="text-xs text-muted-foreground font-sans">Active Bookings</p>
-              <p className="text-xl font-bold font-mono">{bookings.length} Reserved</p>
+              <p className="text-xl font-bold font-mono">{bookings.filter(b => b.status === 'confirmed').length} Reserved</p>
             </div>
           </CardContent>
         </Card>
@@ -360,7 +360,7 @@ export default function HotelLeadManagerPage() {
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Double Bookings Saved</p>
-              <p className="text-xl font-bold font-mono text-emerald-400">12 Prevented</p>
+              <p className="text-xl font-bold font-mono text-emerald-400">{bookings.filter(b => b.status === 'blocked').length} Prevented</p>
             </div>
           </CardContent>
         </Card>
