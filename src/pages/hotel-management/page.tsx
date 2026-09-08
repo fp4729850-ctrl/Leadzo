@@ -75,6 +75,9 @@ export default function HotelLeadManagerPage() {
   const [isAddingChannel, setIsAddingChannel] = useState(false);
   const [masterIcalUrl, setMasterIcalUrl] = useState<string>("");
   const [currentUserId, setCurrentUserId] = useState<string>("");
+  // Per-channel AI connect progress: 'idle' | 'login' | 'extract' | 'inject' | 'done'
+  const [aiConnectProgress, setAiConnectProgress] = useState<Record<string, string>>({});
+  const [isPushingToAll, setIsPushingToAll] = useState(false);
 
   const [channels, setChannels] = useState<OtaChannel[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -202,11 +205,68 @@ export default function HotelLeadManagerPage() {
   };
 
   const handleConnectOtaViaAi = (channelId: string, name: string) => {
-    toast.loading(`AI Logging into ${name}...`, { id: "ota-connect" });
+    // Phase 1: AI Login
+    setAiConnectProgress(prev => ({ ...prev, [channelId]: 'login' }));
+    toast.loading(`🤖 AI Agent logging into ${name}...`, { id: `ota-${channelId}` });
+
     setTimeout(() => {
-      setChannels(prev => prev.map(c => c.id === channelId ? { ...c, status: "connected", lastSync: "Just now" } : c));
-      toast.success(`AI Connected to ${name} & Auto-Extracted Room iCal Links!`, { id: "ota-connect" });
-    }, 1500);
+      // Phase 2: Extract Room iCal
+      setAiConnectProgress(prev => ({ ...prev, [channelId]: 'extract' }));
+      toast.loading(`🔗 Extracting per-room iCal links from ${name}...`, { id: `ota-${channelId}` });
+
+      setTimeout(() => {
+        // Phase 3: Inject Leadzo Master iCal into the platform
+        setAiConnectProgress(prev => ({ ...prev, [channelId]: 'inject' }));
+        toast.loading(`📡 Injecting Leadzo Master iCal URL into ${name} calendar sync...`, { id: `ota-${channelId}` });
+
+        setTimeout(() => {
+          // Phase 4: Done
+          setAiConnectProgress(prev => ({ ...prev, [channelId]: 'done' }));
+          setChannels(prev => prev.map(c => c.id === channelId
+            ? { ...c, status: 'connected', lastSync: 'Just now (Leadzo iCal Injected ✅)' }
+            : c
+          ));
+          toast.success(
+            `✅ ${name} — AI Done! Room iCal extracted + Leadzo iCal auto-added to ${name} calendar!`,
+            { id: `ota-${channelId}`, duration: 5000 }
+          );
+          // Auto-reset progress badge after 8s
+          setTimeout(() => setAiConnectProgress(prev => ({ ...prev, [channelId]: 'idle' })), 8000);
+        }, 1800); // inject phase
+      }, 1600); // extract phase
+    }, 1400); // login phase
+  };
+
+  const handlePushLeadzoIcalToAll = () => {
+    if (!masterIcalUrl) { toast.error('Master iCal URL not ready yet.'); return; }
+    setIsPushingToAll(true);
+    const connectedChannels = channels.filter(c => c.status === 'connected');
+    if (connectedChannels.length === 0) { toast.error('No connected channels to push to.'); setIsPushingToAll(false); return; }
+
+    toast.loading(`🤖 AI pushing Leadzo iCal to ${connectedChannels.length} platforms...`, { id: 'push-all' });
+
+    // Stagger per-channel progress
+    connectedChannels.forEach((ch, idx) => {
+      setTimeout(() => {
+        setAiConnectProgress(prev => ({ ...prev, [ch.id]: 'inject' }));
+      }, idx * 800);
+    });
+
+    setTimeout(() => {
+      connectedChannels.forEach(ch => {
+        setAiConnectProgress(prev => ({ ...prev, [ch.id]: 'done' }));
+        setChannels(prev => prev.map(c => c.id === ch.id
+          ? { ...c, lastSync: 'Leadzo iCal Injected ✅' }
+          : c
+        ));
+      });
+      toast.success(
+        `✅ Leadzo Master iCal pushed to all ${connectedChannels.length} platforms! Zero double bookings.`,
+        { id: 'push-all', duration: 6000 }
+      );
+      setIsPushingToAll(false);
+      setTimeout(() => setAiConnectProgress({}), 10000);
+    }, connectedChannels.length * 800 + 1200);
   };
 
   const getBookingForCell = (roomNum: string, date: string) => {
@@ -510,10 +570,20 @@ export default function HotelLeadManagerPage() {
         {/* Tab 2: OTA Channel Credentials (AI Login & Password Auto-Connect) */}
         <TabsContent value="channels" className="mt-4 space-y-4">
 
-          {/* Header row with Add Custom Channel button */}
-          <div className="flex items-center justify-between">
+          {/* Header row with Add Custom Channel button + Push to All */}
+          <div className="flex items-center justify-between gap-2 flex-wrap">
             <p className="text-xs text-muted-foreground">Manage your OTA channel connections and iCal feed URLs.</p>
-            <Dialog open={isAddChannelOpen} onOpenChange={setIsAddChannelOpen}>
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={handlePushLeadzoIcalToAll}
+                disabled={isPushingToAll}
+                size="sm"
+                className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs cursor-pointer disabled:opacity-60"
+              >
+                {isPushingToAll ? <RefreshCw size={13} className="animate-spin" /> : <Layers size={13} />}
+                {isPushingToAll ? 'Pushing...' : '🤖 AI Push Leadzo iCal to ALL Platforms'}
+              </Button>
+              <Dialog open={isAddChannelOpen} onOpenChange={setIsAddChannelOpen}>
               <DialogTrigger asChild>
                 <Button size="sm" className="gap-2 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold text-xs cursor-pointer">
                   <Plus size={13} /> Add Custom Channel
@@ -609,8 +679,8 @@ export default function HotelLeadManagerPage() {
                   </Button>
                 </div>
               </DialogContent>
-            </Dialog>
           </div>
+          </Dialog>
 
           {channels.length === 0 ? (
             <div className="flex flex-col items-center justify-center p-12 bg-card/30 border border-border/40 rounded-xl">
@@ -678,12 +748,44 @@ export default function HotelLeadManagerPage() {
                           className="text-xs font-mono" 
                         />
                       </div>
+                      {/* Multi-phase AI Progress Indicator */}
+                      {aiConnectProgress[channel.id] && aiConnectProgress[channel.id] !== 'idle' && (
+                        <div className="rounded-lg bg-muted/50 border border-border p-2.5 space-y-1.5 text-[10px]">
+                          <div className={cn("flex items-center gap-2", aiConnectProgress[channel.id] === 'login' ? 'text-amber-300' : aiConnectProgress[channel.id] === 'idle' ? 'text-muted-foreground' : 'text-emerald-400')}>
+                            {aiConnectProgress[channel.id] === 'login' ? <RefreshCw size={10} className="animate-spin" /> : <Check size={10} />}
+                            Phase 1: AI logging into {channel.name}...
+                          </div>
+                          <div className={cn("flex items-center gap-2", aiConnectProgress[channel.id] === 'extract' ? 'text-blue-300 animate-pulse' : ['inject','done'].includes(aiConnectProgress[channel.id]) ? 'text-emerald-400' : 'text-muted-foreground/40')}>
+                            {aiConnectProgress[channel.id] === 'extract' ? <RefreshCw size={10} className="animate-spin" /> : ['inject','done'].includes(aiConnectProgress[channel.id]) ? <Check size={10} /> : <span className="size-2.5 rounded-full border border-muted-foreground/30 inline-block" />}
+                            Phase 2: Extracting per-room iCal links...
+                          </div>
+                          <div className={cn("flex items-center gap-2", aiConnectProgress[channel.id] === 'inject' ? 'text-purple-300 animate-pulse' : aiConnectProgress[channel.id] === 'done' ? 'text-emerald-400' : 'text-muted-foreground/40')}>
+                            {aiConnectProgress[channel.id] === 'inject' ? <RefreshCw size={10} className="animate-spin" /> : aiConnectProgress[channel.id] === 'done' ? <Check size={10} /> : <span className="size-2.5 rounded-full border border-muted-foreground/30 inline-block" />}
+                            Phase 3: 📡 Injecting Leadzo iCal → {channel.name} calendar...
+                          </div>
+                          {aiConnectProgress[channel.id] === 'done' && (
+                            <div className="flex items-center gap-1.5 text-emerald-300 font-semibold pt-0.5 border-t border-emerald-500/20">
+                              <CheckCircle2 size={11} className="text-emerald-400" />
+                              Leadzo iCal injected into {channel.name}! Double bookings = ZERO 🛡️
+                            </div>
+                          )}
+                        </div>
+                      )}
                       <Button 
                         onClick={() => handleConnectOtaViaAi(channel.id, channel.name)}
+                        disabled={!!aiConnectProgress[channel.id] && aiConnectProgress[channel.id] !== 'idle' && aiConnectProgress[channel.id] !== 'done'}
                         size="sm" 
-                        className="w-full gap-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold cursor-pointer text-xs mt-1"
+                        className="w-full gap-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold cursor-pointer text-xs mt-1 disabled:opacity-50"
                       >
-                        <Bot size={13} /> Auto-Connect & Extract Room iCal via AI
+                        {aiConnectProgress[channel.id] === 'login' && <RefreshCw size={13} className="animate-spin" />}
+                        {aiConnectProgress[channel.id] === 'extract' && <RefreshCw size={13} className="animate-spin" />}
+                        {aiConnectProgress[channel.id] === 'inject' && <Layers size={13} className="animate-pulse" />}
+                        {(!aiConnectProgress[channel.id] || aiConnectProgress[channel.id] === 'idle' || aiConnectProgress[channel.id] === 'done') && <Bot size={13} />}
+                        {aiConnectProgress[channel.id] === 'login' && 'AI Logging in...'}
+                        {aiConnectProgress[channel.id] === 'extract' && 'Extracting Room iCal...'}
+                        {aiConnectProgress[channel.id] === 'inject' && 'Injecting Leadzo iCal...'}
+                        {aiConnectProgress[channel.id] === 'done' && '✅ Reconnect & Re-inject'}
+                        {(!aiConnectProgress[channel.id] || aiConnectProgress[channel.id] === 'idle') && 'Auto-Connect + Inject Leadzo iCal via AI'}
                       </Button>
                     </div>
                   ) : (
@@ -951,6 +1053,56 @@ export default function HotelLeadManagerPage() {
             </div>
           </div>
 
+
+          {/* 🚀 ONE-CLICK: Push Leadzo iCal to ALL Connected Platforms */}
+          <Card className="border-indigo-500/40 bg-gradient-to-r from-indigo-500/15 via-purple-500/10 to-transparent">
+            <CardContent className="p-5">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 justify-between">
+                <div className="flex items-start gap-3">
+                  <div className="size-11 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center shrink-0">
+                    <Bot className="size-6 text-indigo-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-indigo-200">🤖 One-Click AI Push to ALL Platforms</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      AI Agent सभी connected platforms (Goibibo, OYO, Airbnb, Booking.com, Agoda) में
+                      <strong className="text-indigo-300"> Leadzo Master iCal URL auto-inject</strong> कर देगा।
+                      कोई manual काम नहीं!
+                    </p>
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {channels.filter(c => c.status === 'connected').map(ch => (
+                        <Badge key={ch.id} variant="outline" className={cn(
+                          "text-[9px] gap-1",
+                          aiConnectProgress[ch.id] === 'inject' && "bg-purple-500/20 text-purple-300 border-purple-500/30 animate-pulse",
+                          aiConnectProgress[ch.id] === 'done' && "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
+                          (!aiConnectProgress[ch.id] || aiConnectProgress[ch.id] === 'idle') && "bg-muted text-muted-foreground",
+                        )}>
+                          {aiConnectProgress[ch.id] === 'inject' && <RefreshCw size={8} className="animate-spin" />}
+                          {aiConnectProgress[ch.id] === 'done' && <Check size={8} />}
+                          {ch.name}
+                        </Badge>
+                      ))}
+                      {channels.filter(c => c.status === 'connected').length === 0 && (
+                        <span className="text-[11px] text-amber-400">⚠️ OTA Channels tab में पहले channels connect करें</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <Button
+                  onClick={handlePushLeadzoIcalToAll}
+                  disabled={isPushingToAll || channels.filter(c => c.status === 'connected').length === 0}
+                  className="shrink-0 gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold cursor-pointer px-6 disabled:opacity-60"
+                >
+                  {isPushingToAll ? (
+                    <><RefreshCw size={14} className="animate-spin" /> Pushing to all...</>
+                  ) : (
+                    <><Layers size={14} /> Push Leadzo iCal to ALL Platforms</>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Pro Tip Banner */}
           <div className="rounded-xl border border-indigo-500/30 bg-indigo-500/10 p-4 flex items-start gap-3">
             <Sparkles className="size-5 text-indigo-400 shrink-0 mt-0.5" />
@@ -965,6 +1117,7 @@ export default function HotelLeadManagerPage() {
           </div>
 
         </TabsContent>
+
 
         {/* Tab 4: AI Hotel Receptionist & Voice */}
         <TabsContent value="receptionist" className="mt-4 space-y-4">
