@@ -86,16 +86,50 @@ export default function HotelLeadManagerPage() {
         supabase.from('hotel_bookings').select('*')
       ]);
 
-      if (roomsRes.data) setRooms(roomsRes.data.map((r: any) => ({
-        id: r.id, number: r.number, type: r.type, pricePerNight: r.price_per_night,
-        masterExportIcal: r.master_export_ical, icalLinks: r.ical_links || {}
-      })));
+      if (roomsRes.data && roomsRes.data.length > 0) {
+        setRooms(roomsRes.data.map((r: any) => ({
+          id: r.id, number: r.number, type: r.type, pricePerNight: r.price_per_night,
+          masterExportIcal: r.master_export_ical, icalLinks: r.ical_links || {}
+        })));
+      } else {
+        // Auto-seed demo data if empty
+        const defaultRooms = [
+          { user_id: user.id, number: "101", type: "Deluxe King Suite", price_per_night: 3500, master_export_ical: "https://api.leadzoai.com/v1/hotel/ical/export/room_101_leadzo.ics", ical_links: { bookingCom: "https://admin.booking.com/ical/room_101.ics", airbnb: "https://www.airbnb.com/calendar/ical/room_101.ics", agoda: "https://ycs.agoda.com/ical/room_101.ics" } },
+          { user_id: user.id, number: "102", type: "Deluxe Double Bed", price_per_night: 3000, master_export_ical: "https://api.leadzoai.com/v1/hotel/ical/export/room_102_leadzo.ics", ical_links: { bookingCom: "https://admin.booking.com/ical/room_102.ics", airbnb: "https://www.airbnb.com/calendar/ical/room_102.ics" } }
+        ];
+        const defaultChannels = [
+          { user_id: user.id, channel_id: "booking", name: "Booking.com", icon_color: "text-blue-400", badge_bg: "bg-blue-500/10 text-blue-400 border-blue-500/20", connect_mode: "ai", email: "hotel.grand@booking.com", password: "••••••••", ical_url: "https://admin.booking.com/hotel/ical/export/sample.ics", status: "connected", last_sync: "2 mins ago" },
+          { user_id: user.id, channel_id: "airbnb", name: "Airbnb", icon_color: "text-rose-400", badge_bg: "bg-rose-500/10 text-rose-400 border-rose-500/20", connect_mode: "ai", email: "host@airbnb.com", password: "••••••••", ical_url: "https://www.airbnb.com/calendar/ical/12345678.ics?s=sample", status: "connected", last_sync: "5 mins ago" },
+          { user_id: user.id, channel_id: "agoda", name: "Agoda", icon_color: "text-amber-400", badge_bg: "bg-amber-500/10 text-amber-400 border-amber-500/20", connect_mode: "ical", email: "", password: "", ical_url: "https://ycs.agoda.com/ical/export/sample.ics", status: "connected", last_sync: "1 min ago" },
+          { user_id: user.id, channel_id: "goibibo", name: "Goibibo / MMT", icon_color: "text-orange-400", badge_bg: "bg-orange-500/10 text-orange-400 border-orange-500/20", connect_mode: "ai", email: "", password: "", ical_url: "", status: "pending", last_sync: "Not connected" }
+        ];
+        await supabase.from('hotel_rooms').insert(defaultRooms);
+        await supabase.from('hotel_channels').insert(defaultChannels);
+        
+        // Re-fetch after seeding
+        const newRooms = await supabase.from('hotel_rooms').select('*');
+        if (newRooms.data) setRooms(newRooms.data.map((r: any) => ({
+          id: r.id, number: r.number, type: r.type, pricePerNight: r.price_per_night,
+          masterExportIcal: r.master_export_ical, icalLinks: r.ical_links || {}
+        })));
+        
+        const newChannels = await supabase.from('hotel_channels').select('*');
+        if (newChannels.data) setChannels(newChannels.data.map((c: any) => ({
+          id: c.channel_id, name: c.name, iconColor: c.icon_color, badgeBg: c.badge_bg,
+          connectMode: c.connect_mode, email: c.email || '', password: c.password || '',
+          icalUrl: c.ical_url || '', status: c.status, lastSync: c.last_sync || 'Never'
+        })));
+      }
 
-      if (channelsRes.data) setChannels(channelsRes.data.map((c: any) => ({
-        id: c.channel_id, name: c.name, iconColor: c.icon_color, badgeBg: c.badge_bg,
-        connectMode: c.connect_mode, email: c.email || '', password: c.password || '',
-        icalUrl: c.ical_url || '', status: c.status, lastSync: c.last_sync || 'Never'
-      })));
+      // Channels: always load from DB (covers both seeded and non-seeded path)
+      const finalChannels = channelsRes.data && channelsRes.data.length > 0 ? channelsRes.data : [];
+      if (finalChannels.length > 0) {
+        setChannels(finalChannels.map((c: any) => ({
+          id: c.channel_id, name: c.name, iconColor: c.icon_color, badgeBg: c.badge_bg,
+          connectMode: c.connect_mode, email: c.email || '', password: c.password || '',
+          icalUrl: c.ical_url || '', status: c.status, lastSync: c.last_sync || 'Never'
+        })));
+      }
 
       if (bookingsRes.data) setBookings(bookingsRes.data.map((b: any) => ({
         id: b.id, roomNumber: roomsRes.data?.find((r:any) => r.id === b.room_id)?.number || '',
