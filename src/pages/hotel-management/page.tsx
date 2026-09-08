@@ -67,7 +67,11 @@ export default function HotelLeadManagerPage() {
   const [selectedRoomForIcal, setSelectedRoomForIcal] = useState<Room | null>(null);
   const [isAiMatching, setIsAiMatching] = useState(false);
   const [isBuyNumberModalOpen, setIsBuyNumberModalOpen] = useState(false);
-  const [activeNumber, setActiveNumber] = useState<string | null>("+1 928 963 5202"); // Initialized with the recently bought number for demo purposes
+  const [activeNumber, setActiveNumber] = useState<string | null>("+1 928 963 5202");
+  const [isAddChannelOpen, setIsAddChannelOpen] = useState(false);
+  const [newChannelName, setNewChannelName] = useState("");
+  const [newChannelIcal, setNewChannelIcal] = useState("");
+  const [isAddingChannel, setIsAddingChannel] = useState(false);
 
   const [channels, setChannels] = useState<OtaChannel[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -488,11 +492,117 @@ export default function HotelLeadManagerPage() {
 
         {/* Tab 2: OTA Channel Credentials (AI Login & Password Auto-Connect) */}
         <TabsContent value="channels" className="mt-4 space-y-4">
+
+          {/* Header row with Add Custom Channel button */}
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-muted-foreground">Manage your OTA channel connections and iCal feed URLs.</p>
+            <Dialog open={isAddChannelOpen} onOpenChange={setIsAddChannelOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" className="gap-2 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold text-xs cursor-pointer">
+                  <Plus size={13} /> Add Custom Channel
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[480px]">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2 text-base">
+                    <Globe className="size-5 text-emerald-400" /> Add Custom Platform / Channel
+                  </DialogTitle>
+                  <DialogDescription className="text-xs">
+                    Add any booking platform — MakeMyTrip, Goibibo, Hostelworld, or your own Property Management System (PMS) — by pasting its iCal export URL.
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="space-y-4 py-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold">Platform / Channel Name</Label>
+                    <Input
+                      placeholder="e.g. MakeMyTrip, Hostelworld, My PMS System..."
+                      value={newChannelName}
+                      onChange={(e) => setNewChannelName(e.target.value)}
+                      className="text-sm"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold">iCal Export URL</Label>
+                    <Input
+                      placeholder="https://yourplatform.com/calendar/ical/your-property.ics"
+                      value={newChannelIcal}
+                      onChange={(e) => setNewChannelIcal(e.target.value)}
+                      className="text-xs font-mono"
+                    />
+                    <p className="text-[10px] text-muted-foreground">Paste the .ics calendar export link from your platform's settings page.</p>
+                  </div>
+
+                  <div className="bg-muted/40 rounded-lg border border-border p-3 text-[11px] text-muted-foreground space-y-1">
+                    <p className="font-semibold text-foreground/80">📋 Where to find iCal URL?</p>
+                    <p>• <span className="text-blue-400">Booking.com</span>: Extranet → Calendar → Export</p>
+                    <p>• <span className="text-rose-400">Airbnb</span>: Listing → Availability → Export Calendar</p>
+                    <p>• <span className="text-amber-400">Agoda</span>: YCS Portal → Calendar → iCal</p>
+                    <p>• <span className="text-green-400">Google Calendar</span>: Settings → Share → Public iCal Link</p>
+                    <p>• <span className="text-purple-400">Any PMS</span>: Look for "Export" or "Sync" in calendar settings</p>
+                  </div>
+
+                  <Button
+                    onClick={async () => {
+                      if (!newChannelName.trim() || !newChannelIcal.trim()) {
+                        toast.error("Please fill in both platform name and iCal URL.");
+                        return;
+                      }
+                      setIsAddingChannel(true);
+                      try {
+                        const { data: { user } } = await supabase.auth.getUser();
+                        if (!user) throw new Error("Not authenticated");
+
+                        const channelId = newChannelName.toLowerCase().replace(/[^a-z0-9]/g, '_') + '_' + Date.now();
+                        const { error } = await supabase.from('hotel_channels').insert({
+                          user_id: user.id,
+                          channel_id: channelId,
+                          name: newChannelName.trim(),
+                          icon_color: "text-purple-400",
+                          badge_bg: "bg-purple-500/10 text-purple-400 border-purple-500/20",
+                          connect_mode: "ical",
+                          email: "",
+                          password: "",
+                          ical_url: newChannelIcal.trim(),
+                          status: "connected",
+                          last_sync: "Just added"
+                        });
+                        if (error) throw error;
+
+                        toast.success(`✅ ${newChannelName} added successfully!`);
+                        setNewChannelName("");
+                        setNewChannelIcal("");
+                        setIsAddChannelOpen(false);
+                        await fetchData();
+                      } catch (err: any) {
+                        toast.error("Failed to add channel: " + err.message);
+                      } finally {
+                        setIsAddingChannel(false);
+                      }
+                    }}
+                    disabled={isAddingChannel || !newChannelName.trim() || !newChannelIcal.trim()}
+                    className="w-full gap-2 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold cursor-pointer"
+                  >
+                    {isAddingChannel ? (
+                      <><RefreshCw size={13} className="animate-spin" /> Adding...</>
+                    ) : (
+                      <><Plus size={13} /> Add {newChannelName || "Channel"} to Leadzo</>  
+                    )}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+
           {channels.length === 0 ? (
             <div className="flex flex-col items-center justify-center p-12 bg-card/30 border border-border/40 rounded-xl">
               <Globe size={48} className="text-muted-foreground opacity-20 mb-4" />
               <p className="text-base font-semibold">No OTA Channels Connected</p>
               <p className="text-xs text-muted-foreground mt-1">Connect Booking.com, Airbnb, Agoda or others to auto-sync availability.</p>
+              <Button onClick={() => setIsAddChannelOpen(true)} className="mt-4 gap-2 bg-emerald-500 hover:bg-emerald-600 text-white text-xs cursor-pointer">
+                <Plus size={13} /> Add Your First Channel
+              </Button>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -587,8 +697,8 @@ export default function HotelLeadManagerPage() {
                   </div>
                 </CardContent>
               </Card>
-            ))}
-          </div>
+              ))}
+            </div>
           )}
         </TabsContent>
 
