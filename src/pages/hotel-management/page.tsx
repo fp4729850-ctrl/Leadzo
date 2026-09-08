@@ -81,9 +81,19 @@ export default function HotelLeadManagerPage() {
   const [aiConnectProgress, setAiConnectProgress] = useState<Record<string, string>>({});
   const [isPushingToAll, setIsPushingToAll] = useState(false);
 
+  // Helper to parse dates like 20260904 -> Sept 04
+  const formatIcalDateForUI = (dateStr: string) => {
+    if (!dateStr || dateStr.length !== 8) return dateStr;
+    const monthStr = dateStr.substring(4, 6);
+    const dayStr = dateStr.substring(6, 8);
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'];
+    const month = months[parseInt(monthStr, 10) - 1] || 'Sept';
+    return `${month} ${dayStr}`;
+  };
+
   const [channels, setChannels] = useState<OtaChannel[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
-  const dates = ["Sept 04", "Sept 05", "Sept 06", "Sept 07", "Sept 08", "Sept 09", "Sept 10", "Sept 11", "Sept 12"];
+  const dates = ["Sept 03", "Sept 04", "Sept 05", "Sept 06", "Sept 07", "Sept 08", "Sept 09", "Sept 10", "Sept 11", "Sept 12"];
   const [bookings, setBookings] = useState<Booking[]>([]);
 
   // Fetch data from Supabase
@@ -162,6 +172,76 @@ export default function HotelLeadManagerPage() {
         }
       }
 
+      // Automatically sync custom channels with iCal URL (like King Villa) on load
+      const channelsWithIcal = finalChannels.filter((c: any) => c.icalUrl && c.icalUrl.startsWith('http'));
+      const targetRoom = roomsRes.data?.[0];
+      if (channelsWithIcal.length > 0 && targetRoom) {
+        let hasNewSync = false;
+        for (const ch of channelsWithIcal) {
+          try {
+            const resp = await fetch(ch.icalUrl);
+            if (resp.ok) {
+              const text = await resp.text();
+              const lines = text.split(/\r?\n/);
+              let curEvent: any = null;
+
+              for (const line of lines) {
+                if (line.startsWith('BEGIN:VEVENT')) {
+                  curEvent = {};
+                } else if (line.startsWith('END:VEVENT') && curEvent) {
+                  if (curEvent.check_in && curEvent.check_out && curEvent.ical_uid && curEvent.ical_uid !== 'dummy-event-1') {
+                    const exists = currentBookings.some((b: any) => b.ical_uid === curEvent.ical_uid);
+                    if (!exists) {
+                      let platformSource = ch.name;
+                      let guestDisplay = curEvent.guest_name || `${ch.name} Guest`;
+                      if (curEvent.ical_uid.includes('GoibiboMMT') || curEvent.guest_name?.includes('Goibibo')) {
+                        platformSource = 'Goibibo / MMT';
+                        guestDisplay = 'Goibibo OTA Guest';
+                      } else if (curEvent.ical_uid.startsWith('BLOCK') || curEvent.guest_name?.includes('Direct')) {
+                        platformSource = 'King Villa Direct';
+                        guestDisplay = 'Direct Booking (King Villa)';
+                      }
+
+                      await supabase.from('hotel_bookings').insert({
+                        user_id: user.id,
+                        room_id: targetRoom.id,
+                        guest_name: guestDisplay,
+                        source: platformSource,
+                        check_in: formatIcalDateForUI(curEvent.check_in),
+                        check_out: formatIcalDateForUI(curEvent.check_out),
+                        amount: 3500,
+                        status: 'confirmed',
+                        ical_uid: curEvent.ical_uid
+                      });
+                      hasNewSync = true;
+                    }
+                  }
+                  curEvent = null;
+                } else if (curEvent) {
+                  if (line.startsWith('DTSTART')) {
+                    const val = line.split(':')[1];
+                    if (val) curEvent.check_in = val.substring(0, 8);
+                  } else if (line.startsWith('DTEND')) {
+                    const val = line.split(':')[1];
+                    if (val) curEvent.check_out = val.substring(0, 8);
+                  } else if (line.startsWith('SUMMARY:')) {
+                    curEvent.guest_name = line.substring(8).trim();
+                  } else if (line.startsWith('UID:')) {
+                    curEvent.ical_uid = line.substring(4).trim();
+                  }
+                }
+              }
+            }
+          } catch (fetchErr) {
+            console.warn('Auto-sync custom channel error:', fetchErr);
+          }
+        }
+        if (hasNewSync) {
+          const refetched = await supabase.from('hotel_bookings').select('*');
+          if (refetched.data) currentBookings = refetched.data;
+        }
+      }
+
       const activeRooms = roomsRes.data || [];
       setBookings(currentBookings.map((b: any) => ({
         id: b.id, roomNumber: activeRooms.find((r:any) => r.id === b.room_id)?.number || '101',
@@ -209,16 +289,6 @@ export default function HotelLeadManagerPage() {
     }
   };
 
-  // Helper to parse dates like 20260904 -> Sept 04
-  const formatIcalDateForUI = (dateStr: string) => {
-    if (!dateStr || dateStr.length !== 8) return dateStr;
-    const monthStr = dateStr.substring(4, 6);
-    const dayStr = dateStr.substring(6, 8);
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'];
-    const month = months[parseInt(monthStr, 10) - 1] || 'Sept';
-    return `${month} ${dayStr}`;
-  };
-
   const handleSyncChannel = async (channel: OtaChannel) => {
     if (!channel.icalUrl) {
       toast.error(`No iCal URL configured for ${channel.name}`);
@@ -264,7 +334,7 @@ export default function HotelLeadManagerPage() {
         if (line.startsWith('BEGIN:VEVENT')) {
           currentEvent = {};
         } else if (line.startsWith('END:VEVENT') && currentEvent) {
-          if (currentEvent.check_in && currentEvent.check_out && currentEvent.ical_uid && targetRoom) {
+          if (currentEvent.check_in && currentEvent.check_out && currentEvent.ical_uid && currentEvent.ical_uid !== 'dummy-event-1' && targetRoom) {
             const { data: existing } = await supabase
               .from('hotel_bookings')
               .select('id')
@@ -272,11 +342,21 @@ export default function HotelLeadManagerPage() {
               .maybeSingle();
 
             if (!existing) {
+              let platformSource = channel.name;
+              let guestDisplay = currentEvent.guest_name || `${channel.name} Guest`;
+              if (currentEvent.ical_uid.includes('GoibiboMMT') || currentEvent.guest_name?.includes('Goibibo')) {
+                platformSource = 'Goibibo / MMT';
+                guestDisplay = 'Goibibo OTA Guest';
+              } else if (currentEvent.ical_uid.startsWith('BLOCK') || currentEvent.guest_name?.includes('Direct')) {
+                platformSource = 'King Villa Direct';
+                guestDisplay = 'Direct Booking (King Villa)';
+              }
+
               await supabase.from('hotel_bookings').insert({
                 user_id: user.id,
                 room_id: targetRoom.id,
-                guest_name: currentEvent.guest_name || `${channel.name} Guest`,
-                source: channel.name as any,
+                guest_name: guestDisplay,
+                source: platformSource as any,
                 check_in: formatIcalDateForUI(currentEvent.check_in),
                 check_out: formatIcalDateForUI(currentEvent.check_out),
                 amount: 3500,
@@ -438,7 +518,10 @@ export default function HotelLeadManagerPage() {
     "Booking.com": "#3b82f6",
     "Airbnb": "#f43f5e",
     "Agoda": "#f59e0b",
+    "Goibibo / MMT": "#f97316",
     "Goibibo": "#f97316",
+    "King Villa Direct": "#a855f7",
+    "King Villa": "#a855f7",
     "Direct / AI Agent": "#10b981",
     "Direct": "#10b981",
   };
@@ -819,10 +902,12 @@ export default function HotelLeadManagerPage() {
                 <CardTitle className="text-base font-semibold">Per-Room Live Availability & iCal Sync Grid</CardTitle>
                 <CardDescription className="text-xs">Each room has its own unique iCal links mapped across Booking.com, Airbnb & Agoda</CardDescription>
               </div>
-              <div className="flex items-center gap-3 text-xs">
+              <div className="flex items-center gap-3 text-xs flex-wrap">
                 <span className="flex items-center gap-1"><span className="size-2.5 rounded-full bg-blue-500 inline-block"></span> Booking.com</span>
                 <span className="flex items-center gap-1"><span className="size-2.5 rounded-full bg-rose-500 inline-block"></span> Airbnb</span>
                 <span className="flex items-center gap-1"><span className="size-2.5 rounded-full bg-amber-500 inline-block"></span> Agoda</span>
+                <span className="flex items-center gap-1"><span className="size-2.5 rounded-full bg-orange-500 inline-block"></span> Goibibo / MMT</span>
+                <span className="flex items-center gap-1"><span className="size-2.5 rounded-full bg-purple-500 inline-block"></span> King Villa</span>
                 <span className="flex items-center gap-1"><span className="size-2.5 rounded-full bg-emerald-500 inline-block"></span> Direct / AI</span>
               </div>
             </CardHeader>
@@ -959,6 +1044,8 @@ export default function HotelLeadManagerPage() {
                                   booking.source === "Booking.com" && "bg-blue-500/20 text-blue-300 border border-blue-500/40",
                                   booking.source === "Airbnb" && "bg-rose-500/20 text-rose-300 border border-rose-500/40",
                                   booking.source === "Agoda" && "bg-amber-500/20 text-amber-300 border border-amber-500/40",
+                                  (booking.source === "Goibibo" || booking.source.includes("Goibibo") || booking.source.includes("MMT")) && "bg-orange-500/20 text-orange-300 border border-orange-500/40",
+                                  (booking.source === "King Villa" || booking.source.includes("King Villa")) && "bg-purple-500/20 text-purple-300 border border-purple-500/40",
                                   booking.source === "Direct / AI Agent" && booking.status !== "blocked" && "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40",
                                   booking.status === "blocked" && "bg-slate-800 text-slate-400 border border-slate-700"
                                 )}
