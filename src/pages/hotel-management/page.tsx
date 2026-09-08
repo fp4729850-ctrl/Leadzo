@@ -83,7 +83,7 @@ export default function HotelLeadManagerPage() {
 
   const [channels, setChannels] = useState<OtaChannel[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
-  const dates = ["Sept 06", "Sept 07", "Sept 08", "Sept 09", "Sept 10", "Sept 11", "Sept 12"];
+  const dates = ["Sept 04", "Sept 05", "Sept 06", "Sept 07", "Sept 08", "Sept 09", "Sept 10", "Sept 11", "Sept 12"];
   const [bookings, setBookings] = useState<Booking[]>([]);
 
   // Fetch data from Supabase
@@ -206,6 +206,113 @@ export default function HotelLeadManagerPage() {
       toast.error("Failed to sync: " + err.message);
     } finally {
       setIsSyncingAll(false);
+    }
+  };
+
+  // Helper to parse dates like 20260904 -> Sept 04
+  const formatIcalDateForUI = (dateStr: string) => {
+    if (!dateStr || dateStr.length !== 8) return dateStr;
+    const monthStr = dateStr.substring(4, 6);
+    const dayStr = dateStr.substring(6, 8);
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'];
+    const month = months[parseInt(monthStr, 10) - 1] || 'Sept';
+    return `${month} ${dayStr}`;
+  };
+
+  const handleSyncChannel = async (channel: OtaChannel) => {
+    if (!channel.icalUrl) {
+      toast.error(`No iCal URL configured for ${channel.name}`);
+      return;
+    }
+
+    toast.loading(`Syncing live reservations from ${channel.name}...`, { id: `sync-${channel.id}` });
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Please log in to sync");
+
+      let importedCount = 0;
+
+      // 1. Try serverless edge function first
+      try {
+        const res = await supabase.functions.invoke('hotel_ical_sync', {
+          body: {
+            user_id: user.id,
+            channel_id: channel.id,
+            ical_url: channel.icalUrl,
+            source_name: channel.name
+          }
+        });
+        if (res.data?.success) {
+          toast.success(`✅ ${channel.name} synced! ${res.data.message}`, { id: `sync-${channel.id}` });
+          await fetchData();
+          return;
+        }
+      } catch (edgeErr) {
+        console.warn("Edge sync fallback to direct client sync:", edgeErr);
+      }
+
+      // 2. Client-side robust fallback
+      const resp = await fetch(channel.icalUrl);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status} fetching iCal feed`);
+      const text = await resp.text();
+
+      const lines = text.split(/\r?\n/);
+      let currentEvent: any = null;
+      const targetRoom = rooms[0];
+
+      for (const line of lines) {
+        if (line.startsWith('BEGIN:VEVENT')) {
+          currentEvent = {};
+        } else if (line.startsWith('END:VEVENT') && currentEvent) {
+          if (currentEvent.check_in && currentEvent.check_out && currentEvent.ical_uid && targetRoom) {
+            const { data: existing } = await supabase
+              .from('hotel_bookings')
+              .select('id')
+              .eq('ical_uid', currentEvent.ical_uid)
+              .maybeSingle();
+
+            if (!existing) {
+              await supabase.from('hotel_bookings').insert({
+                user_id: user.id,
+                room_id: targetRoom.id,
+                guest_name: currentEvent.guest_name || `${channel.name} Guest`,
+                source: channel.name as any,
+                check_in: formatIcalDateForUI(currentEvent.check_in),
+                check_out: formatIcalDateForUI(currentEvent.check_out),
+                amount: 3500,
+                status: 'confirmed',
+                ical_uid: currentEvent.ical_uid
+              });
+              importedCount++;
+            }
+          }
+          currentEvent = null;
+        } else if (currentEvent) {
+          if (line.startsWith('DTSTART')) {
+            const val = line.split(':')[1];
+            if (val) currentEvent.check_in = val.substring(0, 8);
+          } else if (line.startsWith('DTEND')) {
+            const val = line.split(':')[1];
+            if (val) currentEvent.check_out = val.substring(0, 8);
+          } else if (line.startsWith('SUMMARY:')) {
+            currentEvent.guest_name = line.substring(8).trim();
+          } else if (line.startsWith('UID:')) {
+            currentEvent.ical_uid = line.substring(4).trim();
+          }
+        }
+      }
+
+      await supabase
+        .from('hotel_channels')
+        .update({ last_sync: `Just now (${importedCount} new events)` })
+        .eq('channel_id', channel.id)
+        .eq('user_id', user.id);
+
+      toast.success(`✅ ${channel.name} synced! ${importedCount} live bookings imported.`, { id: `sync-${channel.id}` });
+      await fetchData();
+    } catch (err: any) {
+      console.error(err);
+      toast.error(`Sync error: ${err.message}`, { id: `sync-${channel.id}` });
     }
   };
 
@@ -1124,7 +1231,7 @@ export default function HotelLeadManagerPage() {
                     <Button 
                       size="sm" 
                       variant="ghost" 
-                      onClick={() => toast.success(`${channel.name} calendar synced!`)}
+                      onClick={() => handleSyncChannel(channel)}
                       className="h-7 text-[11px] hover:text-foreground cursor-pointer"
                     >
                       <RefreshCw size={11} className="mr-1" /> Sync Now
