@@ -171,7 +171,7 @@ export default function HotelLeadManagerPage() {
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Total Hotel Rooms</p>
-              <p className="text-xl font-bold font-mono">5 Units</p>
+              <p className="text-xl font-bold font-mono">{rooms.length} Units</p>
             </div>
           </CardContent>
         </Card>
@@ -183,7 +183,7 @@ export default function HotelLeadManagerPage() {
             </div>
             <div>
               <p className="text-xs text-muted-foreground font-sans">Active Bookings</p>
-              <p className="text-xl font-bold font-mono">4 Reserved</p>
+              <p className="text-xl font-bold font-mono">{bookings.length} Reserved</p>
             </div>
           </CardContent>
         </Card>
@@ -195,7 +195,7 @@ export default function HotelLeadManagerPage() {
             </div>
             <div>
               <p className="text-xs text-muted-foreground">OTA Channels</p>
-              <p className="text-xl font-bold font-mono">3 Connected</p>
+              <p className="text-xl font-bold font-mono">{channels.filter(c => c.status === 'connected').length} Connected</p>
             </div>
           </CardContent>
         </Card>
@@ -207,7 +207,7 @@ export default function HotelLeadManagerPage() {
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Double Bookings Saved</p>
-              <p className="text-xl font-bold font-mono text-emerald-400">12 Prevented</p>
+              <p className="text-xl font-bold font-mono text-emerald-400">0 Prevented</p>
             </div>
           </CardContent>
         </Card>
