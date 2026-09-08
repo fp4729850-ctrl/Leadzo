@@ -6,6 +6,7 @@ import { LiveAvatarModal } from "@/components/virtual-office/LiveAvatarModal";
 import { HeyGenAvatarModal } from "@/components/virtual-office/HeyGenAvatarModal";
 import { OutboundCallModal } from "@/components/virtual-office/OutboundCallModal";
 import { ApiIntegrationsModal } from "@/components/virtual-office/ApiIntegrationsModal";
+import { BuyVapiNumberModal } from "@/components/virtual-office/BuyVapiNumberModal";
 import { PhoneCall, PhoneForwarded } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
@@ -51,7 +52,7 @@ export default function VirtualOfficePage() {
   const [activeFaceId, setActiveFaceId] = useState("5514e24d-6086-46a3-ace4-6a7264e5cb7c");
   const [isApiModalOpen, setIsApiModalOpen] = useState(false);
   const [videoStyle, setVideoStyle] = useState<"cartoon" | "human">("cartoon");
-  const [isBuyingNumber, setIsBuyingNumber] = useState(false);
+  const [isBuyNumberModalOpen, setIsBuyNumberModalOpen] = useState(false);
 
   const spawnPacket = (role: string, color: string, finalMessage: string) => {
     setActiveSenders(prev => ({ ...prev, [role]: true }));
@@ -202,38 +203,13 @@ export default function VirtualOfficePage() {
     }
   };
 
-  const handleBuyVapiNumber = async () => {
-    setIsBuyingNumber(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('vapi_phone_numbers', { method: 'POST' });
-      if (error) {
-        let errorMessage = error.message;
-        try {
-          if (error.context && typeof error.context.json === 'function') {
-             const body = await error.context.json();
-             if (body && body.error) errorMessage = body.error;
-          }
-        } catch(e) {}
-        throw new Error(errorMessage);
-      }
-      if (data?.success && data?.number?.number) {
-        toast.success(`Successfully purchased Vapi number: ${data.number.number}`, { duration: 8000 });
-      } else {
-        throw new Error(data?.error || "Failed to parse API response");
-      }
-    } catch (e: any) {
-      toast.error(e.message || "Failed to purchase number", { duration: 8000 });
-    } finally {
-      setIsBuyingNumber(false);
-    }
-  };
-
   const currentPositions = videoStyle === "human" ? HUMAN_POSITIONS : POSITIONS;
 
   return (
     <div className="flex flex-col w-full h-full animate-in fade-in zoom-in duration-500">
       <LiveAvatarModal isOpen={isModalOpen} onClose={handleCloseModal} roleName={activeLiveRole} faceId={activeFaceId} />
       <HeyGenAvatarModal isOpen={isHeyGenModalOpen} onClose={() => setIsHeyGenModalOpen(false)} />
+      <BuyVapiNumberModal isOpen={isBuyNumberModalOpen} onClose={() => setIsBuyNumberModalOpen(false)} />
       <OutboundCallModal 
         isOpen={isOutboundConnected} 
         onClose={() => { 
@@ -294,11 +270,10 @@ export default function VirtualOfficePage() {
           </div>
 
           <button 
-            onClick={handleBuyVapiNumber}
-            disabled={isBuyingNumber}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 transition-all shadow-sm ${isBuyingNumber ? 'opacity-50 cursor-not-allowed' : ''}`}
+            onClick={() => setIsBuyNumberModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 transition-all shadow-sm"
           >
-            {isBuyingNumber ? "Buying..." : "Buy Vapi Number"}
+            Buy Vapi Number
           </button>
 
           <button 

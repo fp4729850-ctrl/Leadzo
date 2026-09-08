@@ -41,6 +41,9 @@ serve(async (req) => {
       );
     } 
     else if (req.method === 'POST') {
+      const body = await req.json().catch(() => ({}));
+      const areaCode = body.areaCode || "575";
+
       // Buy a new free Vapi phone number
       const response = await fetch("https://api.vapi.ai/phone-number", {
         method: "POST",
@@ -50,7 +53,7 @@ serve(async (req) => {
         },
         body: JSON.stringify({
           provider: "vapi",
-          numberDesiredAreaCode: "575"
+          numberDesiredAreaCode: areaCode
         })
       });
 
