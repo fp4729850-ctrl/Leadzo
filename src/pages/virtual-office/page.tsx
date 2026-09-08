@@ -7,7 +7,7 @@ import { HeyGenAvatarModal } from "@/components/virtual-office/HeyGenAvatarModal
 import { OutboundCallModal } from "@/components/virtual-office/OutboundCallModal";
 import { ApiIntegrationsModal } from "@/components/virtual-office/ApiIntegrationsModal";
 import { BuyVapiNumberModal } from "@/components/virtual-office/BuyVapiNumberModal";
-import { Phone, PhoneCall, PhoneForwarded } from "lucide-react";
+import { Phone, PhoneCall, PhoneForwarded, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 
@@ -282,12 +282,21 @@ export default function VirtualOfficePage() {
               Buy Vapi Number
             </button>
           ) : (
-            <button 
-              onClick={() => toast.success(`Active AI Number: ${activeNumber}`)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-emerald-600 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 transition-all shadow-sm"
-            >
-              <Phone size={16} /> {activeNumber}
-            </button>
+            <div className="flex items-center bg-emerald-50 border border-emerald-200 rounded-lg shadow-sm">
+              <div className="flex items-center gap-2 px-3 py-2 font-semibold text-emerald-600 text-sm font-mono">
+                <Phone size={16} /> {activeNumber}
+              </div>
+              <button 
+                onClick={() => {
+                  navigator.clipboard.writeText(activeNumber);
+                  toast.success("Number Copied!");
+                }}
+                className="p-2 text-emerald-600 hover:bg-emerald-100 rounded-r-lg transition-all border-l border-emerald-200"
+                title="Copy Number"
+              >
+                <Copy size={16} />
+              </button>
+            </div>
           )}
 
           <button 

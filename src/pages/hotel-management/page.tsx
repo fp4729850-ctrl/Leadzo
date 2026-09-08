@@ -577,8 +577,23 @@ export default function HotelLeadManagerPage() {
 
                 <div className="space-y-1">
                   <Label className="text-xs text-indigo-300">Leadzo AI Virtual Inbound Number</Label>
-                  <div className="flex gap-2">
-                    <Input readOnly value={activeNumber || "No Virtual Number"} className="text-xs font-mono bg-indigo-500/10 border-indigo-500/30 text-indigo-200 font-bold" />
+                  <div className="flex gap-2 items-center">
+                    <div className="relative flex-1">
+                      <Input readOnly value={activeNumber || "No Virtual Number"} className="text-xs font-mono bg-indigo-500/10 border-indigo-500/30 text-indigo-200 font-bold pr-8" />
+                      {activeNumber && (
+                        <Button 
+                          size="icon" 
+                          variant="ghost" 
+                          className="absolute right-1 top-1 h-7 w-7 text-indigo-300 hover:text-indigo-100 hover:bg-indigo-500/20"
+                          onClick={() => {
+                            navigator.clipboard.writeText(activeNumber);
+                            toast.success("Number Copied!");
+                          }}
+                        >
+                          <Copy size={12} />
+                        </Button>
+                      )}
+                    </div>
                     {!activeNumber ? (
                       <Button 
                         onClick={() => setIsBuyNumberModalOpen(true)}
