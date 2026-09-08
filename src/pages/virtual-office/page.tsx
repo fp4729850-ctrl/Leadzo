@@ -7,7 +7,7 @@ import { HeyGenAvatarModal } from "@/components/virtual-office/HeyGenAvatarModal
 import { OutboundCallModal } from "@/components/virtual-office/OutboundCallModal";
 import { ApiIntegrationsModal } from "@/components/virtual-office/ApiIntegrationsModal";
 import { BuyVapiNumberModal } from "@/components/virtual-office/BuyVapiNumberModal";
-import { PhoneCall, PhoneForwarded } from "lucide-react";
+import { Phone, PhoneCall, PhoneForwarded } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 
@@ -53,6 +53,7 @@ export default function VirtualOfficePage() {
   const [isApiModalOpen, setIsApiModalOpen] = useState(false);
   const [videoStyle, setVideoStyle] = useState<"cartoon" | "human">("cartoon");
   const [isBuyNumberModalOpen, setIsBuyNumberModalOpen] = useState(false);
+  const [activeNumber, setActiveNumber] = useState<string | null>("+1 928 963 5202");
 
   const spawnPacket = (role: string, color: string, finalMessage: string) => {
     setActiveSenders(prev => ({ ...prev, [role]: true }));
@@ -209,7 +210,11 @@ export default function VirtualOfficePage() {
     <div className="flex flex-col w-full h-full animate-in fade-in zoom-in duration-500">
       <LiveAvatarModal isOpen={isModalOpen} onClose={handleCloseModal} roleName={activeLiveRole} faceId={activeFaceId} />
       <HeyGenAvatarModal isOpen={isHeyGenModalOpen} onClose={() => setIsHeyGenModalOpen(false)} />
-      <BuyVapiNumberModal isOpen={isBuyNumberModalOpen} onClose={() => setIsBuyNumberModalOpen(false)} />
+      <BuyVapiNumberModal 
+        isOpen={isBuyNumberModalOpen} 
+        onClose={() => setIsBuyNumberModalOpen(false)} 
+        onSuccess={(num) => setActiveNumber(num)}
+      />
       <OutboundCallModal 
         isOpen={isOutboundConnected} 
         onClose={() => { 
@@ -269,12 +274,21 @@ export default function VirtualOfficePage() {
             </button>
           </div>
 
-          <button 
-            onClick={() => setIsBuyNumberModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 transition-all shadow-sm"
-          >
-            Buy Vapi Number
-          </button>
+          {!activeNumber ? (
+            <button 
+              onClick={() => setIsBuyNumberModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 transition-all shadow-sm"
+            >
+              Buy Vapi Number
+            </button>
+          ) : (
+            <button 
+              onClick={() => toast.success(`Active AI Number: ${activeNumber}`)}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-emerald-600 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 transition-all shadow-sm"
+            >
+              <Phone size={16} /> {activeNumber}
+            </button>
+          )}
 
           <button 
             onClick={() => setIsApiModalOpen(true)}

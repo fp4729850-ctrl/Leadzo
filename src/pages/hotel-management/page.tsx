@@ -67,6 +67,7 @@ export default function HotelLeadManagerPage() {
   const [selectedRoomForIcal, setSelectedRoomForIcal] = useState<Room | null>(null);
   const [isAiMatching, setIsAiMatching] = useState(false);
   const [isBuyNumberModalOpen, setIsBuyNumberModalOpen] = useState(false);
+  const [activeNumber, setActiveNumber] = useState<string | null>("+1 928 963 5202"); // Initialized with the recently bought number for demo purposes
 
   // OTA Channels with Dual Connect Mode (AI Login & Password vs Direct iCal)
   const [channels, setChannels] = useState<OtaChannel[]>([
@@ -176,7 +177,11 @@ export default function HotelLeadManagerPage() {
 
   return (
     <div className="flex flex-col gap-6 font-sans">
-      <BuyVapiNumberModal isOpen={isBuyNumberModalOpen} onClose={() => setIsBuyNumberModalOpen(false)} />
+      <BuyVapiNumberModal 
+        isOpen={isBuyNumberModalOpen} 
+        onClose={() => setIsBuyNumberModalOpen(false)} 
+        onSuccess={(num) => setActiveNumber(num)}
+      />
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -573,13 +578,23 @@ export default function HotelLeadManagerPage() {
                 <div className="space-y-1">
                   <Label className="text-xs text-indigo-300">Leadzo AI Virtual Inbound Number</Label>
                   <div className="flex gap-2">
-                    <Input readOnly value="+91 11 4084 5918" className="text-xs font-mono bg-indigo-500/10 border-indigo-500/30 text-indigo-200 font-bold" />
-                    <Button 
-                      onClick={() => setIsBuyNumberModalOpen(true)}
-                      className="shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer h-9 px-3 text-xs"
-                    >
-                      Buy via Vapi
-                    </Button>
+                    <Input readOnly value={activeNumber || "No Virtual Number"} className="text-xs font-mono bg-indigo-500/10 border-indigo-500/30 text-indigo-200 font-bold" />
+                    {!activeNumber ? (
+                      <Button 
+                        onClick={() => setIsBuyNumberModalOpen(true)}
+                        className="shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer h-9 px-3 text-xs"
+                      >
+                        Buy via Vapi
+                      </Button>
+                    ) : (
+                      <Button 
+                        onClick={() => toast.success(`${activeNumber} has been successfully activated for AI Call Guard!`)}
+                        variant="outline"
+                        className="shrink-0 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/30 cursor-pointer h-9 px-3 text-xs font-semibold"
+                      >
+                        Activate Your Number
+                      </Button>
+                    )}
                   </div>
                   <p className="text-[10px] text-indigo-300/70">Target AI Number for Call Forwarding</p>
                 </div>
