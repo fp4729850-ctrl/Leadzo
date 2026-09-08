@@ -260,7 +260,16 @@ export default function HotelLeadManagerPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/60">
-                  {rooms.map((room) => (
+                  {rooms.length === 0 ? (
+                    <tr>
+                      <td colSpan={dates.length + 2} className="p-12 text-center text-muted-foreground">
+                        <BedDouble size={32} className="mx-auto mb-3 opacity-20" />
+                        <p className="text-sm font-semibold">No Rooms Added Yet</p>
+                        <p className="text-xs opacity-60 mt-1">Add a room to view its availability matrix and sync iCal feeds.</p>
+                      </td>
+                    </tr>
+                  ) : (
+                    rooms.map((room) => (
                     <tr key={room.id} className="hover:bg-muted/10 transition-colors">
                       <td className="p-3 font-semibold">
                         <p className="font-mono text-sm">Room {room.number}</p>
@@ -394,7 +403,8 @@ export default function HotelLeadManagerPage() {
                         );
                       })}
                     </tr>
-                  ))}
+                  ))
+                  )}
                 </tbody>
               </table>
             </CardContent>
@@ -403,8 +413,15 @@ export default function HotelLeadManagerPage() {
 
         {/* Tab 2: OTA Channel Credentials (AI Login & Password Auto-Connect) */}
         <TabsContent value="channels" className="mt-4 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {channels.map((channel) => (
+          {channels.length === 0 ? (
+            <div className="flex flex-col items-center justify-center p-12 bg-card/30 border border-border/40 rounded-xl">
+              <Globe size={48} className="text-muted-foreground opacity-20 mb-4" />
+              <p className="text-base font-semibold">No OTA Channels Connected</p>
+              <p className="text-xs text-muted-foreground mt-1">Connect Booking.com, Airbnb, Agoda or others to auto-sync availability.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {channels.map((channel) => (
               <Card key={channel.id} className="border-border">
                 <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -497,6 +514,7 @@ export default function HotelLeadManagerPage() {
               </Card>
             ))}
           </div>
+          )}
         </TabsContent>
 
         {/* Tab 3: AI Hotel Receptionist & Voice */}
