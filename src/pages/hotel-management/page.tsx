@@ -108,42 +108,40 @@ export default function HotelLeadManagerPage() {
         supabase.from('hotel_bookings').select('*')
       ]);
 
-      if (roomsRes.data && roomsRes.data.length > 0) {
-        setRooms(roomsRes.data.map((r: any) => ({
-          id: r.id, number: r.number, type: r.type, pricePerNight: r.price_per_night,
-          masterExportIcal: r.master_export_ical, icalLinks: r.ical_links || {}
-        })));
-      } else {
-        // Auto-seed demo data if empty
-        const defaultRooms = [
-          { user_id: user.id, number: "101", type: "Deluxe King Suite", price_per_night: 3500, master_export_ical: "https://api.leadzoai.com/v1/hotel/ical/export/room_101_leadzo.ics", ical_links: { bookingCom: "https://admin.booking.com/ical/room_101.ics", airbnb: "https://www.airbnb.com/calendar/ical/room_101.ics", agoda: "https://ycs.agoda.com/ical/room_101.ics" } },
-          { user_id: user.id, number: "102", type: "Deluxe Double Bed", price_per_night: 3000, master_export_ical: "https://api.leadzoai.com/v1/hotel/ical/export/room_102_leadzo.ics", ical_links: { bookingCom: "https://admin.booking.com/ical/room_102.ics", airbnb: "https://www.airbnb.com/calendar/ical/room_102.ics" } }
-        ];
-        const defaultChannels = [
-          { user_id: user.id, channel_id: "booking", name: "Booking.com", icon_color: "text-blue-400", badge_bg: "bg-blue-500/10 text-blue-400 border-blue-500/20", connect_mode: "ai", email: "hotel.grand@booking.com", password: "••••••••", ical_url: "https://admin.booking.com/hotel/ical/export/sample.ics", status: "connected", last_sync: "2 mins ago" },
-          { user_id: user.id, channel_id: "airbnb", name: "Airbnb", icon_color: "text-rose-400", badge_bg: "bg-rose-500/10 text-rose-400 border-rose-500/20", connect_mode: "ai", email: "host@airbnb.com", password: "••••••••", ical_url: "https://www.airbnb.com/calendar/ical/12345678.ics?s=sample", status: "connected", last_sync: "5 mins ago" },
-          { user_id: user.id, channel_id: "agoda", name: "Agoda", icon_color: "text-amber-400", badge_bg: "bg-amber-500/10 text-amber-400 border-amber-500/20", connect_mode: "ical", email: "", password: "", ical_url: "https://ycs.agoda.com/ical/export/sample.ics", status: "connected", last_sync: "1 min ago" },
-          { user_id: user.id, channel_id: "goibibo", name: "Goibibo / MMT", icon_color: "text-orange-400", badge_bg: "bg-orange-500/10 text-orange-400 border-orange-500/20", connect_mode: "ai", email: "", password: "", ical_url: "", status: "pending", last_sync: "Not connected" }
-        ];
-        await supabase.from('hotel_rooms').insert(defaultRooms);
-        await supabase.from('hotel_channels').insert(defaultChannels);
-        
-        // Re-fetch after seeding
-        const newRooms = await supabase.from('hotel_rooms').select('*');
-        if (newRooms.data) setRooms(newRooms.data.map((r: any) => ({
-          id: r.id, number: r.number, type: r.type, pricePerNight: r.price_per_night,
-          masterExportIcal: r.master_export_ical, icalLinks: r.ical_links || {}
-        })));
-        
-        const newChannels = await supabase.from('hotel_channels').select('*');
-        if (newChannels.data) setChannels(newChannels.data.map((c: any) => ({
-          id: c.channel_id, name: c.name, iconColor: c.icon_color, badgeBg: c.badge_bg,
-          connectMode: c.connect_mode, email: c.email || '', password: c.password || '',
-          icalUrl: c.ical_url || '', status: c.status, lastSync: c.last_sync || 'Never'
-        })));
+      // 1. Ensure King Villa's 5 real units exist
+      const kingVillaUnitDefs = [
+        { number: "Room 1", type: "King Villa - Bedroom 1", price_per_night: 4000, ical: "https://king-villa.vercel.app/api/ical/export/1.ics" },
+        { number: "Room 2", type: "King Villa - Bedroom 2", price_per_night: 4000, ical: "https://king-villa.vercel.app/api/ical/export/2.ics" },
+        { number: "Room 3", type: "King Villa - Bedroom 3", price_per_night: 4000, ical: "https://king-villa.vercel.app/api/ical/export/3.ics" },
+        { number: "Room 4", type: "King Villa - Bedroom 4", price_per_night: 4000, ical: "https://king-villa.vercel.app/api/ical/export/4.ics" },
+        { number: "Entire Villa", type: "Entire King Villa", price_per_night: 20000, ical: "https://king-villa.vercel.app/api/ical/export/5.ics" }
+      ];
+
+      const hasOldRooms = roomsRes.data?.some((r: any) => r.number === "101" || r.number === "102");
+      if (hasOldRooms || !roomsRes.data || roomsRes.data.length < 5) {
+        if (hasOldRooms) {
+          await supabase.from('hotel_rooms').delete().eq('user_id', user.id);
+        }
+        const insertPayload = kingVillaUnitDefs.map(u => ({
+          user_id: user.id,
+          number: u.number,
+          type: u.type,
+          price_per_night: u.price_per_night,
+          master_export_ical: u.ical,
+          ical_links: { direct: u.ical }
+        }));
+        await supabase.from('hotel_rooms').insert(insertPayload);
+        const refreshedRooms = await supabase.from('hotel_rooms').select('*');
+        if (refreshedRooms.data) roomsRes.data = refreshedRooms.data;
       }
 
-      // Channels: always load from DB (covers both seeded and non-seeded path)
+      const activeRooms = roomsRes.data || [];
+      setRooms(activeRooms.map((r: any) => ({
+        id: r.id, number: r.number, type: r.type, pricePerNight: r.price_per_night,
+        masterExportIcal: r.master_export_ical, icalLinks: r.ical_links || {}
+      })));
+
+      // 2. Channels
       const finalChannels = channelsRes.data && channelsRes.data.length > 0 ? channelsRes.data : [];
       if (finalChannels.length > 0) {
         setChannels(finalChannels.map((c: any) => ({
@@ -153,101 +151,98 @@ export default function HotelLeadManagerPage() {
         })));
       }
 
-      // Bookings: load or seed demo bookings if empty so analytics have instant rich metrics
-      let currentBookings = bookingsRes.data || [];
-      if (currentBookings.length === 0 && roomsRes.data && roomsRes.data.length > 0) {
-        const targetRoom1 = roomsRes.data[0]?.id;
-        const targetRoom2 = roomsRes.data[1]?.id || targetRoom1;
-        if (targetRoom1) {
-          const demoBookings = [
-            { user_id: user.id, room_id: targetRoom1, guest_name: "Rahul Verma", phone: "+91 98765 43210", source: "Booking.com", check_in: "Sept 07", check_out: "Sept 09", amount: 7000, status: "confirmed" },
-            { user_id: user.id, room_id: targetRoom2, guest_name: "Elena Rostova", phone: "+44 7700 900077", source: "Airbnb", check_in: "Sept 08", check_out: "Sept 11", amount: 9000, status: "confirmed" },
-            { user_id: user.id, room_id: targetRoom1, guest_name: "Aman Sharma", phone: "+91 98111 22334", source: "Agoda", check_in: "Sept 10", check_out: "Sept 12", amount: 7000, status: "confirmed" },
-            { user_id: user.id, room_id: targetRoom2, guest_name: "Vikram Malhotra", phone: "+91 99887 76655", source: "Direct / AI Agent", check_in: "Sept 06", check_out: "Sept 07", amount: 3000, status: "confirmed" },
-            { user_id: user.id, room_id: targetRoom1, guest_name: "Double Booking Overlap Blocked", phone: "", source: "Booking.com", check_in: "Sept 08", check_out: "Sept 09", amount: 3500, status: "blocked" },
-          ];
-          await supabase.from('hotel_bookings').insert(demoBookings);
-          const refetched = await supabase.from('hotel_bookings').select('*');
-          if (refetched.data) currentBookings = refetched.data;
-        }
-      }
+      // 3. Purge mock / demo bookings (Rahul Verma, Elena Rostova, Aman Sharma, Vikram Malhotra)
+      await supabase
+        .from('hotel_bookings')
+        .delete()
+        .eq('user_id', user.id)
+        .in('guest_name', [
+          'Rahul Verma',
+          'Elena Rostova',
+          'Aman Sharma',
+          'Vikram Malhotra',
+          'Double Booking Overlap Blocked'
+        ]);
 
-      // Automatically sync custom channels with iCal URL (like King Villa) on load
-      const channelsWithIcal = finalChannels.filter((c: any) => (c.ical_url || c.icalUrl) && (c.ical_url || c.icalUrl).startsWith('http'));
-      const targetRoom = roomsRes.data?.[0];
-      if (channelsWithIcal.length > 0 && targetRoom) {
-        let hasNewSync = false;
-        for (const ch of channelsWithIcal) {
-          try {
-            const feedUrl = ch.ical_url || ch.icalUrl;
-            const resp = await fetch(feedUrl);
-            if (resp.ok) {
-              const text = await resp.text();
-              const lines = text.split(/\r?\n/);
-              let curEvent: any = null;
+      const initialBookings = await supabase.from('hotel_bookings').select('*');
+      let currentBookings = initialBookings.data || [];
 
-              for (const line of lines) {
-                if (line.startsWith('BEGIN:VEVENT')) {
-                  curEvent = {};
-                } else if (line.startsWith('END:VEVENT') && curEvent) {
-                  if (curEvent.check_in && curEvent.check_out && curEvent.ical_uid && curEvent.ical_uid !== 'dummy-event-1') {
-                    const exists = currentBookings.some((b: any) => b.ical_uid === curEvent.ical_uid);
-                    if (!exists) {
-                      let platformSource = ch.name;
-                      let guestDisplay = curEvent.guest_name || `${ch.name} Guest`;
-                      if (curEvent.ical_uid.includes('GoibiboMMT') || curEvent.guest_name?.includes('Goibibo')) {
-                        platformSource = 'Goibibo / MMT';
-                        guestDisplay = 'Goibibo OTA Guest';
-                      } else if (curEvent.ical_uid.startsWith('BLOCK') || curEvent.guest_name?.includes('Direct')) {
-                        platformSource = 'King Villa Direct';
-                        guestDisplay = 'Direct Booking (King Villa)';
-                      }
+      // 4. Live sync all King Villa 5 units from their iCal URLs
+      let hasNewSync = false;
+      for (const roomDef of kingVillaUnitDefs) {
+        const matchingRoom = activeRooms.find((r: any) => r.number === roomDef.number);
+        if (!matchingRoom) continue;
 
-                      await supabase.from('hotel_bookings').insert({
-                        user_id: user.id,
-                        room_id: targetRoom.id,
-                        guest_name: guestDisplay,
-                        source: platformSource,
-                        check_in: formatIcalDateForUI(curEvent.check_in),
-                        check_out: formatIcalDateForUI(curEvent.check_out),
-                        amount: 3500,
-                        status: 'confirmed',
-                        ical_uid: curEvent.ical_uid
-                      });
-                      hasNewSync = true;
+        try {
+          const resp = await fetch(roomDef.ical);
+          if (resp.ok) {
+            const text = await resp.text();
+            const lines = text.split(/\r?\n/);
+            let curEvent: any = null;
+
+            for (const line of lines) {
+              if (line.startsWith('BEGIN:VEVENT')) {
+                curEvent = {};
+              } else if (line.startsWith('END:VEVENT') && curEvent) {
+                if (curEvent.check_in && curEvent.check_out && curEvent.ical_uid && curEvent.ical_uid !== 'dummy-event-1') {
+                  const exists = currentBookings.some((b: any) => b.ical_uid === curEvent.ical_uid);
+                  if (!exists) {
+                    let platformSource = "King Villa Direct";
+                    let guestDisplay = curEvent.guest_name || "King Villa Guest";
+
+                    if (curEvent.ical_uid.includes('GoibiboMMT') || curEvent.guest_name?.includes('Goibibo') || curEvent.guest_name === 'OTA Booking') {
+                      platformSource = 'Goibibo / MMT';
+                      guestDisplay = 'Goibibo OTA Guest';
+                    } else if (curEvent.ical_uid.startsWith('BLOCK') || curEvent.guest_name?.includes('Direct')) {
+                      platformSource = 'King Villa Direct';
+                      guestDisplay = 'Direct Booking (King Villa)';
                     }
+
+                    await supabase.from('hotel_bookings').insert({
+                      user_id: user.id,
+                      room_id: matchingRoom.id,
+                      guest_name: guestDisplay,
+                      source: platformSource,
+                      check_in: formatIcalDateForUI(curEvent.check_in),
+                      check_out: formatIcalDateForUI(curEvent.check_out),
+                      amount: matchingRoom.price_per_night || 4000,
+                      status: 'confirmed',
+                      ical_uid: curEvent.ical_uid
+                    });
+                    hasNewSync = true;
                   }
-                  curEvent = null;
-                } else if (curEvent) {
-                  if (line.startsWith('DTSTART')) {
-                    const parts = line.split(':');
-                    const val = parts[parts.length - 1]?.trim();
-                    if (val) curEvent.check_in = val.substring(0, 8);
-                  } else if (line.startsWith('DTEND')) {
-                    const parts = line.split(':');
-                    const val = parts[parts.length - 1]?.trim();
-                    if (val) curEvent.check_out = val.substring(0, 8);
-                  } else if (line.startsWith('SUMMARY:')) {
-                    curEvent.guest_name = line.substring(8).trim();
-                  } else if (line.startsWith('UID:')) {
-                    curEvent.ical_uid = line.substring(4).trim();
-                  }
+                }
+                curEvent = null;
+              } else if (curEvent) {
+                if (line.startsWith('DTSTART')) {
+                  const parts = line.split(':');
+                  const val = parts[parts.length - 1]?.trim();
+                  if (val) curEvent.check_in = val.substring(0, 8);
+                } else if (line.startsWith('DTEND')) {
+                  const parts = line.split(':');
+                  const val = parts[parts.length - 1]?.trim();
+                  if (val) curEvent.check_out = val.substring(0, 8);
+                } else if (line.startsWith('SUMMARY:')) {
+                  curEvent.guest_name = line.substring(8).trim();
+                } else if (line.startsWith('UID:')) {
+                  curEvent.ical_uid = line.substring(4).trim();
                 }
               }
             }
-          } catch (fetchErr) {
-            console.warn('Auto-sync custom channel error:', fetchErr);
           }
-        }
-        if (hasNewSync) {
-          const refetched = await supabase.from('hotel_bookings').select('*');
-          if (refetched.data) currentBookings = refetched.data;
+        } catch (err) {
+          console.warn(`Error fetching iCal for ${roomDef.number}:`, err);
         }
       }
 
-      const activeRooms = roomsRes.data || [];
+      if (hasNewSync) {
+        const refetched = await supabase.from('hotel_bookings').select('*');
+        if (refetched.data) currentBookings = refetched.data;
+      }
+
       setBookings(currentBookings.map((b: any) => ({
-        id: b.id, roomNumber: activeRooms.find((r:any) => r.id === b.room_id)?.number || '101',
+        id: b.id, 
+        roomNumber: activeRooms.find((r:any) => r.id === b.room_id)?.number || 'Room 1',
         guestName: b.guest_name, phone: b.phone || '', source: b.source as any,
         checkIn: b.check_in, checkOut: b.check_out, amount: Number(b.amount) || 0, status: b.status as any
       })));
