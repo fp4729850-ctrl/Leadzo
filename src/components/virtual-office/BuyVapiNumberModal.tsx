@@ -12,12 +12,12 @@ interface BuyVapiNumberModalProps {
 }
 
 const AVAILABLE_REGIONS = [
+  { areaCode: "864", region: "Greenville, SC (Available)", type: "Local" },
+  { areaCode: "772", region: "Port St. Lucie, FL (Available)", type: "Local" },
+  { areaCode: "928", region: "Yuma, AZ (Available)", type: "Local" },
   { areaCode: "415", region: "San Francisco, CA", type: "Local" },
-  { areaCode: "650", region: "Palo Alto, CA", type: "Local" },
   { areaCode: "212", region: "New York, NY", type: "Local" },
   { areaCode: "512", region: "Austin, TX", type: "Local" },
-  { areaCode: "305", region: "Miami, FL", type: "Local" },
-  { areaCode: "575", region: "New Mexico", type: "Local" },
 ];
 
 export function BuyVapiNumberModal({ isOpen, onClose, onSuccess }: BuyVapiNumberModalProps) {
