@@ -138,7 +138,7 @@ export default function RcsSender() {
       
       // We will trigger the background edge function here
       const { error: invokeError } = await supabase.functions.invoke('rcs_queue_campaign', {
-        body: { campaign_id: campaignData.id }
+        body: { campaign_id: campaignData.id, user_id: user?.id }
       });
 
       if (invokeError) {

@@ -35,7 +35,7 @@ serve(async (req) => {
       .from('rcs_contacts')
       .select('*')
       .eq('user_id', user_id)
-      .eq('status', 'ACTIVE')
+      .eq('is_opted_out', false)
 
     if (contErr || !contacts || contacts.length === 0) {
       await supabaseAdmin.from('rcs_campaigns').update({ status: 'FAILED' }).eq('id', campaign_id)
@@ -45,22 +45,9 @@ serve(async (req) => {
     // 3. Update Campaign to PROCESSING
     await supabaseAdmin.from('rcs_campaigns').update({ status: 'PROCESSING' }).eq('id', campaign_id)
 
-    // 4. Setup Dotgo API Credentials
-    const clientId = Deno.env.get('DOTGO_CLIENT_ID');
-    const clientSecret = Deno.env.get('DOTGO_CLIENT_SECRET');
-    const agentId = Deno.env.get('DOTGO_AGENT_ID');
-    
-    // Simulate getting Dotgo Access Token (Since secret is pending)
-    let accessToken = "MOCK_DOTGO_TOKEN";
-    if (clientSecret !== 'pending_secret') {
-        const authString = base64Encode(`${clientId}:${clientSecret}`);
-        // Example Auth call (Endpoint varies slightly by region)
-        // const tokenRes = await fetch("https://api.dotgo.com/auth/v1/token", {
-        //     method: "POST", headers: { "Authorization": `Basic ${authString}` }
-        // });
-        // const tokenData = await tokenRes.json();
-        // accessToken = tokenData.access_token;
-    }
+    // 4. Setup MSG91 API Credentials
+    const msg91AuthKey = Deno.env.get('MSG91_RCS_AUTH_KEY');
+    if (!msg91AuthKey) throw new Error("MSG91 RCS AuthKey missing in .env");
 
     // 5. Build GSMA Rich Card Payload
     const tmplContent = campaign.rcs_templates.content;
@@ -108,27 +95,31 @@ serve(async (req) => {
        payload.messageContact.userContact = phone;
        payload.messageId = messageId;
        
-       // Send to Dotgo API (Simulated if secret is missing)
+       // Send to MSG91 API
        let providerMessageId = messageId;
        let status = 'QUEUED';
        
-       if (clientSecret !== 'pending_secret') {
-          try {
-              // const res = await fetch(`https://api.dotgo.com/bot/v1/${agentId}/messages`, {
-              //     method: "POST",
-              //     headers: { "Authorization": `Bearer ${accessToken}`, "Content-Type": "application/json" },
-              //     body: JSON.stringify(payload)
-              // });
-              // const result = await res.json();
-              // providerMessageId = result.messageId || messageId;
-              status = 'DELIVERED'; // Assuming synchronous accept for demo
-          } catch(e) {
-              console.error("API Error", e);
-              status = 'FAILED';
-          }
-       } else {
-          // If using pending secret, we just mock the DB insert so UI works
-          status = 'DELIVERED'; // Mock delivered instantly
+       try {
+           const res = await fetch(`https://control.msg91.com/api/v5/rcs/send`, {
+               method: "POST",
+               headers: { 
+                   "authkey": msg91AuthKey, 
+                   "Content-Type": "application/json" 
+               },
+               body: JSON.stringify(payload)
+           });
+           
+           if (!res.ok) {
+               console.error("MSG91 API returned:", res.status, await res.text());
+               status = 'FAILED';
+           } else {
+               const result = await res.json();
+               providerMessageId = result.messageId || messageId;
+               status = 'DELIVERED'; // Mark delivered if successfully queued on MSG91
+           }
+       } catch(e) {
+           console.error("MSG91 API Error", e);
+           status = 'FAILED';
        }
 
        // 7. Log to rcs_messages
