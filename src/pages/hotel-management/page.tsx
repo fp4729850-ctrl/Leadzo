@@ -141,15 +141,44 @@ export default function HotelLeadManagerPage() {
         masterExportIcal: r.master_export_ical, icalLinks: r.ical_links || {}
       })));
 
-      // 2. Channels: Merge Airbnb and Goibibo into single channel "Airbnb / Goibibo" & Clean up mock credentials
-      await supabase.from('hotel_channels').delete().eq('user_id', user.id).eq('channel_id', 'goibibo');
-      await supabase.from('hotel_channels').update({ name: 'Airbnb / Goibibo' }).eq('user_id', user.id).eq('channel_id', 'airbnb');
+      // 2. Channels: Keep Airbnb separate, and link Goibibo with MakeMyTrip ("Goibibo / MakeMyTrip")
+      await supabase.from('hotel_channels').update({ 
+        name: 'Airbnb', 
+        icon_color: 'text-rose-400', 
+        badge_bg: 'bg-rose-500/10 text-rose-400 border-rose-500/20' 
+      }).eq('user_id', user.id).eq('channel_id', 'airbnb');
+
+      // Ensure Goibibo / MakeMyTrip channel exists
+      const { data: existingGoibibo } = await supabase.from('hotel_channels').select('*').eq('user_id', user.id).eq('channel_id', 'goibibo').maybeSingle();
+      if (!existingGoibibo) {
+        await supabase.from('hotel_channels').insert({
+          user_id: user.id,
+          channel_id: 'goibibo',
+          name: 'Goibibo / MakeMyTrip',
+          icon_color: 'text-orange-400',
+          badge_bg: 'bg-orange-500/10 text-orange-400 border-orange-500/20',
+          connect_mode: 'ai',
+          email: '',
+          password: '',
+          ical_url: '',
+          status: 'pending',
+          last_sync: 'Not connected'
+        });
+      } else {
+        await supabase.from('hotel_channels').update({
+          name: 'Goibibo / MakeMyTrip',
+          icon_color: 'text-orange-400',
+          badge_bg: 'bg-orange-500/10 text-orange-400 border-orange-500/20'
+        }).eq('user_id', user.id).eq('channel_id', 'goibibo');
+      }
+
+      const refreshedChannelsRes = await supabase.from('hotel_channels').select('*');
+      const rawChannels = refreshedChannelsRes.data || channelsRes.data || [];
 
       const dummyEmails = ['hotel.grand@booking.com', 'host@airbnb.com', 'hotel.grand@gmail.com'];
       const dummyIcals = ['https://ycs.agoda.com/ical/export/sample.ics', 'https://www.airbnb.com/calendar/ical/12345678.ics?s=sample'];
 
       // Reset any mock / dummy seeded credentials so channels start clean and not connected
-      const rawChannels = channelsRes.data || [];
       for (const c of rawChannels) {
         const isDummyEmail = dummyEmails.includes(c.email);
         const isDummyIcal = dummyIcals.includes(c.ical_url);
@@ -171,16 +200,25 @@ export default function HotelLeadManagerPage() {
 
       const mergedList: OtaChannel[] = [];
       rawChannels.forEach((c: any) => {
-        if (c.channel_id === 'goibibo') return; // skip separate goibibo
         const isRealConnected = c.status === 'connected' && (
           (c.connect_mode === 'ical' && !!c.ical_url && !dummyIcals.includes(c.ical_url)) ||
           (c.connect_mode !== 'ical' && !!c.email && !dummyEmails.includes(c.email))
         );
 
+        let channelName = c.name;
+        let channelIcon = c.icon_color || 'text-blue-400';
+        if (c.channel_id === 'airbnb') {
+          channelName = 'Airbnb';
+          channelIcon = 'text-rose-400';
+        } else if (c.channel_id === 'goibibo') {
+          channelName = 'Goibibo / MakeMyTrip';
+          channelIcon = 'text-orange-400';
+        }
+
         mergedList.push({
           id: c.channel_id,
-          name: c.channel_id === 'airbnb' ? 'Airbnb / Goibibo' : c.name,
-          iconColor: c.icon_color || (c.channel_id === 'airbnb' ? 'text-rose-400' : 'text-blue-400'),
+          name: channelName,
+          iconColor: channelIcon,
           badgeBg: isRealConnected
             ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
             : 'bg-amber-500/10 text-amber-400 border-amber-500/20',
