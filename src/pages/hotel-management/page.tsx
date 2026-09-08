@@ -70,16 +70,65 @@ export default function HotelLeadManagerPage() {
   const [activeNumber, setActiveNumber] = useState<string | null>("+1 928 963 5202"); // Initialized with the recently bought number for demo purposes
 
   // OTA Channels with Dual Connect Mode (AI Login & Password vs Direct iCal)
-  const [channels, setChannels] = useState<OtaChannel[]>([]);
+  const [channels, setChannels] = useState<OtaChannel[]>([
+    { id: "booking", name: "Booking.com", iconColor: "text-blue-400", badgeBg: "bg-blue-500/10 text-blue-400 border-blue-500/20", connectMode: "ai", email: "hotel.grand@booking.com", password: "••••••••", icalUrl: "https://admin.booking.com/hotel/ical/export/sample.ics", status: "connected", lastSync: "2 mins ago" },
+    { id: "airbnb", name: "Airbnb", iconColor: "text-rose-400", badgeBg: "bg-rose-500/10 text-rose-400 border-rose-500/20", connectMode: "ai", email: "host@airbnb.com", password: "••••••••", icalUrl: "https://www.airbnb.com/calendar/ical/12345678.ics?s=sample", status: "connected", lastSync: "5 mins ago" },
+    { id: "agoda", name: "Agoda", iconColor: "text-amber-400", badgeBg: "bg-amber-500/10 text-amber-400 border-amber-500/20", connectMode: "ical", email: "", password: "", icalUrl: "https://ycs.agoda.com/ical/export/sample.ics", status: "connected", lastSync: "1 min ago" },
+    { id: "goibibo", name: "Goibibo / MMT", iconColor: "text-orange-400", badgeBg: "bg-orange-500/10 text-orange-400 border-orange-500/20", connectMode: "ai", email: "", password: "", icalUrl: "", status: "pending", lastSync: "Not connected" },
+  ]);
 
   // Rooms with Per-Room iCal Links
-  const [rooms, setRooms] = useState<Room[]>([]);
+  const [rooms, setRooms] = useState<Room[]>([
+    { 
+      id: "101", number: "101", type: "Deluxe King Suite", pricePerNight: 3500, 
+      masterExportIcal: "https://api.leadzoai.com/v1/hotel/ical/export/room_101_leadzo.ics",
+      icalLinks: {
+        bookingCom: "https://admin.booking.com/ical/room_101.ics",
+        airbnb: "https://www.airbnb.com/calendar/ical/room_101.ics",
+        agoda: "https://ycs.agoda.com/ical/room_101.ics"
+      }
+    },
+    { 
+      id: "102", number: "102", type: "Deluxe Double Bed", pricePerNight: 3000, 
+      masterExportIcal: "https://api.leadzoai.com/v1/hotel/ical/export/room_102_leadzo.ics",
+      icalLinks: {
+        bookingCom: "https://admin.booking.com/ical/room_102.ics",
+        airbnb: "https://www.airbnb.com/calendar/ical/room_102.ics"
+      }
+    },
+    { 
+      id: "201", number: "201", type: "Executive Suite", pricePerNight: 5500, 
+      masterExportIcal: "https://api.leadzoai.com/v1/hotel/ical/export/room_201_leadzo.ics",
+      icalLinks: {
+        bookingCom: "https://admin.booking.com/ical/room_201.ics",
+        agoda: "https://ycs.agoda.com/ical/room_201.ics"
+      }
+    },
+    { 
+      id: "202", number: "202", type: "Royal Family Room", pricePerNight: 6500, 
+      masterExportIcal: "https://api.leadzoai.com/v1/hotel/ical/export/room_202_leadzo.ics",
+      icalLinks: {
+        airbnb: "https://www.airbnb.com/calendar/ical/room_202.ics"
+      }
+    },
+    { 
+      id: "301", number: "301", type: "Presidential Penthouse", pricePerNight: 12000, 
+      masterExportIcal: "https://api.leadzoai.com/v1/hotel/ical/export/room_301_leadzo.ics",
+      icalLinks: {}
+    },
+  ]);
 
   // Next 7 days
   const dates = ["Sept 06", "Sept 07", "Sept 08", "Sept 09", "Sept 10", "Sept 11", "Sept 12"];
 
   // Sample Bookings Grid Mapping
-  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [bookings, setBookings] = useState<Booking[]>([
+    { id: "b1", roomNumber: "101", guestName: "Rahul Sharma", phone: "+919876543210", source: "Booking.com", checkIn: "Sept 06", checkOut: "Sept 08", amount: 7000, status: "confirmed" },
+    { id: "b2", roomNumber: "102", guestName: "Priya Patel", phone: "+919812345678", source: "Airbnb", checkIn: "Sept 07", checkOut: "Sept 09", amount: 6000, status: "confirmed" },
+    { id: "b3", roomNumber: "201", guestName: "Amit Verma", phone: "+919988776655", source: "Direct / AI Agent", checkIn: "Sept 06", checkOut: "Sept 07", amount: 5500, status: "confirmed" },
+    { id: "b4", roomNumber: "202", guestName: "Vikram Malhotra", phone: "+919765432109", source: "Agoda", checkIn: "Sept 09", checkOut: "Sept 12", amount: 19500, status: "confirmed" },
+    { id: "b5", roomNumber: "301", guestName: "Maintenance Block", phone: "N/A", source: "Direct / AI Agent", checkIn: "Sept 08", checkOut: "Sept 09", amount: 0, status: "blocked" },
+  ]);
 
   const handleSyncAll = () => {
     setIsSyncingAll(true);
@@ -207,7 +256,7 @@ export default function HotelLeadManagerPage() {
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Double Bookings Saved</p>
-              <p className="text-xl font-bold font-mono text-emerald-400">0 Prevented</p>
+              <p className="text-xl font-bold font-mono text-emerald-400">12 Prevented</p>
             </div>
           </CardContent>
         </Card>
