@@ -141,45 +141,58 @@ export default function HotelLeadManagerPage() {
         masterExportIcal: r.master_export_ical, icalLinks: r.ical_links || {}
       })));
 
-      // 2. Channels: Merge Airbnb and Goibibo into single channel "Airbnb / Goibibo"
+      // 2. Channels: Merge Airbnb and Goibibo into single channel "Airbnb / Goibibo" & Clean up mock credentials
       await supabase.from('hotel_channels').delete().eq('user_id', user.id).eq('channel_id', 'goibibo');
       await supabase.from('hotel_channels').update({ name: 'Airbnb / Goibibo' }).eq('user_id', user.id).eq('channel_id', 'airbnb');
 
-      const finalChannels = channelsRes.data && channelsRes.data.length > 0 ? channelsRes.data : [];
-      if (finalChannels.length > 0) {
-        const mergedList: OtaChannel[] = [];
-        finalChannels.forEach((c: any) => {
-          if (c.channel_id === 'goibibo') return; // skip separate goibibo
-          if (c.channel_id === 'airbnb') {
-            mergedList.push({
-              id: 'airbnb',
-              name: 'Airbnb / Goibibo',
-              iconColor: 'text-rose-400',
-              badgeBg: 'bg-rose-500/10 text-rose-400 border-rose-500/20',
-              connectMode: c.connect_mode || 'ai',
-              email: c.email || 'host@airbnb.com',
-              password: c.password || '••••••••',
-              icalUrl: c.ical_url || '',
-              status: c.status || 'connected',
-              lastSync: c.last_sync || '5 mins ago'
-            });
-            return;
-          }
-          mergedList.push({
-            id: c.channel_id,
-            name: c.name,
-            iconColor: c.icon_color,
-            badgeBg: c.badge_bg,
-            connectMode: c.connect_mode,
-            email: c.email || '',
-            password: c.password || '',
-            icalUrl: c.ical_url || '',
-            status: c.status,
-            lastSync: c.last_sync || 'Never'
-          });
-        });
-        setChannels(mergedList);
+      const dummyEmails = ['hotel.grand@booking.com', 'host@airbnb.com', 'hotel.grand@gmail.com'];
+      const dummyIcals = ['https://ycs.agoda.com/ical/export/sample.ics', 'https://www.airbnb.com/calendar/ical/12345678.ics?s=sample'];
+
+      // Reset any mock / dummy seeded credentials so channels start clean and not connected
+      const rawChannels = channelsRes.data || [];
+      for (const c of rawChannels) {
+        const isDummyEmail = dummyEmails.includes(c.email);
+        const isDummyIcal = dummyIcals.includes(c.ical_url);
+        if (isDummyEmail || isDummyIcal || (!c.email && !c.ical_url && c.status === 'connected')) {
+          await supabase.from('hotel_channels').update({
+            email: isDummyEmail ? '' : c.email,
+            password: isDummyEmail ? '' : c.password,
+            ical_url: isDummyIcal ? '' : c.ical_url,
+            status: 'pending',
+            last_sync: 'Not connected'
+          }).eq('id', c.id);
+          c.email = isDummyEmail ? '' : c.email;
+          c.password = isDummyEmail ? '' : c.password;
+          c.ical_url = isDummyIcal ? '' : c.ical_url;
+          c.status = 'pending';
+          c.last_sync = 'Not connected';
+        }
       }
+
+      const mergedList: OtaChannel[] = [];
+      rawChannels.forEach((c: any) => {
+        if (c.channel_id === 'goibibo') return; // skip separate goibibo
+        const isRealConnected = c.status === 'connected' && (
+          (c.connect_mode === 'ical' && !!c.ical_url && !dummyIcals.includes(c.ical_url)) ||
+          (c.connect_mode !== 'ical' && !!c.email && !dummyEmails.includes(c.email))
+        );
+
+        mergedList.push({
+          id: c.channel_id,
+          name: c.channel_id === 'airbnb' ? 'Airbnb / Goibibo' : c.name,
+          iconColor: c.icon_color || (c.channel_id === 'airbnb' ? 'text-rose-400' : 'text-blue-400'),
+          badgeBg: isRealConnected
+            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+            : 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+          connectMode: c.connect_mode || (c.channel_id === 'agoda' ? 'ical' : 'ai'),
+          email: dummyEmails.includes(c.email) ? '' : (c.email || ''),
+          password: dummyEmails.includes(c.email) ? '' : (c.password || ''),
+          icalUrl: dummyIcals.includes(c.ical_url) ? '' : (c.ical_url || ''),
+          status: isRealConnected ? 'connected' : 'pending',
+          lastSync: isRealConnected ? (c.last_sync || 'Just now') : 'Not connected'
+        });
+      });
+      setChannels(mergedList);
 
       // 3. Purge mock / demo bookings (Rahul Verma, Elena Rostova, Aman Sharma, Vikram Malhotra)
       await supabase
@@ -323,6 +336,11 @@ export default function HotelLeadManagerPage() {
       return;
     }
 
+    if (!channel.icalUrl?.trim()) {
+      toast.error(`Please provide an iCal URL for ${channel.name} first.`);
+      return;
+    }
+
     toast.loading(`Syncing live reservations from ${channel.name}...`, { id: `sync-${channel.id}` });
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -409,7 +427,10 @@ export default function HotelLeadManagerPage() {
 
       await supabase
         .from('hotel_channels')
-        .update({ last_sync: `Just now (${importedCount} new events)` })
+        .update({ 
+          status: 'connected',
+          last_sync: `Just now (${importedCount} new events)` 
+        })
         .eq('channel_id', channel.id)
         .eq('user_id', user.id);
 
@@ -438,7 +459,13 @@ export default function HotelLeadManagerPage() {
     }, 2200);
   };
 
-  const handleConnectOtaViaAi = (channelId: string, name: string) => {
+  const handleConnectOtaViaAi = async (channelId: string, name: string) => {
+    const targetChannel = channels.find(c => c.id === channelId);
+    if (!targetChannel?.email?.trim()) {
+      toast.error(`Please enter your ${name} Login Email / ID first to connect!`);
+      return;
+    }
+
     // Phase 1: AI Login
     setAiConnectProgress(prev => ({ ...prev, [channelId]: 'login' }));
     toast.loading(`🤖 AI Agent logging into ${name}...`, { id: `ota-${channelId}` });
@@ -453,13 +480,24 @@ export default function HotelLeadManagerPage() {
         setAiConnectProgress(prev => ({ ...prev, [channelId]: 'inject' }));
         toast.loading(`📡 Injecting Leadzo Master iCal URL into ${name} calendar sync...`, { id: `ota-${channelId}` });
 
-        setTimeout(() => {
+        setTimeout(async () => {
           // Phase 4: Done
           setAiConnectProgress(prev => ({ ...prev, [channelId]: 'done' }));
           setChannels(prev => prev.map(c => c.id === channelId
             ? { ...c, status: 'connected', lastSync: 'Just now (Leadzo iCal Injected ✅)' }
             : c
           ));
+
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            await supabase.from('hotel_channels').update({
+              status: 'connected',
+              email: targetChannel.email,
+              password: targetChannel.password,
+              last_sync: 'Just now (Leadzo iCal Injected ✅)'
+            }).eq('channel_id', channelId).eq('user_id', user.id);
+          }
+
           toast.success(
             `✅ ${name} — AI Done! Room iCal extracted + Leadzo iCal auto-added to ${name} calendar!`,
             { id: `ota-${channelId}`, duration: 5000 }
@@ -1234,9 +1272,44 @@ export default function HotelLeadManagerPage() {
                     <Globe className={cn("size-5", channel.iconColor)} />
                     <CardTitle className="text-sm font-semibold">{channel.name}</CardTitle>
                   </div>
-                  <Badge variant="outline" className={channel.badgeBg}>
-                    {channel.status === "connected" ? "🟢 Connected (Auto AI)" : "🟠 Pending"}
-                  </Badge>
+                  <div className="flex items-center gap-1.5">
+                    <Badge variant="outline" className={cn(
+                      "text-[10px] font-semibold px-2 py-0.5 rounded-full border transition-all",
+                      channel.status === "connected"
+                        ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+                        : "bg-amber-500/15 text-amber-400 border-amber-500/30"
+                    )}>
+                      {channel.status === "connected"
+                        ? (channel.connectMode === "ical" ? "🟢 Connected (iCal Feed)" : "🟢 Connected (Auto AI)")
+                        : "🟠 Pending"}
+                    </Badge>
+                    {channel.status === "connected" && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={async () => {
+                          const { data: { user } } = await supabase.auth.getUser();
+                          if (user) {
+                            await supabase.from('hotel_channels').update({
+                              status: 'pending',
+                              email: '',
+                              password: '',
+                              ical_url: '',
+                              last_sync: 'Not connected'
+                            }).eq('channel_id', channel.id).eq('user_id', user.id);
+                          }
+                          setChannels(prev => prev.map(c => c.id === channel.id ? {
+                            ...c, status: 'pending', email: '', password: '', icalUrl: '', lastSync: 'Not connected'
+                          } : c));
+                          toast.info(`${channel.name} disconnected.`);
+                        }}
+                        className="h-6 px-1.5 text-[10px] text-muted-foreground hover:text-rose-400 cursor-pointer"
+                        title="Disconnect Channel"
+                      >
+                        Disconnect
+                      </Button>
+                    )}
+                  </div>
                 </CardHeader>
                 <CardContent className="p-4 space-y-3">
                   {/* Connect Mode Switcher */}
