@@ -630,9 +630,9 @@ export default function HotelLeadManagerPage() {
                   </p>
                   <div className="pt-1 flex items-center justify-between">
                     <span className="font-mono text-[11px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                      Dial: *61*+911140845918#
+                      Dial: *61*{activeNumber ? activeNumber.replace(/\s+/g, '') : '+911140845918'}#
                     </span>
-                    <Button size="sm" variant="ghost" onClick={() => { navigator.clipboard.writeText("*61*+911140845918#"); toast.success("USSD Code Copied!"); }} className="h-6 text-[10px] cursor-pointer">
+                    <Button size="sm" variant="ghost" onClick={() => { navigator.clipboard.writeText(`*61*${activeNumber ? activeNumber.replace(/\s+/g, '') : '+911140845918'}#`); toast.success("USSD Code Copied!"); }} className="h-6 text-[10px] cursor-pointer">
                       Copy Code
                     </Button>
                   </div>
@@ -651,9 +651,9 @@ export default function HotelLeadManagerPage() {
                   </p>
                   <div className="pt-1 flex items-center justify-between">
                     <span className="font-mono text-[11px] text-indigo-300 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
-                      Dial: *21*+911140845918#
+                      Dial: *21*{activeNumber ? activeNumber.replace(/\s+/g, '') : '+911140845918'}#
                     </span>
-                    <Button size="sm" variant="ghost" onClick={() => { navigator.clipboard.writeText("*21*+911140845918#"); toast.success("USSD Code Copied!"); }} className="h-6 text-[10px] cursor-pointer">
+                    <Button size="sm" variant="ghost" onClick={() => { navigator.clipboard.writeText(`*21*${activeNumber ? activeNumber.replace(/\s+/g, '') : '+911140845918'}#`); toast.success("USSD Code Copied!"); }} className="h-6 text-[10px] cursor-pointer">
                       Copy Code
                     </Button>
                   </div>
@@ -664,10 +664,10 @@ export default function HotelLeadManagerPage() {
               <div className="pt-2 flex flex-wrap items-center justify-between gap-2 border-t border-amber-500/20">
                 <span className="text-xs text-muted-foreground">1-Click Mobile Setup:</span>
                 <div className="flex gap-2">
-                  <Button size="sm" variant="outline" onClick={() => toast.info("Jio Forwarding Code: *61*+911140845918#")} className="h-7 text-[11px] cursor-pointer">Jio</Button>
-                  <Button size="sm" variant="outline" onClick={() => toast.info("Airtel Forwarding Code: *61*+911140845918#")} className="h-7 text-[11px] cursor-pointer">Airtel</Button>
-                  <Button size="sm" variant="outline" onClick={() => toast.info("Vi Forwarding Code: *61*+911140845918#")} className="h-7 text-[11px] cursor-pointer">Vi</Button>
-                  <Button size="sm" variant="outline" onClick={() => toast.info("BSNL Forwarding Code: *61*+911140845918#")} className="h-7 text-[11px] cursor-pointer">BSNL</Button>
+                  <Button size="sm" variant="outline" onClick={() => toast.info(`Jio Forwarding Code: *61*${activeNumber ? activeNumber.replace(/\s+/g, '') : '+911140845918'}#`)} className="h-7 text-[11px] cursor-pointer">Jio</Button>
+                  <Button size="sm" variant="outline" onClick={() => toast.info(`Airtel Forwarding Code: *61*${activeNumber ? activeNumber.replace(/\s+/g, '') : '+911140845918'}#`)} className="h-7 text-[11px] cursor-pointer">Airtel</Button>
+                  <Button size="sm" variant="outline" onClick={() => toast.info(`Vi Forwarding Code: *61*${activeNumber ? activeNumber.replace(/\s+/g, '') : '+911140845918'}#`)} className="h-7 text-[11px] cursor-pointer">Vi</Button>
+                  <Button size="sm" variant="outline" onClick={() => toast.info(`BSNL Forwarding Code: *61*${activeNumber ? activeNumber.replace(/\s+/g, '') : '+911140845918'}#`)} className="h-7 text-[11px] cursor-pointer">BSNL</Button>
                 </div>
               </div>
             </CardContent>
