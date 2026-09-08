@@ -173,13 +173,14 @@ export default function HotelLeadManagerPage() {
       }
 
       // Automatically sync custom channels with iCal URL (like King Villa) on load
-      const channelsWithIcal = finalChannels.filter((c: any) => c.icalUrl && c.icalUrl.startsWith('http'));
+      const channelsWithIcal = finalChannels.filter((c: any) => (c.ical_url || c.icalUrl) && (c.ical_url || c.icalUrl).startsWith('http'));
       const targetRoom = roomsRes.data?.[0];
       if (channelsWithIcal.length > 0 && targetRoom) {
         let hasNewSync = false;
         for (const ch of channelsWithIcal) {
           try {
-            const resp = await fetch(ch.icalUrl);
+            const feedUrl = ch.ical_url || ch.icalUrl;
+            const resp = await fetch(feedUrl);
             if (resp.ok) {
               const text = await resp.text();
               const lines = text.split(/\r?\n/);
@@ -219,10 +220,12 @@ export default function HotelLeadManagerPage() {
                   curEvent = null;
                 } else if (curEvent) {
                   if (line.startsWith('DTSTART')) {
-                    const val = line.split(':')[1];
+                    const parts = line.split(':');
+                    const val = parts[parts.length - 1]?.trim();
                     if (val) curEvent.check_in = val.substring(0, 8);
                   } else if (line.startsWith('DTEND')) {
-                    const val = line.split(':')[1];
+                    const parts = line.split(':');
+                    const val = parts[parts.length - 1]?.trim();
                     if (val) curEvent.check_out = val.substring(0, 8);
                   } else if (line.startsWith('SUMMARY:')) {
                     curEvent.guest_name = line.substring(8).trim();
@@ -304,7 +307,7 @@ export default function HotelLeadManagerPage() {
 
       // 1. Try serverless edge function first
       try {
-        const res = await supabase.functions.invoke('hotel_ical_sync', {
+        await supabase.functions.invoke('hotel_ical_sync', {
           body: {
             user_id: user.id,
             channel_id: channel.id,
@@ -312,11 +315,6 @@ export default function HotelLeadManagerPage() {
             source_name: channel.name
           }
         });
-        if (res.data?.success) {
-          toast.success(`✅ ${channel.name} synced! ${res.data.message}`, { id: `sync-${channel.id}` });
-          await fetchData();
-          return;
-        }
       } catch (edgeErr) {
         console.warn("Edge sync fallback to direct client sync:", edgeErr);
       }
@@ -369,10 +367,12 @@ export default function HotelLeadManagerPage() {
           currentEvent = null;
         } else if (currentEvent) {
           if (line.startsWith('DTSTART')) {
-            const val = line.split(':')[1];
+            const parts = line.split(':');
+            const val = parts[parts.length - 1]?.trim();
             if (val) currentEvent.check_in = val.substring(0, 8);
           } else if (line.startsWith('DTEND')) {
-            const val = line.split(':')[1];
+            const parts = line.split(':');
+            const val = parts[parts.length - 1]?.trim();
             if (val) currentEvent.check_out = val.substring(0, 8);
           } else if (line.startsWith('SUMMARY:')) {
             currentEvent.guest_name = line.substring(8).trim();
