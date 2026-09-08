@@ -62,6 +62,7 @@ interface Booking {
 
 export default function HotelLeadManagerPage() {
   const [copiedRoomIcal, setCopiedRoomIcal] = useState<string | null>(null);
+  const [copiedMasterIcal, setCopiedMasterIcal] = useState<string | null>(null);
   const [selectedTab, setSelectedTab] = useState("matrix");
   const [isSyncingAll, setIsSyncingAll] = useState(false);
   const [selectedRoomForIcal, setSelectedRoomForIcal] = useState<Room | null>(null);
@@ -72,6 +73,8 @@ export default function HotelLeadManagerPage() {
   const [newChannelName, setNewChannelName] = useState("");
   const [newChannelIcal, setNewChannelIcal] = useState("");
   const [isAddingChannel, setIsAddingChannel] = useState(false);
+  const [masterIcalUrl, setMasterIcalUrl] = useState<string>("");
+  const [currentUserId, setCurrentUserId] = useState<string>("");
 
   const [channels, setChannels] = useState<OtaChannel[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -147,6 +150,17 @@ export default function HotelLeadManagerPage() {
 
   useEffect(() => {
     fetchData();
+    // Build master iCal URL after auth
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        const supabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL ||
+          window.location.origin.includes('localhost') 
+            ? 'https://xpqruwkbymqkjcmtnwvs.supabase.co'
+            : 'https://xpqruwkbymqkjcmtnwvs.supabase.co';
+        setCurrentUserId(user.id);
+        setMasterIcalUrl(`${supabaseUrl}/functions/v1/leadzo_master_ical?user_id=${user.id}`);
+      }
+    });
   }, []);
 
   const handleSyncAll = async () => {
@@ -300,6 +314,9 @@ export default function HotelLeadManagerPage() {
           </TabsTrigger>
           <TabsTrigger value="channels" className="gap-2 text-xs">
             <Globe size={13} /> OTA Channel Credentials (AI Login)
+          </TabsTrigger>
+          <TabsTrigger value="export" className="gap-2 text-xs">
+            <Layers size={13} /> 📡 Export to Platforms
           </TabsTrigger>
           <TabsTrigger value="receptionist" className="gap-2 text-xs">
             <Bot size={13} /> AI Receptionist & Voice
@@ -702,7 +719,254 @@ export default function HotelLeadManagerPage() {
           )}
         </TabsContent>
 
-        {/* Tab 3: AI Hotel Receptionist & Voice */}
+        {/* Tab 3: Export to Platforms — Leadzo Master iCal Push */}
+        <TabsContent value="export" className="mt-4 space-y-6">
+
+          {/* Header Banner */}
+          <div className="rounded-xl border border-emerald-500/30 bg-gradient-to-r from-emerald-500/10 via-cyan-500/5 to-transparent p-5">
+            <div className="flex items-start gap-4">
+              <div className="size-12 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center shrink-0">
+                <Layers className="size-6 text-emerald-400" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-emerald-300 flex items-center gap-2">📡 Leadzo AI — Master Channel Manager</h2>
+                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                  Leadzo AI ka <strong className="text-white">खुद का iCal URL</strong> बनाएं और इसे Goibibo, OYO, MakeMyTrip, Google Calendar, Airbnb, Booking.com — सभी platforms में add करें।
+                  <br />जब भी कोई booking आए (किसी भी platform से), Leadzo automatically सभी को update कर देगा — <strong className="text-emerald-300">Zero Double Booking</strong>!
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Master iCal URL — ALL Rooms */}
+          <Card className="border-emerald-500/30 bg-emerald-500/5">
+            <CardHeader className="p-4 border-b border-emerald-500/20">
+              <div className="flex items-center gap-2">
+                <Globe className="size-5 text-emerald-400" />
+                <div>
+                  <CardTitle className="text-sm font-bold text-emerald-200">🌐 Leadzo Master iCal URL — All Rooms</CardTitle>
+                  <CardDescription className="text-xs">यह URL सभी rooms की सभी bookings को एक साथ export करता है। किसी भी platform में यही URL paste करें।</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-4 space-y-3">
+              <div className="flex gap-2">
+                <Input
+                  readOnly
+                  value={masterIcalUrl || "Loading..."}
+                  className="font-mono text-[11px] bg-background border-emerald-500/30 text-emerald-200"
+                />
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    if (!masterIcalUrl) return;
+                    navigator.clipboard.writeText(masterIcalUrl);
+                    setCopiedMasterIcal('master');
+                    setTimeout(() => setCopiedMasterIcal(null), 2000);
+                    toast.success("✅ Master iCal URL Copied! Paste it in any platform.");
+                  }}
+                  className="gap-1 shrink-0 bg-emerald-500 hover:bg-emerald-600 text-white cursor-pointer"
+                >
+                  {copiedMasterIcal === 'master' ? <Check size={13} /> : <Copy size={13} />}
+                  {copiedMasterIcal === 'master' ? 'Copied!' : 'Copy URL'}
+                </Button>
+              </div>
+              <div className="flex flex-wrap gap-2 pt-1">
+                <Badge variant="outline" className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-[10px]">
+                  ✓ Real-time .ics feed
+                </Badge>
+                <Badge variant="outline" className="bg-cyan-500/10 text-cyan-400 border-cyan-500/20 text-[10px]">
+                  ✓ Auto-updates on new booking
+                </Badge>
+                <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/20 text-[10px]">
+                  ✓ Works on all iCal platforms
+                </Badge>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Per-Room iCal URLs */}
+          {rooms.length > 0 && (
+            <Card className="border-border">
+              <CardHeader className="p-4 border-b border-border">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <BedDouble size={16} className="text-amber-400" />
+                  Per-Room iCal URLs (Airbnb / Booking.com format)
+                </CardTitle>
+                <CardDescription className="text-xs">ज़्यादातर platforms (Airbnb, Booking.com) per-room iCal चाहते हैं। Room-wise URL नीचे हैं।</CardDescription>
+              </CardHeader>
+              <CardContent className="p-4 space-y-3">
+                {rooms.map((room) => {
+                  const roomUrl = masterIcalUrl ? masterIcalUrl + `&room_id=${room.id}` : '';
+                  return (
+                    <div key={room.id} className="flex items-center gap-2 p-2 rounded-lg bg-muted/30 border border-border/60">
+                      <div className="shrink-0 min-w-[72px]">
+                        <span className="font-mono text-xs font-bold text-amber-300">Room {room.number}</span>
+                        <p className="text-[10px] text-muted-foreground">{room.type}</p>
+                      </div>
+                      <Input
+                        readOnly
+                        value={roomUrl || 'Loading...'}
+                        className="font-mono text-[10px] bg-background h-8"
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          navigator.clipboard.writeText(roomUrl);
+                          setCopiedMasterIcal(room.id);
+                          setTimeout(() => setCopiedMasterIcal(null), 2000);
+                          toast.success(`Room ${room.number} iCal URL Copied!`);
+                        }}
+                        className="shrink-0 h-8 px-2 cursor-pointer text-[11px] gap-1"
+                      >
+                        {copiedMasterIcal === room.id ? <Check size={11} /> : <Copy size={11} />}
+                        {copiedMasterIcal === room.id ? 'Copied' : 'Copy'}
+                      </Button>
+                    </div>
+                  );
+                })}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Platform-wise step-by-step guides */}
+          <div>
+            <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+              <ExternalLink size={14} className="text-blue-400" />
+              Platform-wise Setup Guide — Leadzo URL कहाँ paste करें?
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+              {/* Goibibo / MMT */}
+              <Card className="border-orange-500/30 bg-orange-500/5">
+                <CardHeader className="p-3 border-b border-orange-500/20">
+                  <CardTitle className="text-xs font-bold text-orange-300 flex items-center gap-2">
+                    🟠 Goibibo / MakeMyTrip
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-3 space-y-1.5 text-[11px] text-muted-foreground">
+                  <p>1. Goibibo Partner Portal → Login करें</p>
+                  <p>2. <strong className="text-white">My Properties</strong> → अपना Hotel select करें</p>
+                  <p>3. <strong className="text-white">Calendar Sync / iCal</strong> tab में जाएं</p>
+                  <p>4. <strong className="text-orange-300">"Import from URL"</strong> में Leadzo Master URL paste करें</p>
+                  <p>5. Save → Goibibo हर 4-6 घंटे में auto-sync करेगा</p>
+                  <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(masterIcalUrl); toast.success("URL Copied — Goibibo में paste करें!"); }} className="mt-2 h-7 text-[11px] w-full cursor-pointer border-orange-500/30 text-orange-300 hover:bg-orange-500/10 gap-1">
+                    <Copy size={11} /> Copy URL for Goibibo
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* OYO */}
+              <Card className="border-red-500/30 bg-red-500/5">
+                <CardHeader className="p-3 border-b border-red-500/20">
+                  <CardTitle className="text-xs font-bold text-red-300 flex items-center gap-2">
+                    🔴 OYO Rooms
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-3 space-y-1.5 text-[11px] text-muted-foreground">
+                  <p>1. OYO Partner Portal (partner.oyorooms.com) → Login</p>
+                  <p>2. <strong className="text-white">Property Settings</strong> → <strong className="text-white">Calendar</strong></p>
+                  <p>3. <strong className="text-red-300">"Sync External Calendar (iCal)"</strong> पर click करें</p>
+                  <p>4. Leadzo Master URL paste करें → Sync Now</p>
+                  <p>5. OYO हर 2 घंटे में auto-refresh करेगा</p>
+                  <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(masterIcalUrl); toast.success("URL Copied — OYO Partner Portal में paste करें!"); }} className="mt-2 h-7 text-[11px] w-full cursor-pointer border-red-500/30 text-red-300 hover:bg-red-500/10 gap-1">
+                    <Copy size={11} /> Copy URL for OYO
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Airbnb */}
+              <Card className="border-rose-500/30 bg-rose-500/5">
+                <CardHeader className="p-3 border-b border-rose-500/20">
+                  <CardTitle className="text-xs font-bold text-rose-300 flex items-center gap-2">
+                    🏠 Airbnb
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-3 space-y-1.5 text-[11px] text-muted-foreground">
+                  <p>1. Airbnb → Your Listings → Select Listing</p>
+                  <p>2. <strong className="text-white">Availability</strong> tab → <strong className="text-white">Sync Calendars</strong></p>
+                  <p>3. <strong className="text-rose-300">"Import Calendar"</strong> → URL paste करें</p>
+                  <p className="text-amber-400">⚠️ Airbnb per-room URL चाहता है → ऊपर Per-Room URL copy करें</p>
+                  <Button size="sm" variant="outline" onClick={() => { toast.info("Airbnb के लिए ऊपर Per-Room URL copy करें!"); }} className="mt-2 h-7 text-[11px] w-full cursor-pointer border-rose-500/30 text-rose-300 hover:bg-rose-500/10 gap-1">
+                    <ArrowRight size={11} /> Use Per-Room URL (Above)
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Booking.com */}
+              <Card className="border-blue-500/30 bg-blue-500/5">
+                <CardHeader className="p-3 border-b border-blue-500/20">
+                  <CardTitle className="text-xs font-bold text-blue-300 flex items-center gap-2">
+                    🔵 Booking.com
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-3 space-y-1.5 text-[11px] text-muted-foreground">
+                  <p>1. admin.booking.com → Extranet Login</p>
+                  <p>2. <strong className="text-white">Calendar</strong> → <strong className="text-white">iCal Synchronization</strong></p>
+                  <p>3. <strong className="text-blue-300">"Add a new URL"</strong> → Leadzo Room URL paste करें</p>
+                  <p className="text-amber-400">⚠️ Booking.com also needs per-room URLs</p>
+                  <Button size="sm" variant="outline" onClick={() => { toast.info("Booking.com के लिए Per-Room URL copy करें!"); }} className="mt-2 h-7 text-[11px] w-full cursor-pointer border-blue-500/30 text-blue-300 hover:bg-blue-500/10 gap-1">
+                    <ArrowRight size={11} /> Use Per-Room URL (Above)
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Google Calendar */}
+              <Card className="border-green-500/30 bg-green-500/5">
+                <CardHeader className="p-3 border-b border-green-500/20">
+                  <CardTitle className="text-xs font-bold text-green-300 flex items-center gap-2">
+                    📅 Google Calendar
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-3 space-y-1.5 text-[11px] text-muted-foreground">
+                  <p>1. calendar.google.com → Open</p>
+                  <p>2. Left sidebar → <strong className="text-white">Other Calendars</strong> → <strong className="text-white">+ From URL</strong></p>
+                  <p>3. Leadzo Master URL paste करें → <strong className="text-green-300">Add Calendar</strong></p>
+                  <p>4. सभी bookings Google Calendar में दिखने लगेंगी!</p>
+                  <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(masterIcalUrl); toast.success("URL Copied — Google Calendar में paste करें!"); }} className="mt-2 h-7 text-[11px] w-full cursor-pointer border-green-500/30 text-green-300 hover:bg-green-500/10 gap-1">
+                    <Copy size={11} /> Copy URL for Google Calendar
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Agoda */}
+              <Card className="border-amber-500/30 bg-amber-500/5">
+                <CardHeader className="p-3 border-b border-amber-500/20">
+                  <CardTitle className="text-xs font-bold text-amber-300 flex items-center gap-2">
+                    🟡 Agoda YCS
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-3 space-y-1.5 text-[11px] text-muted-foreground">
+                  <p>1. ycs.agoda.com → Property Dashboard Login</p>
+                  <p>2. <strong className="text-white">Room Management</strong> → <strong className="text-white">Calendar</strong></p>
+                  <p>3. <strong className="text-amber-300">"iCal Import"</strong> → Leadzo URL paste करें</p>
+                  <p>4. Agoda हर 24 घंटे में auto-sync करेगा</p>
+                  <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(masterIcalUrl); toast.success("URL Copied — Agoda YCS में paste करें!"); }} className="mt-2 h-7 text-[11px] w-full cursor-pointer border-amber-500/30 text-amber-300 hover:bg-amber-500/10 gap-1">
+                    <Copy size={11} /> Copy URL for Agoda
+                  </Button>
+                </CardContent>
+              </Card>
+
+            </div>
+          </div>
+
+          {/* Pro Tip Banner */}
+          <div className="rounded-xl border border-indigo-500/30 bg-indigo-500/10 p-4 flex items-start gap-3">
+            <Sparkles className="size-5 text-indigo-400 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-xs font-bold text-indigo-200">💡 Pro Tip — How it works together</p>
+              <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">
+                <strong className="text-white">Booking.com</strong> से booking आई → Leadzo DB में save → Leadzo का iCal auto-update →
+                <strong className="text-emerald-300"> Goibibo + OYO + Airbnb</strong> को next sync में पता चला → Room automatically blocked →
+                <strong className="text-red-400"> Double Booking = ZERO</strong>
+              </p>
+            </div>
+          </div>
+
+        </TabsContent>
+
+        {/* Tab 4: AI Hotel Receptionist & Voice */}
         <TabsContent value="receptionist" className="mt-4 space-y-4">
 
           {/* Inbound Phone & Call Forwarding Setup Card */}
