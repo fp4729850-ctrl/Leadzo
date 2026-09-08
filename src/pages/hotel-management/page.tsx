@@ -55,7 +55,7 @@ interface Booking {
   roomNumber: string;
   guestName: string;
   phone: string;
-  source: "Booking.com" | "Airbnb" | "Agoda" | "Goibibo" | "Direct / AI Agent";
+  source: string;
   checkIn: string;
   checkOut: string;
   amount: number;
