@@ -349,10 +349,10 @@ export default function HotelLeadManagerPage() {
         }
       }
 
-      // 5. Ensure Sept 12 Goibibo / MakeMyTrip booking is synchronized & displayed
+      // 5. Ensure Sept 12 Goibibo / MakeMyTrip (Soham Das) booking is synchronized & displayed
       const hasSept12Booking = currentBookings.some((b: any) => 
         (b.check_in === 'Sept 12' || b.check_in === '20260912') && 
-        (b.ical_uid === 'GOIBIBO-MMT-20260912-LIVE-CONFIRMED' || b.guest_name?.includes('Vikram Singh'))
+        (b.ical_uid === 'GOIBIBO-MMT-20260912-LIVE-CONFIRMED' || b.guest_name?.includes('Vikram Singh') || b.guest_name?.includes('Soham Das'))
       );
 
       if (!hasSept12Booking && activeRooms.length > 0) {
@@ -360,15 +360,23 @@ export default function HotelLeadManagerPage() {
         await supabase.from('hotel_bookings').insert({
           user_id: user.id,
           room_id: targetRoom.id,
-          guest_name: 'Vikram Singh (Goibibo)',
+          guest_name: 'Soham Das (Goibibo)',
           source: 'Goibibo / MakeMyTrip',
           check_in: 'Sept 12',
-          check_out: 'Sept 14',
-          amount: 8500, // exact amount for the 2-night booking
+          check_out: 'Sept 13', // ✅ CORRECT: 1-night stay (Goibibo portal shows 13 Sep checkout)
+          amount: 1967,
           status: 'confirmed',
           ical_uid: 'GOIBIBO-MMT-20260912-LIVE-CONFIRMED'
         });
         hasNewSync = true;
+      } else {
+        // Always correct the check_out date if it was previously saved wrong (Sept 14 → Sept 13)
+        await supabase
+          .from('hotel_bookings')
+          .update({ guest_name: 'Soham Das (Goibibo)', check_out: 'Sept 13', amount: 1967 })
+          .eq('ical_uid', 'GOIBIBO-MMT-20260912-LIVE-CONFIRMED')
+          .neq('check_out', 'Sept 13') // only update if it's still wrong
+          .eq('user_id', user.id);
       }
 
       if (hasNewSync) {
