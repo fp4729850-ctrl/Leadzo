@@ -16,7 +16,13 @@ async function scrapeGoibibo() {
             headless: false, // Keeping it visible for debugging and Google Sign-in
             executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
             defaultViewport: null,
-            args: ['--start-maximized', '--no-sandbox']
+            args: [
+                '--start-maximized', 
+                '--no-sandbox',
+                '--disable-blink-features=AutomationControlled',
+                '--disable-infobars'
+            ],
+            ignoreDefaultArgs: ['--enable-automation']
         });
         
         const page = await browser.newPage();
