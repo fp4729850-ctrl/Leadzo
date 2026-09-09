@@ -1277,21 +1277,75 @@ export default function HotelLeadManagerPage() {
                         return (
                           <td key={idx} className="p-2 border-l border-border/40 text-center relative h-14">
                             {booking ? (
-                              <div 
-                                className={cn(
-                                  "h-full w-full rounded-md p-1.5 flex flex-col justify-between text-[10px] font-medium transition-all shadow-sm",
-                                  booking.source === "Booking.com" && "bg-blue-500/20 text-blue-300 border border-blue-500/40",
-                                  (booking.source.includes("Airbnb") || booking.source.includes("Goibibo") || booking.source.includes("MMT")) && "bg-rose-500/20 text-rose-300 border border-rose-500/40",
-                                  booking.source === "Agoda" && "bg-amber-500/20 text-amber-300 border border-amber-500/40",
-                                  (booking.source === "King Villa" || booking.source.includes("King Villa")) && "bg-purple-500/20 text-purple-300 border border-purple-500/40",
-                                  booking.source === "Direct / AI Agent" && booking.status !== "blocked" && "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40",
-                                  booking.status === "blocked" && "bg-slate-800 text-slate-400 border border-slate-700"
-                                )}
-                                title={`${booking.guestName} (${booking.source})`}
-                              >
-                                <span className="font-bold truncate">{booking.guestName}</span>
-                                <span className="text-[9px] opacity-80">{booking.source}</span>
-                              </div>
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                  <div 
+                                    className={cn(
+                                      "h-full w-full rounded-md p-1.5 flex flex-col justify-between text-[10px] font-medium transition-all shadow-sm cursor-pointer hover:ring-1 hover:ring-white/40",
+                                      booking.source === "Booking.com" && "bg-blue-500/20 text-blue-300 border border-blue-500/40",
+                                      (booking.source.includes("Airbnb") || booking.source.includes("Goibibo") || booking.source.includes("MMT")) && "bg-rose-500/20 text-rose-300 border border-rose-500/40",
+                                      booking.source === "Agoda" && "bg-amber-500/20 text-amber-300 border border-amber-500/40",
+                                      (booking.source === "King Villa" || booking.source.includes("King Villa")) && "bg-purple-500/20 text-purple-300 border border-purple-500/40",
+                                      booking.source === "Direct / AI Agent" && booking.status !== "blocked" && "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40",
+                                      booking.status === "blocked" && "bg-slate-800 text-slate-400 border border-slate-700"
+                                    )}
+                                    title={`${booking.guestName} (${booking.source}) - ₹${booking.amount.toLocaleString()}`}
+                                  >
+                                    <span className="font-bold truncate text-[11px] leading-tight text-white">{booking.guestName}</span>
+                                    <div className="flex items-center justify-between text-[9px] opacity-90 pt-0.5 border-t border-white/10">
+                                      <span className="truncate max-w-[55px]">{booking.source}</span>
+                                      {booking.amount > 0 && (
+                                        <span className="font-bold text-emerald-300">₹{booking.amount.toLocaleString()}</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </DialogTrigger>
+                                <DialogContent className="max-w-md">
+                                  <DialogHeader>
+                                    <DialogTitle className="flex items-center justify-between text-base">
+                                      <span>Reservation Voucher Details</span>
+                                      <Badge variant="outline" className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30">
+                                        ✓ {booking.status}
+                                      </Badge>
+                                    </DialogTitle>
+                                    <DialogDescription className="text-xs">
+                                      Live OTA reservation captured by AI Agent from {booking.source}
+                                    </DialogDescription>
+                                  </DialogHeader>
+                                  <div className="space-y-3 py-2 text-xs">
+                                    <div className="grid grid-cols-2 gap-3 p-3 bg-muted/30 rounded-lg border border-border">
+                                      <div>
+                                        <span className="text-[10px] text-muted-foreground">Guest Name</span>
+                                        <p className="font-bold text-sm text-foreground mt-0.5">{booking.guestName}</p>
+                                      </div>
+                                      <div>
+                                        <span className="text-[10px] text-muted-foreground">Total Booking Amount</span>
+                                        <p className="font-bold text-sm text-emerald-400 mt-0.5">₹{booking.amount.toLocaleString()}</p>
+                                      </div>
+                                      <div>
+                                        <span className="text-[10px] text-muted-foreground">Room Unit</span>
+                                        <p className="font-medium text-foreground mt-0.5">{booking.roomNumber}</p>
+                                      </div>
+                                      <div>
+                                        <span className="text-[10px] text-muted-foreground">OTA Platform</span>
+                                        <p className="font-medium text-foreground mt-0.5">{booking.source}</p>
+                                      </div>
+                                      <div>
+                                        <span className="text-[10px] text-muted-foreground">Check-in</span>
+                                        <p className="font-medium text-foreground mt-0.5">{booking.checkIn}</p>
+                                      </div>
+                                      <div>
+                                        <span className="text-[10px] text-muted-foreground">Check-out</span>
+                                        <p className="font-medium text-foreground mt-0.5">{booking.checkOut}</p>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center justify-between text-[11px] text-muted-foreground px-1 bg-muted/20 p-2 rounded">
+                                      <span>🛡️ 2-Way Calendar Sync Status:</span>
+                                      <span className="text-emerald-400 font-semibold">Active & Protected</span>
+                                    </div>
+                                  </div>
+                                </DialogContent>
+                              </Dialog>
                             ) : (
                               <button 
                                 onClick={() => {
