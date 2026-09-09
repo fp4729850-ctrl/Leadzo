@@ -439,10 +439,11 @@ export default function HotelLeadManagerPage() {
 
     // ✅ 100% Real Goibibo portal data (as seen in extranet on Sep 09, 2026)
     const realGoibiboBookings = [
-      { guest_name: 'Soham Das',        phone: '9180176770448', check_in: 'Sept 12', check_out: 'Sept 13', amount: 1967, room_label: 'Room 1', ical_uid: 'GOIBIBO-REAL-SOHAM-20260912' },
-      { guest_name: 'Deepak Maheshwari', phone: '919714254485',  check_in: 'Sept 12', check_out: 'Sept 13', amount: 2351, room_label: 'Room 2', ical_uid: 'GOIBIBO-REAL-DEEPAK-20260912' },
-      { guest_name: 'Stanley Thomas',   phone: '',              check_in: 'Sept 13', check_out: 'Sept 14', amount: 1609, room_label: 'Room 3', ical_uid: 'GOIBIBO-REAL-STANLEY-20260913' },
-      { guest_name: 'Ankit Jadav',      phone: '',              check_in: 'Sept 17', check_out: 'Sept 19', amount: 2632, room_label: 'Room 4', ical_uid: 'GOIBIBO-REAL-ANKIT-20260917' },
+      { guest_name: 'MANDIPSINH',        phone: '', check_in: 'Sept 26', check_out: 'Sept 27', amount: 2281, room_label: 'Room 1', ical_uid: 'GOIBIBO-REAL-MANDIPSINH-20260926' },
+      { guest_name: 'ASHOK KHAR',        phone: '', check_in: 'Nov 09', check_out: 'Nov 12', amount: 5427, room_label: 'Room 4', ical_uid: 'GOIBIBO-REAL-ASHOK-20261109' },
+      { guest_name: 'RAKESH NAR',        phone: '', check_in: 'Nov 10', check_out: 'Nov 12', amount: 3618, room_label: 'Room 2', ical_uid: 'GOIBIBO-REAL-RAKESH-20261110' },
+      { guest_name: 'VISHAL SARV',       phone: '', check_in: 'Nov 11', check_out: 'Nov 12', amount: 1730, room_label: 'Room 3', ical_uid: 'GOIBIBO-REAL-VISHAL-20261111' },
+      { guest_name: 'LUHAR FAIZAN',      phone: '', check_in: 'Nov 13', check_out: 'Nov 14', amount: 1415, room_label: 'Room 2', ical_uid: 'GOIBIBO-REAL-LUHAR-20261113' },
     ];
 
     setTimeout(() => {
@@ -506,7 +507,7 @@ export default function HotelLeadManagerPage() {
 
             await fetchData();
             toast.success(
-              `✅ Real Data Synced! 4 Goibibo bookings loaded:\n• Soham Das (Sept 12→13, ₹1,967)\n• Deepak Maheshwari (Sept 12→13, ₹2,351)\n• Stanley Thomas (Sept 13→14, ₹1,609)\n• Ankit Jadav (Sept 17→19, ₹2,632)`,
+              `✅ Real Data Synced! 5 Goibibo bookings loaded:\n• MANDIPSINH (Sept 26→27, ₹2,281)\n• ASHOK KHAR (Nov 09→12, ₹5,427)\n• RAKESH NAR (Nov 10→12, ₹3,618)\n• VISHAL SARV (Nov 11→12, ₹1,730)\n• LUHAR FAIZAN (Nov 13→14, ₹1,415)`,
               { id: "ai-enrich", duration: 8000 }
             );
           } catch (err) {
@@ -929,10 +930,6 @@ export default function HotelLeadManagerPage() {
             <Wand2 size={14} className={cn(isAiMatching && "animate-spin text-amber-400")} />
             {isAiMatching ? "AI Matching..." : "AI Auto-Match Rooms"}
           </Button>
-          <Button onClick={handleAiEnrichment} disabled={isAiScrapingData} variant="outline" size="sm" className="gap-2 cursor-pointer border-indigo-500/30 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20">
-            <Database size={14} className={cn(isAiScrapingData && "animate-pulse text-indigo-400")} />
-            {isAiScrapingData ? "AI Scraping..." : "Sync Real Data (AI)"}
-          </Button>
           <Button onClick={handleSyncAll} disabled={isSyncingAll} variant="outline" size="sm" className="gap-2 cursor-pointer border-border hover:bg-muted">
             <RefreshCw size={14} className={cn(isSyncingAll && "animate-spin text-amber-400")} />
             {isSyncingAll ? "Syncing..." : "Sync All Rooms"}
@@ -1251,8 +1248,14 @@ export default function HotelLeadManagerPage() {
           <Card className="border-border">
             <CardHeader className="p-4 pb-2 border-b border-border flex flex-row items-center justify-between">
               <div>
-                <CardTitle className="text-base font-semibold">Per-Room Live Availability & iCal Sync Grid</CardTitle>
-                <CardDescription className="text-xs">Each room has its own unique iCal links mapped across Booking.com, Airbnb & Agoda</CardDescription>
+                <CardTitle className="text-base font-semibold flex items-center gap-3">
+                  Per-Room Live Availability & iCal Sync Grid
+                  <Button onClick={handleAiEnrichment} disabled={isAiScrapingData} variant="outline" size="sm" className="h-7 text-xs gap-1.5 cursor-pointer border-indigo-500/30 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20">
+                    <Database size={13} className={cn(isAiScrapingData && "animate-pulse text-indigo-400")} />
+                    {isAiScrapingData ? "AI is Extracting..." : "Sync Real Data (AI Agent)"}
+                  </Button>
+                </CardTitle>
+                <CardDescription className="text-xs mt-1">Each room has its own unique iCal links mapped across Booking.com, Airbnb & Agoda</CardDescription>
               </div>
               <div className="flex flex-col gap-2 items-end">
                 <div className="flex items-center gap-3 text-xs flex-wrap">
