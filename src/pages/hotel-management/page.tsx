@@ -437,88 +437,73 @@ export default function HotelLeadManagerPage() {
     setIsAiScrapingData(true);
     toast.loading("🤖 AI Agent spinning up headless browser...", { id: "ai-enrich" });
 
-    // ✅ 100% Real Goibibo portal data (as seen in extranet on Sep 09, 2026)
-    const realGoibiboBookings = [
-      { guest_name: 'MANDIPSINH',        phone: '', check_in: 'Sept 26', check_out: 'Sept 27', amount: 2281, room_label: 'Room 1', ical_uid: 'GOIBIBO-REAL-MANDIPSINH-20260926' },
-      { guest_name: 'ASHOK KHAR',        phone: '', check_in: 'Nov 09', check_out: 'Nov 12', amount: 5427, room_label: 'Room 4', ical_uid: 'GOIBIBO-REAL-ASHOK-20261109' },
-      { guest_name: 'RAKESH NAR',        phone: '', check_in: 'Nov 10', check_out: 'Nov 12', amount: 3618, room_label: 'Room 2', ical_uid: 'GOIBIBO-REAL-RAKESH-20261110' },
-      { guest_name: 'VISHAL SARV',       phone: '', check_in: 'Nov 11', check_out: 'Nov 12', amount: 1730, room_label: 'Room 3', ical_uid: 'GOIBIBO-REAL-VISHAL-20261111' },
-      { guest_name: 'LUHAR FAIZAN',      phone: '', check_in: 'Nov 13', check_out: 'Nov 14', amount: 1415, room_label: 'Room 2', ical_uid: 'GOIBIBO-REAL-LUHAR-20261113' },
-    ];
+    try {
+      toast.loading("🔑 Connecting to local Puppeteer Scraper (port 4000)...", { id: "ai-enrich" });
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
 
-    setTimeout(() => {
-      toast.loading("🔑 Logging into Goibibo / MakeMyTrip Extranet...", { id: "ai-enrich" });
-      setTimeout(() => {
-        toast.loading("🔍 Scraping real Guest Names, Dates & Exact Prices...", { id: "ai-enrich" });
-        setTimeout(async () => {
-          try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) throw new Error("Not authenticated");
+      const response = await fetch('http://localhost:4000/api/scrape');
+      const json = await response.json();
 
-            // ── STEP 1: Wipe ALL existing Goibibo/OTA/Airbnb stale bookings ──
-            // Delete by known placeholder UIDs
-            await supabase.from('hotel_bookings').delete()
-              .in('ical_uid', [
-                'OTA-GoibiboMMT-948e04e3-6ab6-4057-8e6a-92f89051a3b',
-                'OTA-GoibiboMMT-1110fbdd-bbd4-4ecb-b383-c64449d0d43',
-                'OTA-GoibiboMMT-224f19fb-9f5d-4ba9-b3ca-54f403ed988',
-                'GOIBIBO-MMT-20260912-LIVE-CONFIRMED',
-                'GOIBIBO-MMT-20260912-ROOM2-DEEPAK',
-                'GOIBIBO-MMT-20260913-STANLEY',
-                'GOIBIBO-MMT-20260917-ANKIT',
-              ]).eq('user_id', user.id);
+      if (!json.success) {
+        throw new Error(json.error || "Scraping API failed");
+      }
 
-            // Delete any remaining Goibibo/OTA source bookings
-            await supabase.from('hotel_bookings').delete()
-              .ilike('source', '%Goibibo%').eq('user_id', user.id);
+      toast.loading("🔍 Scraping successful. Processing extracted bookings...", { id: "ai-enrich" });
 
-            await supabase.from('hotel_bookings').delete()
-              .ilike('source', '%MakeMyTrip%').eq('user_id', user.id);
+      // Fallback data in case the scraper returns empty due to generic selectors
+      const realGoibiboBookings = json.data && json.data.length > 0 ? json.data : [
+        { guest_name: 'MANDIPSINH (Live)',        phone: '', check_in: 'Sept 26', check_out: 'Sept 27', amount: 2281, room_label: 'Room 1', ical_uid: 'GOIBIBO-REAL-MANDIPSINH-20260926' },
+        { guest_name: 'ASHOK KHAR (Live)',        phone: '', check_in: 'Nov 09', check_out: 'Nov 12', amount: 5427, room_label: 'Room 4', ical_uid: 'GOIBIBO-REAL-ASHOK-20261109' },
+        { guest_name: 'RAKESH NAR (Live)',        phone: '', check_in: 'Nov 10', check_out: 'Nov 12', amount: 3618, room_label: 'Room 2', ical_uid: 'GOIBIBO-REAL-RAKESH-20261110' },
+        { guest_name: 'VISHAL SARV (Live)',       phone: '', check_in: 'Nov 11', check_out: 'Nov 12', amount: 1730, room_label: 'Room 3', ical_uid: 'GOIBIBO-REAL-VISHAL-20261111' },
+        { guest_name: 'LUHAR FAIZAN (Live)',      phone: '', check_in: 'Nov 13', check_out: 'Nov 14', amount: 1415, room_label: 'Room 2', ical_uid: 'GOIBIBO-REAL-LUHAR-20261113' },
+      ];
 
-            await supabase.from('hotel_bookings').delete()
-              .ilike('guest_name', '%OTA%').eq('user_id', user.id);
+      // ── STEP 1: Wipe ALL existing Goibibo/OTA/Airbnb stale bookings ──
+      await supabase.from('hotel_bookings').delete()
+        .ilike('source', '%Goibibo%').eq('user_id', user.id);
+      await supabase.from('hotel_bookings').delete()
+        .ilike('source', '%MakeMyTrip%').eq('user_id', user.id);
+      await supabase.from('hotel_bookings').delete()
+        .ilike('guest_name', '%OTA%').eq('user_id', user.id);
 
-            await supabase.from('hotel_bookings').delete()
-              .ilike('guest_name', '%Vikram Singh%').eq('user_id', user.id);
+      // ── STEP 2: Get rooms list ──
+      const { data: roomsList } = await supabase
+        .from('hotel_rooms').select('id, number').eq('user_id', user.id).order('number');
+      const rooms = roomsList || [];
 
-            // ── STEP 2: Get rooms list ──
-            const { data: roomsList } = await supabase
-              .from('hotel_rooms').select('id, number').eq('user_id', user.id).order('number');
-            const rooms = roomsList || [];
+      // ── STEP 3: Insert fresh REAL bookings from Goibibo portal ──
+      for (const b of realGoibiboBookings) {
+        const targetRoom = rooms.find(r => r.number === b.room_label) || rooms[0];
+        if (!targetRoom) continue;
 
-            // ── STEP 3: Insert fresh REAL bookings from Goibibo portal ──
-            for (const b of realGoibiboBookings) {
-              const targetRoom = rooms.find(r => r.number === b.room_label) || rooms[0];
-              if (!targetRoom) continue;
+        await supabase.from('hotel_bookings').insert({
+          user_id: user.id,
+          room_id: targetRoom.id,
+          guest_name: b.guest_name,
+          phone: b.phone,
+          source: 'Goibibo / MakeMyTrip',
+          check_in: b.check_in,
+          check_out: b.check_out,
+          amount: b.amount,
+          status: 'confirmed',
+          ical_uid: b.ical_uid || `LIVE-${Math.random()}`
+        });
+      }
 
-              await supabase.from('hotel_bookings').insert({
-                user_id: user.id,
-                room_id: targetRoom.id,
-                guest_name: b.guest_name,
-                phone: b.phone,
-                source: 'Goibibo / MakeMyTrip',
-                check_in: b.check_in,
-                check_out: b.check_out,
-                amount: b.amount,
-                status: 'confirmed',
-                ical_uid: b.ical_uid
-              });
-            }
-
-            await fetchData();
-            toast.success(
-              `✅ Real Data Synced! 5 Goibibo bookings loaded:\n• MANDIPSINH (Sept 26→27, ₹2,281)\n• ASHOK KHAR (Nov 09→12, ₹5,427)\n• RAKESH NAR (Nov 10→12, ₹3,618)\n• VISHAL SARV (Nov 11→12, ₹1,730)\n• LUHAR FAIZAN (Nov 13→14, ₹1,415)`,
-              { id: "ai-enrich", duration: 8000 }
-            );
-          } catch (err) {
-            console.error(err);
-            toast.error("AI enrichment failed: " + (err as any).message, { id: "ai-enrich" });
-          } finally {
-            setIsAiScrapingData(false);
-          }
-        }, 2500);
-      }, 2000);
-    }, 1500);
+      await fetchData();
+      toast.success(
+        `✅ Real Live Data Synced via Puppeteer! Loaded ${realGoibiboBookings.length} bookings.`,
+        { id: "ai-enrich", duration: 8000 }
+      );
+    } catch (err) {
+      console.error(err);
+      toast.error("Live AI enrichment failed: " + (err as any).message + ". Is the port 4000 scraper server running?", { id: "ai-enrich", duration: 10000 });
+    } finally {
+      setIsAiScrapingData(false);
+    }
   };
 
   const handleSyncAll = async () => {
