@@ -94,11 +94,25 @@ export default function HotelLeadManagerPage() {
 
   const [channels, setChannels] = useState<OtaChannel[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
-  const dates = [
-    "Sept 03", "Sept 04", "Sept 05", "Sept 06", "Sept 07", "Sept 08", "Sept 09", 
-    "Sept 10", "Sept 11", "Sept 12", "Sept 13", "Sept 14", "Sept 15", "Sept 16", 
-    "Sept 17", "Sept 18", "Sept 19", "Sept 20", "Sept 21", "Sept 22", "Sept 23", "Sept 24"
-  ];
+  const [dateOffset, setDateOffset] = useState(0); // 0 means starting from today
+
+  const generateDates = (offset: number) => {
+    const datesArr = [];
+    const start = new Date();
+    start.setDate(start.getDate() + offset);
+    
+    for (let i = 0; i < 22; i++) {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'];
+      const month = months[d.getMonth()];
+      const day = d.getDate().toString().padStart(2, '0');
+      datesArr.push(`${month} ${day}`);
+    }
+    return datesArr;
+  };
+
+  const dates = generateDates(dateOffset);
   const [bookings, setBookings] = useState<Booking[]>([]);
 
   // Fetch data from Supabase
@@ -793,19 +807,29 @@ export default function HotelLeadManagerPage() {
     }, connectedChannels.length * 800 + 1200);
   };
 
+  const parseDateStr = (dateStr: string) => {
+    if (!dateStr) return NaN;
+    const parts = dateStr.split(' ');
+    if (parts.length !== 2) return NaN;
+    const [monthStr, dayStr] = parts;
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'];
+    const monthIdx = months.indexOf(monthStr);
+    const currentYear = new Date().getFullYear();
+    return new Date(currentYear, monthIdx, parseInt(dayStr, 10)).getTime();
+  };
+
   const getBookingForCell = (roomNum: string, date: string) => {
     return bookings.find(b => {
       if (b.roomNumber !== roomNum) return false;
       if (b.checkIn === date) return true;
-      const startIdx = dates.indexOf(b.checkIn);
-      const endIdx = dates.indexOf(b.checkOut);
-      const currentIdx = dates.indexOf(date);
-      if (startIdx !== -1) {
-        if (endIdx !== -1) {
-          return currentIdx >= startIdx && currentIdx < endIdx;
+      
+      if (b.checkIn && b.checkOut) {
+        const checkInTime = parseDateStr(b.checkIn);
+        const checkOutTime = parseDateStr(b.checkOut);
+        const currentTime = parseDateStr(date);
+        if (!isNaN(checkInTime) && !isNaN(checkOutTime) && !isNaN(currentTime)) {
+          return currentTime >= checkInTime && currentTime < checkOutTime;
         }
-        // If checkout is beyond the visible dates, highlight starting day
-        return currentIdx === startIdx;
       }
       return false;
     });
@@ -1230,12 +1254,19 @@ export default function HotelLeadManagerPage() {
                 <CardTitle className="text-base font-semibold">Per-Room Live Availability & iCal Sync Grid</CardTitle>
                 <CardDescription className="text-xs">Each room has its own unique iCal links mapped across Booking.com, Airbnb & Agoda</CardDescription>
               </div>
-              <div className="flex items-center gap-3 text-xs flex-wrap">
-                <span className="flex items-center gap-1"><span className="size-2.5 rounded-full bg-blue-500 inline-block"></span> Booking.com</span>
-                <span className="flex items-center gap-1"><span className="size-2.5 rounded-full bg-rose-500 inline-block"></span> Airbnb / Goibibo</span>
-                <span className="flex items-center gap-1"><span className="size-2.5 rounded-full bg-amber-500 inline-block"></span> Agoda</span>
-                <span className="flex items-center gap-1"><span className="size-2.5 rounded-full bg-purple-500 inline-block"></span> King Villa</span>
-                <span className="flex items-center gap-1"><span className="size-2.5 rounded-full bg-emerald-500 inline-block"></span> Direct / AI</span>
+              <div className="flex flex-col gap-2 items-end">
+                <div className="flex items-center gap-3 text-xs flex-wrap">
+                  <span className="flex items-center gap-1"><span className="size-2.5 rounded-full bg-blue-500 inline-block"></span> Booking.com</span>
+                  <span className="flex items-center gap-1"><span className="size-2.5 rounded-full bg-rose-500 inline-block"></span> Airbnb / Goibibo</span>
+                  <span className="flex items-center gap-1"><span className="size-2.5 rounded-full bg-amber-500 inline-block"></span> Agoda</span>
+                  <span className="flex items-center gap-1"><span className="size-2.5 rounded-full bg-purple-500 inline-block"></span> King Villa</span>
+                  <span className="flex items-center gap-1"><span className="size-2.5 rounded-full bg-emerald-500 inline-block"></span> Direct / AI</span>
+                </div>
+                <div className="flex items-center gap-2 mt-2">
+                  <Button variant="outline" size="sm" onClick={() => setDateOffset(prev => prev - 7)} className="h-7 text-xs px-2 cursor-pointer border-border hover:bg-muted">&larr; Previous Dates</Button>
+                  <Button variant="outline" size="sm" onClick={() => setDateOffset(0)} className="h-7 text-xs px-2 cursor-pointer border-border hover:bg-muted">Today</Button>
+                  <Button variant="outline" size="sm" onClick={() => setDateOffset(prev => prev + 7)} className="h-7 text-xs px-2 cursor-pointer border-border hover:bg-muted">Next Dates &rarr;</Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent className="p-0 overflow-x-auto">
