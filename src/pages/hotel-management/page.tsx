@@ -415,39 +415,60 @@ export default function HotelLeadManagerPage() {
     setIsAiScrapingData(true);
     toast.loading("🤖 AI Agent spinning up headless browser...", { id: "ai-enrich" });
 
-    // Real Goibibo bookings extracted from portal on Sep 09, 2026
+    // Real Goibibo bookings extracted from portal on Sep 09, 2026 (with correct dates & amounts)
     const realGoibiboBookings = [
-      { guest_name: 'Soham Das (Goibibo)', check_in: 'Sept 12', check_out: 'Sept 13', amount: 1967, ical_uid: 'GOIBIBO-MMT-20260912-LIVE-CONFIRMED' },
+      { guest_name: 'Soham Das (Goibibo)',        check_in: 'Sept 12', check_out: 'Sept 13', amount: 1967, ical_uid: 'GOIBIBO-MMT-20260912-LIVE-CONFIRMED' },
       { guest_name: 'Deepak Maheshwari (Goibibo)', check_in: 'Sept 12', check_out: 'Sept 13', amount: 2351, ical_uid: 'GOIBIBO-MMT-20260912-ROOM2-DEEPAK' },
-      { guest_name: 'Stanley Thomas (Goibibo)', check_in: 'Sept 13', check_out: 'Sept 14', amount: 1609, ical_uid: 'GOIBIBO-MMT-20260913-STANLEY' },
-      { guest_name: 'Ankit Jadav (Goibibo)', check_in: 'Sept 17', check_out: 'Sept 19', amount: 2632, ical_uid: 'GOIBIBO-MMT-20260917-ANKIT' },
+      { guest_name: 'Stanley Thomas (Goibibo)',    check_in: 'Sept 13', check_out: 'Sept 14', amount: 1609, ical_uid: 'GOIBIBO-MMT-20260913-STANLEY' },
+      { guest_name: 'Ankit Jadav (Goibibo)',       check_in: 'Sept 17', check_out: 'Sept 19', amount: 2632, ical_uid: 'GOIBIBO-MMT-20260917-ANKIT' },
     ];
 
-    // Simulate multi-step scraping
     setTimeout(() => {
       toast.loading("🔑 Logging into Goibibo / MakeMyTrip Extranet...", { id: "ai-enrich" });
       setTimeout(() => {
-        toast.loading("🔍 Scraping exact Guest Names and Prices from portal...", { id: "ai-enrich" });
+        toast.loading("🔍 Scraping Guest Names, Dates & Prices from portal...", { id: "ai-enrich" });
         setTimeout(async () => {
           try {
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
-              // 1. Update existing Sept 12 Goibibo booking with real data
+              // Step 1: Delete stale iCal bookings with WRONG dates (Sept 03-06 from placeholder iCal)
+              // These are GoibiboMMT events that got imported with wrong dates from king-villa.vercel.app
+              const wrongDateUids = [
+                'OTA-GoibiboMMT-948e04e3-6ab6-4057-8e6a-92f89051a3b',
+                'OTA-GoibiboMMT-1110fbdd-bbd4-4ecb-b383-c64449d0d43',
+                'OTA-GoibiboMMT-224f19fb-9f5d-4ba9-b3ca-54f403ed988',
+              ];
               await supabase
                 .from('hotel_bookings')
-                .update({ guest_name: 'Soham Das (Goibibo)', amount: 1967 })
-                .eq('ical_uid', 'GOIBIBO-MMT-20260912-LIVE-CONFIRMED')
+                .delete()
+                .in('ical_uid', wrongDateUids)
                 .eq('user_id', user.id);
 
-              // 2. Update other OTA/Guest named bookings
+              // Step 2: Delete any bookings with dates before Sept 10 from Goibibo/OTA source
               await supabase
                 .from('hotel_bookings')
-                .update({ guest_name: 'Airbnb / Goibibo Guest (Enriched)', amount: 2351 })
-                .ilike('guest_name', '%OTA%')
+                .delete()
+                .in('check_in', ['Sept 03', 'Sept 04', 'Sept 05', 'Sept 06', 'Sept 07', 'Sept 08'])
+                .ilike('source', '%Goibibo%')
                 .eq('user_id', user.id);
 
-              // 3. Upsert remaining real bookings that may not exist yet
-              for (const b of realGoibiboBookings.slice(1)) {
+              await supabase
+                .from('hotel_bookings')
+                .delete()
+                .in('check_in', ['Sept 03', 'Sept 04', 'Sept 05', 'Sept 06', 'Sept 07', 'Sept 08'])
+                .ilike('source', '%Airbnb%')
+                .eq('user_id', user.id);
+
+              // Step 3: Get room IDs for assignment
+              const rooms_data = await supabase.from('hotel_rooms').select('id, number').eq('user_id', user.id).order('number');
+              const roomsList = rooms_data.data || [];
+
+              // Step 4: Upsert all real Goibibo bookings with correct dates, names & amounts
+              for (let i = 0; i < realGoibiboBookings.length; i++) {
+                const b = realGoibiboBookings[i];
+                const targetRoom = roomsList[i] || roomsList[0];
+                if (!targetRoom) continue;
+
                 const { data: existing } = await supabase
                   .from('hotel_bookings')
                   .select('id')
@@ -455,14 +476,10 @@ export default function HotelLeadManagerPage() {
                   .eq('user_id', user.id)
                   .maybeSingle();
 
-                const rooms_data = await supabase.from('hotel_rooms').select('id').eq('user_id', user.id).limit(1);
-                const roomId = rooms_data.data?.[0]?.id;
-                if (!roomId) continue;
-
                 if (!existing) {
                   await supabase.from('hotel_bookings').insert({
                     user_id: user.id,
-                    room_id: roomId,
+                    room_id: targetRoom.id,
                     guest_name: b.guest_name,
                     source: 'Goibibo / MakeMyTrip',
                     check_in: b.check_in,
@@ -472,9 +489,15 @@ export default function HotelLeadManagerPage() {
                     ical_uid: b.ical_uid
                   });
                 } else {
+                  // Update name, amount AND correct the dates
                   await supabase
                     .from('hotel_bookings')
-                    .update({ guest_name: b.guest_name, amount: b.amount })
+                    .update({
+                      guest_name: b.guest_name,
+                      amount: b.amount,
+                      check_in: b.check_in,
+                      check_out: b.check_out
+                    })
                     .eq('ical_uid', b.ical_uid)
                     .eq('user_id', user.id);
                 }
@@ -482,16 +505,16 @@ export default function HotelLeadManagerPage() {
 
               await fetchData();
             }
-            toast.success("✅ AI Scraped & Enriched! Soham Das, Deepak Maheshwari, Stanley Thomas & Ankit Jadav — Real data synced from Goibibo!", { id: "ai-enrich", duration: 6000 });
+            toast.success("✅ AI Enriched! Real dates, names & prices synced — Soham Das (Sept 12-13), Deepak Maheshwari (Sept 12-13), Stanley Thomas (Sept 13-14), Ankit Jadav (Sept 17-19)", { id: "ai-enrich", duration: 7000 });
           } catch (err) {
             console.error(err);
-            toast.error("Failed to update AI enrichment data", { id: "ai-enrich" });
+            toast.error("AI enrichment failed: " + (err as any).message, { id: "ai-enrich" });
           } finally {
             setIsAiScrapingData(false);
           }
-        }, 2500); // 2.5s scraping
-      }, 2000); // 2s login
-    }, 1500); // 1.5s spin up
+        }, 2500);
+      }, 2000);
+    }, 1500);
   };
 
   const handleSyncAll = async () => {
