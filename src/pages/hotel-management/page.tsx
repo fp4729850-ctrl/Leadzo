@@ -361,6 +361,13 @@ export default function HotelLeadManagerPage() {
 
   useEffect(() => {
     fetchData();
+
+    // ⚡ Automatic Background Auto-Sync every 3 minutes (180s)
+    const autoSyncInterval = setInterval(() => {
+      console.log("⚡ [Leadzo AI] Auto-Syncing OTA calendars in background (every 3 mins)...");
+      fetchData();
+    }, 3 * 60 * 1000);
+
     // Build master iCal URL after auth
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) {
@@ -372,6 +379,8 @@ export default function HotelLeadManagerPage() {
         setMasterIcalUrl(`${supabaseUrl}/functions/v1/leadzo_master_ical?user_id=${user.id}`);
       }
     });
+
+    return () => clearInterval(autoSyncInterval);
   }, []);
 
   const handleSyncAll = async () => {
@@ -1662,7 +1671,15 @@ export default function HotelLeadManagerPage() {
                   )}
 
                   <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1 border-t border-border/40">
-                    <span>Last Sync: {channel.lastSync}</span>
+                    <div className="flex items-center gap-2">
+                      <span>Last Sync: {channel.lastSync}</span>
+                      {channel.status === 'connected' && (
+                        <span className="inline-flex items-center gap-1 text-[9px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 font-medium">
+                          <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                          Auto-Sync: 3m
+                        </span>
+                      )}
+                    </div>
                     <Button 
                       size="sm" 
                       variant="ghost" 
