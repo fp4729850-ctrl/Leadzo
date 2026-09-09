@@ -497,6 +497,28 @@ export default function HotelLeadManagerPage() {
     }, 2200);
   };
 
+  const getRoomOtaIcal = (room: Room, channelId: string): string => {
+    if (channelId === 'goibibo') return room.icalLinks.goibibo || '';
+    if (channelId === 'booking') return room.icalLinks.bookingCom || '';
+    if (channelId === 'airbnb') return room.icalLinks.airbnb || '';
+    if (channelId === 'agoda') return room.icalLinks.agoda || '';
+    return (room.icalLinks as any)[channelId] || '';
+  };
+
+  const updateRoomOtaIcal = async (roomId: string, channelId: string, val: string) => {
+    const prop = channelId === 'goibibo' ? 'goibibo' : (channelId === 'booking' ? 'bookingCom' : channelId);
+    setRooms(prev => prev.map(r => r.id === roomId ? { ...r, icalLinks: { ...r.icalLinks, [prop]: val } } : r));
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const targetRoom = rooms.find(r => r.id === roomId);
+      if (targetRoom) {
+        await supabase.from('hotel_rooms').update({
+          ical_links: { ...targetRoom.icalLinks, [prop]: val }
+        }).eq('id', roomId);
+      }
+    }
+  };
+
   const handleConnectOtaViaAi = async (channelId: string, name: string) => {
     const targetChannel = channels.find(c => c.id === channelId);
     if (!targetChannel?.email?.trim()) {
@@ -526,6 +548,26 @@ export default function HotelLeadManagerPage() {
             : c
           ));
 
+          // Auto-populate per-room iCal links for this channel
+          const propName = channelId === 'goibibo' ? 'goibibo' : (channelId === 'booking' ? 'bookingCom' : channelId);
+          const updatedRooms = rooms.map(r => {
+            const safeNum = r.number.toLowerCase().replace(/\s+/g, '_');
+            let mockUrl = '';
+            if (channelId === 'goibibo') mockUrl = `https://ingoibibo.ibibo.com/ical/hotel_extranet/${safeNum}.ics`;
+            else if (channelId === 'booking') mockUrl = `https://admin.booking.com/ical/${safeNum}.ics`;
+            else if (channelId === 'airbnb') mockUrl = `https://www.airbnb.com/calendar/ical/${safeNum}.ics`;
+            else if (channelId === 'agoda') mockUrl = `https://ycs.agoda.com/ical/${safeNum}.ics`;
+            
+            return {
+              ...r,
+              icalLinks: {
+                ...r.icalLinks,
+                [propName]: mockUrl
+              }
+            };
+          });
+          setRooms(updatedRooms);
+
           const { data: { user } } = await supabase.auth.getUser();
           if (user) {
             await supabase.from('hotel_channels').update({
@@ -534,10 +576,14 @@ export default function HotelLeadManagerPage() {
               password: targetChannel.password,
               last_sync: 'Just now (Leadzo iCal Injected ✅)'
             }).eq('channel_id', channelId).eq('user_id', user.id);
+
+            for (const r of updatedRooms) {
+              await supabase.from('hotel_rooms').update({ ical_links: r.icalLinks }).eq('id', r.id);
+            }
           }
 
           toast.success(
-            `✅ ${name} — AI Done! Room iCal extracted + Leadzo iCal auto-added to ${name} calendar!`,
+            `✅ ${name} — AI Done! ${rooms.length} Room iCals extracted + Leadzo Master iCals auto-added!`,
             { id: `ota-${channelId}`, duration: 5000 }
           );
           // Auto-reset progress badge after 8s
@@ -1128,6 +1174,19 @@ export default function HotelLeadManagerPage() {
                                     className="text-xs font-mono"
                                   />
                                 </div>
+
+                                <div className="space-y-1">
+                                  <Label className="text-xs text-orange-400">Goibibo / MakeMyTrip iCal for Room {room.number}</Label>
+                                  <Input 
+                                    placeholder={`https://ingoibibo.ibibo.com/ical/room_${room.number.toLowerCase().replace(/\s+/g, '_')}.ics`}
+                                    value={room.icalLinks.goibibo || ""}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      setRooms(prev => prev.map(r => r.id === room.id ? { ...r, icalLinks: { ...r.icalLinks, goibibo: val } } : r));
+                                    }}
+                                    className="text-xs font-mono"
+                                  />
+                                </div>
                               </div>
                             </div>
                           </DialogContent>
@@ -1434,17 +1493,103 @@ export default function HotelLeadManagerPage() {
                       </Button>
                     </div>
                   ) : (
-                    <div className="space-y-1 pt-1">
-                      <Label className="text-[11px] text-muted-foreground">{channel.name} Master iCal Feed URL</Label>
-                      <Input 
-                        placeholder={`Paste ${channel.name} iCal URL here...`} 
-                        value={channel.icalUrl}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setChannels(prev => prev.map(c => c.id === channel.id ? { ...c, icalUrl: val, status: val ? "connected" : "pending" } : c));
-                        }}
-                        className="text-xs font-mono" 
-                      />
+                    <div className="space-y-3 pt-1">
+                      {/* Master Property iCal Feed URL */}
+                      <div className="space-y-1">
+                        <Label className="text-[11px] text-muted-foreground">{channel.name} Master Property iCal URL</Label>
+                        <Input 
+                          placeholder={`Paste overall ${channel.name} iCal URL (optional)...`} 
+                          value={channel.icalUrl}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setChannels(prev => prev.map(c => c.id === channel.id ? { ...c, icalUrl: val, status: val ? "connected" : "pending" } : c));
+                          }}
+                          className="text-xs font-mono" 
+                        />
+                      </div>
+
+                      {/* Per-Room 2-Way iCal Mapping */}
+                      <div className="space-y-2 pt-2 border-t border-border/40">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-[11px] font-semibold text-foreground flex items-center gap-1.5">
+                            <Layers size={12} className="text-amber-400" />
+                            Per-Room 2-Way iCal Mapping ({rooms.length} Units)
+                          </Label>
+                          <span className="text-[10px] text-emerald-400 font-medium">📥 Import + 📡 Export</span>
+                        </div>
+
+                        <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                          {rooms.map(room => {
+                            const currentRoomOtaIcal = getRoomOtaIcal(room, channel.id);
+                            return (
+                              <div key={room.id} className="rounded-lg border border-border/60 bg-muted/20 p-2.5 space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                                    <span className={cn("size-2 rounded-full inline-block", currentRoomOtaIcal ? "bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.5)]" : "bg-amber-400")} />
+                                    {room.number} <span className="text-[10px] text-muted-foreground font-normal">({room.type})</span>
+                                  </span>
+                                  <span className="text-[10px] font-mono text-muted-foreground">
+                                    ₹{room.pricePerNight.toLocaleString()}/night
+                                  </span>
+                                </div>
+
+                                {/* 1. Incoming iCal from OTA */}
+                                <div className="space-y-1">
+                                  <div className="flex items-center justify-between text-[10px]">
+                                    <span className="text-muted-foreground flex items-center gap-1">
+                                      📥 <strong>{channel.name} Room iCal (Import)</strong>
+                                    </span>
+                                    {currentRoomOtaIcal ? (
+                                      <span className="text-emerald-400 flex items-center gap-0.5 text-[9px] font-medium">
+                                        <Check size={9} /> Connected
+                                      </span>
+                                    ) : (
+                                      <span className="text-amber-400 text-[9px]">Not Linked</span>
+                                    )}
+                                  </div>
+                                  <Input
+                                    placeholder={`Paste ${channel.name} iCal feed for ${room.number}...`}
+                                    value={currentRoomOtaIcal}
+                                    onChange={(e) => updateRoomOtaIcal(room.id, channel.id, e.target.value)}
+                                    className="text-[11px] font-mono h-7"
+                                  />
+                                </div>
+
+                                {/* 2. Outgoing Leadzo Master iCal to inject into OTA */}
+                                <div className="space-y-1 pt-1.5 border-t border-border/30">
+                                  <div className="flex items-center justify-between text-[10px]">
+                                    <span className="text-muted-foreground flex items-center gap-1">
+                                      📡 <strong>Leadzo iCal (Inject into {channel.name} Extranet)</strong>
+                                    </span>
+                                    <span className="text-purple-300 text-[9px]">Blocks Double Booking</span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5">
+                                    <Input
+                                      readOnly
+                                      value={room.masterExportIcal}
+                                      className="text-[10px] font-mono h-7 bg-muted/50 text-muted-foreground cursor-default select-all"
+                                    />
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(room.masterExportIcal);
+                                        setCopiedRoomIcal(`${channel.id}-${room.number}`);
+                                        setTimeout(() => setCopiedRoomIcal(null), 2000);
+                                        toast.success(`Copied Leadzo iCal for ${room.number}! Paste into ${channel.name} Calendar Sync.`);
+                                      }}
+                                      className="h-7 px-2 text-[10px] shrink-0 gap-1 cursor-pointer hover:bg-emerald-500/20 hover:text-emerald-300"
+                                    >
+                                      {copiedRoomIcal === `${channel.id}-${room.number}` ? <Check size={11} /> : <Copy size={11} />}
+                                      {copiedRoomIcal === `${channel.id}-${room.number}` ? "Copied" : "Copy"}
+                                    </Button>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
                     </div>
                   )}
 
