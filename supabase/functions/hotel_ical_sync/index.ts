@@ -81,6 +81,9 @@ serve(async (req) => {
         const parsed = parseICal(text, src);
         let count = 0;
 
+        const targetRoom = rooms?.find((r: any) => r.id === targetRoomId);
+        const roomPrice = targetRoom?.price_per_night || 4000;
+
         for (const event of parsed) {
           if (!event.ical_uid) continue;
 
@@ -99,7 +102,7 @@ serve(async (req) => {
               source: src,
               check_in: formatDateForUI(event.check_in),
               check_out: formatDateForUI(event.check_out),
-              amount: 3500, // estimated ADR
+              amount: roomPrice,
               status: 'confirmed',
               ical_uid: event.ical_uid
             });
