@@ -13,9 +13,10 @@ async function scrapeGoibibo() {
         const hasCookies = fs.existsSync(COOKIES_PATH);
         
         browser = await puppeteer.launch({
-            headless: hasCookies ? 'new' : false, // False means browser opens visibly
+            headless: false, // Keeping it visible for debugging and Google Sign-in
+            executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
             defaultViewport: null,
-            args: ['--start-maximized']
+            args: ['--start-maximized', '--no-sandbox']
         });
         
         const page = await browser.newPage();
