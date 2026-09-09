@@ -4,11 +4,18 @@ const { scrapeGoibibo } = require('./scraper');
 
 const app = express();
 app.use(cors());
+app.use(express.json({ limit: '10mb' }));
 
-app.get('/api/scrape', async (req, res) => {
+app.post('/api/scrape', async (req, res) => {
     try {
         console.log("Received request to scrape Goibibo...");
-        const data = await scrapeGoibibo();
+        const cookies = req.body.cookies;
+        
+        if (!cookies || !Array.isArray(cookies)) {
+            return res.status(400).json({ success: false, error: "Missing or invalid cookies in request body. Please export your Goibibo cookies and pass them." });
+        }
+
+        const data = await scrapeGoibibo(cookies);
         
         res.json({ success: true, data: data });
     } catch (error) {
@@ -16,7 +23,7 @@ app.get('/api/scrape', async (req, res) => {
     }
 });
 
-const PORT = 4000;
+const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
-    console.log(`Goibibo Scraper API running on http://localhost:${PORT}`);
+    console.log(`Cloud Goibibo Scraper API running on port ${PORT}`);
 });

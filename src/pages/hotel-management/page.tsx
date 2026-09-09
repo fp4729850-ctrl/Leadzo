@@ -443,7 +443,17 @@ export default function HotelLeadManagerPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      const response = await fetch('http://localhost:4000/api/scrape');
+      const storedCookies = localStorage.getItem('goibibo_scraper_cookies');
+      let cookiesObj = [];
+      try {
+        if (storedCookies) cookiesObj = JSON.parse(storedCookies);
+      } catch(e) {}
+
+      const response = await fetch('http://localhost:4000/api/scrape', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cookies: cookiesObj })
+      });
       const json = await response.json();
 
       if (!json.success) {
@@ -1238,6 +1248,20 @@ export default function HotelLeadManagerPage() {
                   <Button onClick={handleAiEnrichment} disabled={isAiScrapingData} variant="outline" size="sm" className="h-7 text-xs gap-1.5 cursor-pointer border-indigo-500/30 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20">
                     <Database size={13} className={cn(isAiScrapingData && "animate-pulse text-indigo-400")} />
                     {isAiScrapingData ? "AI is Extracting..." : "Sync Real Data (AI Agent)"}
+                  </Button>
+                  <Button onClick={() => {
+                    const input = window.prompt("Paste your Goibibo Cookies JSON here (use EditThisCookie extension):");
+                    if (input) {
+                      try {
+                        JSON.parse(input);
+                        localStorage.setItem('goibibo_scraper_cookies', input);
+                        toast.success("Goibibo Cookies updated successfully!");
+                      } catch(e) {
+                        toast.error("Invalid JSON format. Please paste valid cookies JSON.");
+                      }
+                    }
+                  }} variant="outline" size="sm" className="h-7 text-xs gap-1.5 cursor-pointer border-slate-500/30 bg-slate-500/10 text-slate-300 hover:bg-slate-500/20">
+                    <Key size={13} /> Update Cookies
                   </Button>
                 </CardTitle>
                 <CardDescription className="text-xs mt-1">Each room has its own unique iCal links mapped across Booking.com, Airbnb & Agoda</CardDescription>
