@@ -15,7 +15,7 @@ async function scrapeGoibibo() {
         const hasCookies = fs.existsSync(COOKIES_PATH);
         
         // If browser isn't open yet, or if it was closed manually, launch it
-        if (!globalBrowser || !globalBrowser.isConnected()) {
+        if (!globalBrowser || !globalBrowser.connected) {
             console.log("Launching new browser instance...");
             globalBrowser = await puppeteer.launch({
                 headless: false, // Keeping it visible so user can login
