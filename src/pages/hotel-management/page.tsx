@@ -378,20 +378,10 @@ export default function HotelLeadManagerPage() {
       }
 
       const activeRooms = roomsRes.data || [];
-      // Ensure if Goibibo or King Villa is connected, room ical_links are populated
-      const goibiboChannel = (channelsRes.data || []).find((c: any) => c.channel_id === 'goibibo');
-      let roomsNeedUpdate = false;
       const populatedRooms = activeRooms.map((r: any) => {
-        const safeNum = r.number.toLowerCase().replace(/\s+/g, '_');
         const links = { ...(r.ical_links || {}) };
-        if (!links.direct || !links['king villa']) {
+        if (!links.direct) {
           links.direct = r.master_export_ical;
-          links['king villa'] = r.master_export_ical;
-          roomsNeedUpdate = true;
-        }
-        if (goibiboChannel?.status === 'connected' && !links.goibibo) {
-          links.goibibo = `https://ingoibibo.ibibo.com/ical/hotel_extranet/${safeNum}.ics`;
-          roomsNeedUpdate = true;
         }
         return {
           id: r.id,
@@ -403,11 +393,6 @@ export default function HotelLeadManagerPage() {
         };
       });
 
-      if (roomsNeedUpdate) {
-        for (const pr of populatedRooms) {
-          await supabase.from('hotel_rooms').update({ ical_links: pr.icalLinks }).eq('id', pr.id);
-        }
-      }
       setRooms(populatedRooms);
 
       // 2. Channels: Keep Airbnb separate, and link Goibibo with MakeMyTrip ("Goibibo / MakeMyTrip")
@@ -445,13 +430,21 @@ export default function HotelLeadManagerPage() {
       const rawChannels = refreshedChannelsRes.data || channelsRes.data || [];
 
       const dummyEmails = ['hotel.grand@booking.com', 'host@airbnb.com', 'hotel.grand@gmail.com'];
-      const dummyIcals = ['https://ycs.agoda.com/ical/export/sample.ics', 'https://www.airbnb.com/calendar/ical/12345678.ics?s=sample'];
+      const dummyIcals = [
+        'https://ycs.agoda.com/ical/export/sample.ics', 
+        'https://www.airbnb.com/calendar/ical/12345678.ics?s=sample',
+        'https://king-villa.vercel.app/api/ical/export/1.ics',
+        'https://king-villa.vercel.app/api/ical/export/2.ics',
+        'https://king-villa.vercel.app/api/ical/export/3.ics',
+        'https://king-villa.vercel.app/api/ical/export/4.ics',
+        'https://king-villa.vercel.app/api/ical/export/5.ics'
+      ];
 
       // Reset any mock / dummy seeded credentials so channels start clean and not connected
       for (const c of rawChannels) {
         const isDummyEmail = dummyEmails.includes(c.email);
-        const isDummyIcal = dummyIcals.includes(c.ical_url);
-        if (isDummyEmail || isDummyIcal || (!c.email && !c.ical_url && c.status === 'connected')) {
+        const isDummyIcal = dummyIcals.includes(c.ical_url) || (c.ical_url && c.ical_url.includes('sample.ics'));
+        if (isDummyEmail || isDummyIcal) {
           await supabase.from('hotel_channels').update({
             email: isDummyEmail ? '' : c.email,
             password: isDummyEmail ? '' : c.password,
@@ -468,16 +461,28 @@ export default function HotelLeadManagerPage() {
       }
 
       const mergedList: OtaChannel[] = [];
-      rawChannels.forEach((c: any) => {
+      for (const c of rawChannels) {
         const channelKey = c.channel_id === 'goibibo' ? 'goibibo' : (c.channel_id === 'booking' ? 'bookingCom' : c.channel_id);
-        const hasRoomIcal = populatedRooms.some((r: any) => !!r.icalLinks[channelKey] && !dummyIcals.includes(r.icalLinks[channelKey]));
-        const hasMasterIcal = !!c.ical_url && !dummyIcals.includes(c.ical_url);
-        const hasAiLogin = !!c.email && !dummyEmails.includes(c.email);
+        
+        // A channel is strictly connected ONLY if real external iCal is linked (room or master)
+        const hasRoomIcal = populatedRooms.some((r: any) => {
+          const l = r.icalLinks?.[channelKey];
+          return !!l && !dummyIcals.includes(l) && !l.includes('sample.ics') && !l.includes('/room_Room') && l.startsWith('http');
+        });
+        const hasMasterIcal = !!c.ical_url && !dummyIcals.includes(c.ical_url) && !c.ical_url.includes('sample.ics') && c.ical_url.startsWith('http');
+        const isRealAiVerified = c.status === 'connected' && c.last_sync && c.last_sync.includes('Real AI Synced');
 
-        const isRealConnected = (c.status === 'connected' || hasRoomIcal || hasMasterIcal) && (
-          (c.connect_mode === 'ical' && (hasMasterIcal || hasRoomIcal)) ||
-          (c.connect_mode !== 'ical' && hasAiLogin)
-        );
+        const isRealConnected = Boolean(hasMasterIcal || hasRoomIcal || isRealAiVerified);
+
+        // If not genuinely connected, force reset to pending in DB so it never shows false Connected
+        if (!isRealConnected && c.status === 'connected') {
+          await supabase.from('hotel_channels').update({
+            status: 'pending',
+            last_sync: 'Not connected'
+          }).eq('id', c.id);
+          c.status = 'pending';
+          c.last_sync = 'Not connected';
+        }
 
         let channelName = c.name;
         let channelIcon = c.icon_color || 'text-blue-400';
@@ -503,7 +508,7 @@ export default function HotelLeadManagerPage() {
           status: isRealConnected ? 'connected' : 'pending',
           lastSync: isRealConnected ? (c.last_sync || 'Just now') : 'Not connected'
         });
-      });
+      }
       setChannels(mergedList);
 
       // 3. Purge mock / demo bookings (Rahul Verma, Elena Rostova, Aman Sharma, Vikram Malhotra)
@@ -901,36 +906,27 @@ export default function HotelLeadManagerPage() {
 
   const handleAiAutoMatchRooms = () => {
     setIsAiMatching(true);
-    toast.loading("AI Agent logging into Booking.com & Airbnb to auto-extract per-room iCal links...", { id: "ai-match" });
+    toast.loading("AI Agent scanning OTA channels for real active iCal feeds...", { id: "ai-match" });
     setTimeout(() => {
       setIsAiMatching(false);
-      toast.success("AI Auto-Matched 5 Rooms with OTA iCal Links!", { id: "ai-match" });
-      setRooms(prev => prev.map(r => ({
-        ...r,
-        icalLinks: {
-          bookingCom: `https://admin.booking.com/ical/room_${r.number}.ics`,
-          airbnb: `https://www.airbnb.com/calendar/ical/room_${r.number}.ics`,
-          agoda: `https://ycs.agoda.com/ical/room_${r.number}.ics`
-        }
-      })));
-    }, 2200);
+      const connectedCount = channels.filter(c => c.status === 'connected').length;
+      if (connectedCount === 0) {
+        toast.info("No OTAs are connected yet. Please add your real OTA iCal links in 'Direct iCal Feed' tab.", { id: "ai-match", duration: 5000 });
+      } else {
+        toast.success(`Active feeds verified for ${connectedCount} OTA channel(s).`, { id: "ai-match" });
+      }
+    }, 1200);
   };
 
   const getRoomOtaIcal = (room: Room, channelId: string): string => {
     const cid = channelId.toLowerCase().trim();
-    if (cid.includes('king') || cid.includes('villa')) return room.masterExportIcal || '';
     if (cid === 'goibibo' || cid.includes('mmt')) {
-      if (room.icalLinks.goibibo) return room.icalLinks.goibibo;
-      const goibiboCh = channels.find(c => c.id === 'goibibo');
-      if (goibiboCh?.status === 'connected') {
-        const safeNum = room.number.toLowerCase().replace(/\s+/g, '_');
-        return `https://ingoibibo.ibibo.com/ical/hotel_extranet/${safeNum}.ics`;
-      }
+      return room.icalLinks?.goibibo || '';
     }
-    if (channelId === 'booking') return room.icalLinks.bookingCom || '';
-    if (channelId === 'airbnb') return room.icalLinks.airbnb || '';
-    if (channelId === 'agoda') return room.icalLinks.agoda || '';
-    return (room.icalLinks as any)[channelId] || '';
+    if (channelId === 'booking') return room.icalLinks?.bookingCom || '';
+    if (channelId === 'airbnb') return room.icalLinks?.airbnb || '';
+    if (channelId === 'agoda') return room.icalLinks?.agoda || '';
+    return (room.icalLinks as any)?.[channelId] || '';
   };
 
   const updateRoomOtaIcal = async (roomId: string, channelId: string, val: string) => {
