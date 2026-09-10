@@ -124,17 +124,26 @@ async function scrapeGoibibo(options = {}) {
             }
 
             console.log("   Please complete login / OTP in the Chrome window if prompted.");
-            console.log("   Waiting up to 5 minutes for you to complete login...\n");
+            const loginTimeout = isCloud ? 20000 : 300000;
+            console.log(`   Waiting up to ${loginTimeout / 1000}s for login to complete...\n`);
             
             // Wait for the bookings page to appear after login
-            await page.waitForFunction(() => {
-                const text = document.body.innerText || '';
-                return (text.includes('Guest Name') || 
-                        text.includes('Stay Duration') || 
-                        text.includes('Check-In') ||
-                        text.includes('Booking ID')) && 
-                       !text.includes('Free Hotel Registration');
-            }, { timeout: 300000 }); // 5 minutes
+            try {
+                await page.waitForFunction(() => {
+                    const text = document.body.innerText || '';
+                    return (text.includes('Guest Name') || 
+                            text.includes('Stay Duration') || 
+                            text.includes('Check-In') ||
+                            text.includes('Booking ID')) && 
+                           !text.includes('Free Hotel Registration');
+                }, { timeout: loginTimeout });
+            } catch (waitErr) {
+                const pageBody = await page.evaluate(() => document.body.innerText || '');
+                if (pageBody.includes('invalid') || pageBody.includes('Incorrect') || pageBody.includes('failed')) {
+                    throw new Error("Goibibo Login Failed: Invalid Mobile / Password entered.");
+                }
+                throw new Error("Goibibo Login Timeout: Please check your Mobile / Password or complete OTP verification.");
+            }
 
             console.log("✅ Login successful! Saving cookies for future use...");
             const cookies = await page.cookies();
