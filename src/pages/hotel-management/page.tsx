@@ -144,16 +144,16 @@ export default function HotelLeadManagerPage() {
       });
       const json = await response.json();
 
-      if (!json.success) {
-        throw new Error(json.error || "Scraping API failed");
-      }
-
       if (json.needOtp) {
         setIsAiScrapingData(false);
         setGoibiboStep('otp');
         setIsGoibiboModalOpen(true);
         toast.info("📲 OTP required! Please enter the OTP sent to your mobile.", { id: "ai-enrich", duration: 8000 });
         return;
+      }
+
+      if (!json.success) {
+        throw new Error(json.error || "Scraping API failed");
       }
 
       setIsGoibiboModalOpen(false);

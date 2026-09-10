@@ -77,11 +77,11 @@ async function scrapeGoibibo(options = {}) {
 
         console.log("Navigating to Goibibo Extranet...");
         await page.goto('https://in.goibibo.com/newextranet/bookings/bookingslist', { 
-            waitUntil: 'networkidle2',
-            timeout: 30000 
+            waitUntil: 'domcontentloaded',
+            timeout: 15000 
         });
 
-        await new Promise(resolve => setTimeout(resolve, 3000));
+        await new Promise(resolve => setTimeout(resolve, 1000));
         
         const currentUrl = page.url();
         const pageTitle = await page.title();
@@ -133,18 +133,14 @@ async function scrapeGoibibo(options = {}) {
                 } catch (e) {
                     console.log("Auto-fill notice:", e.message);
                 }
-            }
 
-            await new Promise(resolve => setTimeout(resolve, 3000));
-
-            // Check if page requires OTP right now
-            const checkBodyText = await page.evaluate(() => document.body.innerText || '');
-            if (!otp && (checkBodyText.includes('OTP') || checkBodyText.includes('verification code') || checkBodyText.includes('Enter Code') || checkBodyText.includes('Sent to'))) {
-                console.log("📲 OTP required for Goibibo login!");
+                // If user submitted mobile without OTP, return needOtp to open Step 2 Modal
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                console.log("📲 Prompting user for OTP entry in UI Modal...");
                 await browser.close();
                 return {
                     needOtp: true,
-                    message: "OTP sent to your registered mobile number. Please enter OTP to complete sync."
+                    message: "OTP sent to registered mobile number. Please enter the OTP to complete sync."
                 };
             }
 
