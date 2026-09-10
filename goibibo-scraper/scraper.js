@@ -8,7 +8,7 @@ const path = require('path');
 const COOKIES_PATH = path.join(__dirname, 'goibibo_cookies.json');
 
 async function scrapeGoibibo(options = {}) {
-    const { username, password } = options;
+    const { username, password, otp } = options;
     let browser;
     try {
         const hasCookies = fs.existsSync(COOKIES_PATH);
@@ -99,7 +99,19 @@ async function scrapeGoibibo(options = {}) {
         if (isLoginPage) {
             console.log("⚠️  Not logged in.");
             
-            if (username || password) {
+            if (otp) {
+                console.log("📲 Auto-filling OTP provided by user...");
+                try {
+                    const otpInput = await page.$('input[name*="otp"], input[placeholder*="OTP"], input[placeholder*="otp"], input[type="tel"], #otp, input[maxLength="4"], input[maxLength="6"]');
+                    if (otpInput) {
+                        await otpInput.type(otp, { delay: 50 });
+                        const verifyBtn = await page.$('button[type="submit"], button.btn-primary, #verify-btn, #submit-otp');
+                        if (verifyBtn) await verifyBtn.click();
+                    }
+                } catch (e) {
+                    console.log("OTP fill notice:", e.message);
+                }
+            } else if (username || password) {
                 console.log("🔑 Auto-filling credentials provided by user...");
                 try {
                     if (username) {
@@ -123,9 +135,21 @@ async function scrapeGoibibo(options = {}) {
                 }
             }
 
-            console.log("   Please complete login / OTP in the Chrome window if prompted.");
+            await new Promise(resolve => setTimeout(resolve, 3000));
+
+            // Check if page requires OTP right now
+            const checkBodyText = await page.evaluate(() => document.body.innerText || '');
+            if (!otp && (checkBodyText.includes('OTP') || checkBodyText.includes('verification code') || checkBodyText.includes('Enter Code') || checkBodyText.includes('Sent to'))) {
+                console.log("📲 OTP required for Goibibo login!");
+                await browser.close();
+                return {
+                    needOtp: true,
+                    message: "OTP sent to your registered mobile number. Please enter OTP to complete sync."
+                };
+            }
+
+            console.log("   Waiting for login to complete...\n");
             const loginTimeout = isCloud ? 20000 : 300000;
-            console.log(`   Waiting up to ${loginTimeout / 1000}s for login to complete...\n`);
             
             // Wait for the bookings page to appear after login
             try {
@@ -139,10 +163,17 @@ async function scrapeGoibibo(options = {}) {
                 }, { timeout: loginTimeout });
             } catch (waitErr) {
                 const pageBody = await page.evaluate(() => document.body.innerText || '');
+                if (pageBody.includes('OTP') || pageBody.includes('verification') || pageBody.includes('Sent to')) {
+                    await browser.close();
+                    return {
+                        needOtp: true,
+                        message: "OTP sent to your registered mobile number / email. Please enter OTP below."
+                    };
+                }
                 if (pageBody.includes('invalid') || pageBody.includes('Incorrect') || pageBody.includes('failed')) {
                     throw new Error("Goibibo Login Failed: Invalid Mobile / Password entered.");
                 }
-                throw new Error("Goibibo Login Timeout: Please check your Mobile / Password or complete OTP verification.");
+                throw new Error("Goibibo Login Timeout: Please check your Mobile / Password or enter OTP.");
             }
 
             console.log("✅ Login successful! Saving cookies for future use...");

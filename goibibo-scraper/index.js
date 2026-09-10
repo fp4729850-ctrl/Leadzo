@@ -10,6 +10,9 @@ app.all('/api/scrape', async (req, res) => {
     try {
         console.log("\n🚀 Received scrape request...");
         const data = await scrapeGoibibo(req.body || {});
+        if (data && data.needOtp) {
+            return res.json({ success: true, needOtp: true, message: data.message });
+        }
         res.json({ success: true, data: data });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });

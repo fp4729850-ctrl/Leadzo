@@ -85,6 +85,8 @@ export default function HotelLeadManagerPage() {
   const [isGoibiboModalOpen, setIsGoibiboModalOpen] = useState(false);
   const [goibiboUsername, setGoibiboUsername] = useState('');
   const [goibiboPassword, setGoibiboPassword] = useState('');
+  const [goibiboOtp, setGoibiboOtp] = useState('');
+  const [goibiboStep, setGoibiboStep] = useState<'creds' | 'otp'>('creds');
   const [saveGoibiboCreds, setSaveGoibiboCreds] = useState(true);
 
   useEffect(() => {
@@ -99,6 +101,7 @@ export default function HotelLeadManagerPage() {
   }, []);
 
   const openGoibiboModal = () => {
+    setGoibiboStep('creds');
     setIsGoibiboModalOpen(true);
   };
 
@@ -106,14 +109,14 @@ export default function HotelLeadManagerPage() {
     openGoibiboModal();
   };
 
-  const executeAiEnrichment = async (userCreds?: { username?: string; password?: string }) => {
-    setIsGoibiboModalOpen(false);
+  const executeAiEnrichment = async (userCreds?: { username?: string; password?: string; otp?: string }) => {
     setIsAiScrapingData(true);
     toast.loading("🤖 AI Agent spinning up browser...", { id: "ai-enrich" });
 
     try {
       const uname = userCreds?.username !== undefined ? userCreds.username : goibiboUsername;
       const pass = userCreds?.password !== undefined ? userCreds.password : goibiboPassword;
+      const otpVal = userCreds?.otp !== undefined ? userCreds.otp : goibiboOtp;
 
       if (saveGoibiboCreds && uname) {
         localStorage.setItem('leadzo_goibibo_creds', JSON.stringify({
@@ -137,13 +140,25 @@ export default function HotelLeadManagerPage() {
       const response = await fetch(scraperEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cookies: cookiesObj, username: uname, password: pass })
+        body: JSON.stringify({ cookies: cookiesObj, username: uname, password: pass, otp: otpVal })
       });
       const json = await response.json();
 
       if (!json.success) {
         throw new Error(json.error || "Scraping API failed");
       }
+
+      if (json.needOtp) {
+        setIsAiScrapingData(false);
+        setGoibiboStep('otp');
+        setIsGoibiboModalOpen(true);
+        toast.info("📲 OTP required! Please enter the OTP sent to your mobile.", { id: "ai-enrich", duration: 8000 });
+        return;
+      }
+
+      setIsGoibiboModalOpen(false);
+      setGoibiboStep('creds');
+      setGoibiboOtp('');
 
       toast.loading("🔍 Scraping successful. Processing extracted bookings...", { id: "ai-enrich" });
 
@@ -2600,64 +2615,102 @@ export default function HotelLeadManagerPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Goibibo Credentials Modal */}
+      {/* Goibibo Credentials & OTP Modal */}
       <Dialog open={isGoibiboModalOpen} onOpenChange={setIsGoibiboModalOpen}>
         <DialogContent className="sm:max-w-[450px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base text-indigo-400">
               <Database size={18} />
-              Goibibo / Ingo-MMT AI Sync Login
+              {goibiboStep === 'otp' ? 'Goibibo OTP Verification' : 'Goibibo / Ingo-MMT AI Sync Login'}
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
-              Enter your Goibibo / MakeMyTrip Extranet credentials. The AI Agent will automatically fill them and fetch live bookings.
+              {goibiboStep === 'otp'
+                ? 'Enter the 4-digit or 6-digit OTP sent to your registered mobile number / email.'
+                : 'Enter your Goibibo / MakeMyTrip Extranet credentials. The AI Agent will automatically fill them and fetch live bookings.'}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-slate-300">Registered Mobile / Email ID</label>
-              <input
-                type="text"
-                placeholder="e.g. 9876543210 or hotel@example.com"
-                value={goibiboUsername}
-                onChange={(e) => setGoibiboUsername(e.target.value)}
-                className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-md focus:outline-none focus:border-indigo-500 text-white"
-              />
+
+          {goibiboStep === 'creds' ? (
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-slate-300">Registered Mobile / Email ID</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 9876543210 or hotel@example.com"
+                  value={goibiboUsername}
+                  onChange={(e) => setGoibiboUsername(e.target.value)}
+                  className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-md focus:outline-none focus:border-indigo-500 text-white"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-slate-300">Password (Optional if logging in via OTP)</label>
+                <input
+                  type="password"
+                  placeholder="Extranet Password"
+                  value={goibiboPassword}
+                  onChange={(e) => setGoibiboPassword(e.target.value)}
+                  className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-md focus:outline-none focus:border-indigo-500 text-white"
+                />
+              </div>
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="remember_creds"
+                  checked={saveGoibiboCreds}
+                  onChange={(e) => setSaveGoibiboCreds(e.target.checked)}
+                  className="rounded border-slate-700 bg-slate-900 text-indigo-500"
+                />
+                <label htmlFor="remember_creds" className="text-xs text-slate-400 cursor-pointer">
+                  Remember credentials for future 1-click sync
+                </label>
+              </div>
             </div>
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-slate-300">Password (Optional if logging in via OTP)</label>
-              <input
-                type="password"
-                placeholder="Extranet Password"
-                value={goibiboPassword}
-                onChange={(e) => setGoibiboPassword(e.target.value)}
-                className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-md focus:outline-none focus:border-indigo-500 text-white"
-              />
+          ) : (
+            <div className="space-y-4 py-2">
+              <div className="p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-md">
+                <p className="text-xs text-indigo-300 flex items-center gap-1.5 font-medium">
+                  <Sparkles size={14} />
+                  OTP requested for: <span className="font-bold text-white">{goibiboUsername}</span>
+                </p>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-slate-300">Enter Verification OTP</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 1234 or 123456"
+                  value={goibiboOtp}
+                  maxLength={6}
+                  onChange={(e) => setGoibiboOtp(e.target.value)}
+                  className="w-full px-3 py-2.5 text-center text-lg tracking-widest font-mono bg-slate-900 border border-indigo-500/50 rounded-md focus:outline-none focus:border-indigo-400 text-white"
+                />
+              </div>
             </div>
-            <div className="flex items-center gap-2 pt-1">
-              <input
-                type="checkbox"
-                id="remember_creds"
-                checked={saveGoibiboCreds}
-                onChange={(e) => setSaveGoibiboCreds(e.target.checked)}
-                className="rounded border-slate-700 bg-slate-900 text-indigo-500"
-              />
-              <label htmlFor="remember_creds" className="text-xs text-slate-400 cursor-pointer">
-                Remember credentials for future 1-click sync
-              </label>
-            </div>
-          </div>
+          )}
+
           <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
-            <Button variant="ghost" size="sm" onClick={() => setIsGoibiboModalOpen(false)}>
+            <Button variant="ghost" size="sm" onClick={() => { setIsGoibiboModalOpen(false); setGoibiboStep('creds'); }}>
               Cancel
             </Button>
-            <Button
-              size="sm"
-              onClick={() => executeAiEnrichment({ username: goibiboUsername, password: goibiboPassword })}
-              className="bg-indigo-600 hover:bg-indigo-500 text-white gap-2"
-            >
-              <Bot size={14} />
-              Start AI Sync
-            </Button>
+            {goibiboStep === 'creds' ? (
+              <Button
+                size="sm"
+                onClick={() => executeAiEnrichment({ username: goibiboUsername, password: goibiboPassword })}
+                className="bg-indigo-600 hover:bg-indigo-500 text-white gap-2"
+              >
+                <Bot size={14} />
+                Start AI Sync
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                onClick={() => executeAiEnrichment({ username: goibiboUsername, password: goibiboPassword, otp: goibiboOtp })}
+                disabled={!goibiboOtp || isAiScrapingData}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white gap-2"
+              >
+                <CheckCircle size={14} />
+                Verify OTP & Sync Bookings
+              </Button>
+            )}
           </div>
         </DialogContent>
       </Dialog>
