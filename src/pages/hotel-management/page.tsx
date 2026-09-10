@@ -122,7 +122,7 @@ export default function HotelLeadManagerPage() {
         }));
       }
 
-      toast.loading("🔑 Connecting to local Puppeteer Scraper (port 4000)...", { id: "ai-enrich" });
+      toast.loading("🔑 Connecting to AI Scraper Service...", { id: "ai-enrich" });
       
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
@@ -133,7 +133,8 @@ export default function HotelLeadManagerPage() {
         if (storedCookies) cookiesObj = JSON.parse(storedCookies);
       } catch(e) {}
 
-      const response = await fetch('http://localhost:4000/api/scrape', {
+      const scraperEndpoint = (import.meta as any).env?.VITE_SCRAPER_API_URL || 'http://localhost:4000/api/scrape';
+      const response = await fetch(scraperEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cookies: cookiesObj, username: uname, password: pass })
