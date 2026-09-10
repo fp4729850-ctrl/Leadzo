@@ -82,7 +82,8 @@ function buildICS(rooms: any[], bookings: any[], hotelName: string): string {
       `SUMMARY:${summary}`,
       `DESCRIPTION:${description}`,
       `CATEGORIES:${booking.source || 'Direct'}`,
-      `STATUS:${booking.status === 'blocked' ? 'TENTATIVE' : 'CONFIRMED'}`,
+      `STATUS:CONFIRMED`,
+      `TRANSP:OPAQUE`,
       'END:VEVENT'
     );
   }
