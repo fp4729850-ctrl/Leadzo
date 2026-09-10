@@ -381,11 +381,13 @@ export default function HotelLeadManagerPage() {
       let roomsNeedUpdate = false;
       const populatedRooms = activeRooms.map((r: any) => {
         const links = { ...(r.ical_links || {}) };
-        // Purge any old template/mock links from rooms
+        // Purge ANY mock or template links from rooms
         for (const [k, v] of Object.entries(links)) {
-          if (typeof v === 'string' && (v.includes('/room_') || v.includes('sample.ics') || v.includes('/hotel_extranet/'))) {
-            delete links[k];
-            roomsNeedUpdate = true;
+          if (k !== 'direct' && !k.includes('king')) {
+            if (typeof v === 'string' && (v.includes('/room_') || v.includes('sample') || v.includes('12345678') || v.includes('/hotel_extranet/'))) {
+              delete links[k];
+              roomsNeedUpdate = true;
+            }
           }
         }
         if (!links.direct) {
@@ -447,26 +449,23 @@ export default function HotelLeadManagerPage() {
       const rawChannels = refreshedChannelsRes.data || channelsRes.data || [];
 
       const dummyEmails = ['hotel.grand@booking.com', 'host@airbnb.com', 'hotel.grand@gmail.com'];
-      const dummyIcals = [
-        'https://ycs.agoda.com/ical/export/sample.ics', 
-        'https://www.airbnb.com/calendar/ical/12345678.ics?s=sample'
-      ];
 
       // Reset any mock / dummy seeded credentials so channels start clean and not connected
       for (const c of rawChannels) {
+        const isKingVilla = c.channel_id.toLowerCase().includes('king') || c.channel_id.toLowerCase().includes('villa') || c.channel_id === 'direct';
         const isDummyEmail = dummyEmails.includes(c.email);
-        const isDummyIcal = dummyIcals.includes(c.ical_url) || (c.ical_url && c.ical_url.includes('sample.ics'));
-        if (isDummyEmail || isDummyIcal) {
+        const isMockIcal = !c.ical_url || c.ical_url.includes('sample') || c.ical_url.includes('12345678') || c.ical_url.includes('/room_') || c.ical_url.includes('example');
+        if (!isKingVilla && (isMockIcal || c.status === 'connected')) {
           await supabase.from('hotel_channels').update({
             email: isDummyEmail ? '' : c.email,
             password: isDummyEmail ? '' : c.password,
-            ical_url: isDummyIcal ? '' : c.ical_url,
+            ical_url: isMockIcal ? '' : c.ical_url,
             status: 'pending',
             last_sync: 'Not connected'
           }).eq('id', c.id);
           c.email = isDummyEmail ? '' : c.email;
           c.password = isDummyEmail ? '' : c.password;
-          c.ical_url = isDummyIcal ? '' : c.ical_url;
+          c.ical_url = isMockIcal ? '' : c.ical_url;
           c.status = 'pending';
           c.last_sync = 'Not connected';
         }
@@ -480,12 +479,11 @@ export default function HotelLeadManagerPage() {
         // A channel is strictly connected ONLY if real external iCal is linked (room or master)
         const hasRoomIcal = populatedRooms.some((r: any) => {
           const l = r.icalLinks?.[channelKey];
-          return !!l && !dummyIcals.includes(l) && !l.includes('sample.ics') && !l.includes('/room_') && l.startsWith('http');
+          return Boolean(l && l.startsWith('http') && !l.includes('sample') && !l.includes('12345678') && !l.includes('/room_') && !l.includes('/hotel_extranet/'));
         });
-        const hasMasterIcal = !!c.ical_url && !dummyIcals.includes(c.ical_url) && !c.ical_url.includes('sample.ics') && !c.ical_url.includes('/room_') && c.ical_url.startsWith('http');
-        const isRealAiVerified = c.status === 'connected' && c.last_sync && c.last_sync.includes('Real AI Synced');
+        const hasMasterIcal = Boolean(c.ical_url && c.ical_url.startsWith('http') && !c.ical_url.includes('sample') && !c.ical_url.includes('12345678') && !c.ical_url.includes('/room_'));
 
-        const isRealConnected = isKingVilla ? true : Boolean(hasMasterIcal || hasRoomIcal || isRealAiVerified);
+        const isRealConnected = isKingVilla ? true : Boolean(hasMasterIcal || hasRoomIcal);
 
         // If not genuinely connected, force reset to pending in DB so it never shows false Connected
         if (!isRealConnected && c.status === 'connected') {
@@ -527,7 +525,7 @@ export default function HotelLeadManagerPage() {
           connectMode: c.connect_mode || (c.channel_id === 'agoda' ? 'ical' : 'ai'),
           email: dummyEmails.includes(c.email) ? '' : (c.email || ''),
           password: dummyEmails.includes(c.email) ? '' : (c.password || ''),
-          icalUrl: dummyIcals.includes(c.ical_url) ? '' : (c.ical_url || ''),
+          icalUrl: (c.ical_url && !c.ical_url.includes('sample') && !c.ical_url.includes('12345678')) ? c.ical_url : '',
           status: isRealConnected ? 'connected' : 'pending',
           lastSync: isRealConnected ? (c.last_sync || 'Just now') : 'Not connected'
         });
