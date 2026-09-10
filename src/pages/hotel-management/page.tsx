@@ -69,6 +69,7 @@ export default function HotelLeadManagerPage() {
   const [isSyncingAll, setIsSyncingAll] = useState(false);
   const [selectedRoomForIcal, setSelectedRoomForIcal] = useState<Room | null>(null);
   const [isAiMatching, setIsAiMatching] = useState(false);
+  const [autoSyncCountdown, setAutoSyncCountdown] = useState(180); // 3-minute countdown (180s)
   const [isBuyNumberModalOpen, setIsBuyNumberModalOpen] = useState(false);
   const [activeNumber, setActiveNumber] = useState<string | null>("+1 928 963 5202");
   const [isAddChannelOpen, setIsAddChannelOpen] = useState(false);
@@ -271,7 +272,7 @@ export default function HotelLeadManagerPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
 
   // Fetch data from Supabase
-  const fetchData = async () => {
+  const fetchData = async (isAutoSync: boolean = false) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -551,6 +552,9 @@ export default function HotelLeadManagerPage() {
       if (hasNewSync) {
         const refetched = await supabase.from('hotel_bookings').select('*');
         if (refetched.data) currentBookings = refetched.data;
+        if (isAutoSync) {
+          toast.success("🔔 Nayi booking sync ho gayi! Table & Calendar grid update ho chuki hai.");
+        }
       }
 
       setBookings(currentBookings.map((b: any) => ({
@@ -567,11 +571,17 @@ export default function HotelLeadManagerPage() {
   useEffect(() => {
     fetchData();
 
-    // ⚡ Automatic Background Auto-Sync every 3 minutes (180s)
-    const autoSyncInterval = setInterval(() => {
-      console.log("⚡ [Leadzo AI] Auto-Syncing OTA calendars in background (every 3 mins)...");
-      fetchData();
-    }, 3 * 60 * 1000);
+    // ⚡ 1-second interval to drive 3-minute live countdown timeline (180s)
+    const timerInterval = setInterval(() => {
+      setAutoSyncCountdown((prev) => {
+        if (prev <= 1) {
+          console.log("⚡ [Leadzo AI] 3-Minute Auto-Sync Triggered!");
+          fetchData(true);
+          return 180;
+        }
+        return prev - 1;
+      });
+    }, 1000);
 
     // Build master iCal URL after auth
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -585,11 +595,12 @@ export default function HotelLeadManagerPage() {
       }
     });
 
-    return () => clearInterval(autoSyncInterval);
+    return () => clearInterval(timerInterval);
   }, []);
 
   const handleSyncAll = async () => {
     setIsSyncingAll(true);
+    setAutoSyncCountdown(180); // Reset 3-minute timer on manual sync
     toast.info("Syncing OTA Calendars across Booking.com, Airbnb, Agoda...");
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -1008,6 +1019,18 @@ export default function HotelLeadManagerPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* ⏱️ 3-Minute Live Auto-Sync Timeline Badge */}
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/10 text-xs shadow-sm">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <span className="text-muted-foreground text-[11px]">iCal Auto-Sync:</span>
+            <span className="font-mono text-emerald-400 font-semibold text-xs tracking-wider">
+              {Math.floor(autoSyncCountdown / 60)}:{(autoSyncCountdown % 60).toString().padStart(2, '0')}
+            </span>
+          </div>
+
           <Button onClick={handleAiAutoMatchRooms} disabled={isAiMatching} variant="secondary" size="sm" className="gap-2 cursor-pointer border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20">
             <Wand2 size={14} className={cn(isAiMatching && "animate-spin text-amber-400")} />
             {isAiMatching ? "AI Matching..." : "AI Auto-Match Rooms"}
