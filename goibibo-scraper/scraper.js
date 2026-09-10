@@ -13,14 +13,22 @@ async function scrapeGoibibo(options = {}) {
     try {
         const hasCookies = fs.existsSync(COOKIES_PATH);
         
-        console.log("Launching visible Chrome browser...");
+        const isCloud = process.env.NODE_ENV === 'production' || process.env.HEADLESS === 'true';
+        const macChrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+        const chromePath = process.env.CHROME_PATH || (fs.existsSync(macChrome) ? macChrome : undefined);
+
+        console.log(`Launching Chrome browser (Cloud Mode: ${isCloud})...`);
         browser = await puppeteer.launch({
-            headless: false,
-            executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-            defaultViewport: null,
+            headless: isCloud ? 'new' : false,
+            executablePath: chromePath,
+            defaultViewport: isCloud ? { width: 1280, height: 900 } : null,
             args: [
                 '--start-maximized',
                 '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-accelerated-2d-canvas',
+                '--disable-gpu',
                 '--disable-blink-features=AutomationControlled',
                 '--disable-infobars',
                 '--window-size=1280,900'
