@@ -98,6 +98,18 @@ async function scrapeGoibibo(options = {}) {
 
         if (isLoginPage) {
             console.log("⚠️  Not logged in.");
+
+            // 1. Click 'Sign in' button to open modal if inputs not yet in DOM
+            const hasUserInput = await page.$('input[name="userName"], input[name="username"]');
+            if (!hasUserInput) {
+                console.log("👉 Clicking 'Sign in' button on Goibibo page to open login modal...");
+                await page.evaluate(() => {
+                    const buttons = Array.from(document.querySelectorAll('button, a'));
+                    const btn = buttons.find(b => b.innerText && b.innerText.trim().toLowerCase() === 'sign in');
+                    if (btn) btn.click();
+                });
+                await new Promise(r => setTimeout(r, 2000));
+            }
             
             if (otp) {
                 console.log("📲 Auto-filling OTP provided by user...");
@@ -112,30 +124,36 @@ async function scrapeGoibibo(options = {}) {
                     console.log("OTP fill notice:", e.message);
                 }
             } else if (username || password) {
-                console.log("🔑 Auto-filling credentials provided by user...");
+                console.log("🔑 Typing username and password into Goibibo Extranet modal...");
                 try {
-                    if (username) {
-                        const userInput = await page.$('input[type="text"], input[type="email"], input[type="tel"], input[name="username"], input[name="mobileNumber"], #username, #userId');
-                        if (userInput) {
-                            await userInput.type(username, { delay: 50 });
+                    const userInput = await page.$('input[name="userName"], input[name="username"], input[type="text"]');
+                    if (userInput && username) {
+                        await userInput.click({ clickCount: 3 });
+                        await userInput.type(username, { delay: 40 });
+                    }
+                    const passInput = await page.$('input[name="password"], input[type="password"]');
+                    if (passInput && password) {
+                        await passInput.click({ clickCount: 3 });
+                        await passInput.type(password, { delay: 40 });
+                    }
+                    
+                    // Click the 'Sign in' submit button inside the modal
+                    const submitSuccess = await page.evaluate(() => {
+                        const buttons = Array.from(document.querySelectorAll('button'));
+                        const sBtn = buttons.find(b => b.innerText && b.innerText.trim().toLowerCase() === 'sign in');
+                        if (sBtn) {
+                            sBtn.click();
+                            return true;
                         }
-                    }
-                    if (password) {
-                        const passInput = await page.$('input[type="password"]');
-                        if (passInput) {
-                            await passInput.type(password, { delay: 50 });
-                        }
-                    }
-                    const submitBtn = await page.$('button[type="submit"], button.btn-primary, #login-btn, input[type="submit"]');
-                    if (submitBtn) {
-                        await submitBtn.click();
-                    }
+                        return false;
+                    });
+                    console.log("Sign in form submitted:", submitSuccess);
                 } catch (e) {
                     console.log("Auto-fill notice:", e.message);
                 }
 
-                // If user submitted mobile without OTP, return needOtp to open Step 2 Modal
-                await new Promise(resolve => setTimeout(resolve, 2000));
+                // Give Goibibo 2-3 seconds to validate credentials and send OTP
+                await new Promise(resolve => setTimeout(resolve, 3000));
                 console.log("📲 Prompting user for OTP entry in UI Modal...");
                 await browser.close();
                 return {
