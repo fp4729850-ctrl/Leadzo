@@ -448,16 +448,18 @@ export default function HotelLeadManagerPage() {
           'Goibibo / MMT Guest',
           'Airbnb / Goibibo Guest',
           'Direct Booking (King Villa)',
+          'King Villa Direct Booking',
           'King Villa Guest',
-          'OTA Booking'
+          'OTA Booking',
+          'Calendar Creation',
+          'Soham Das (Goibibo)'
         ]);
 
-      // Also purge any template demo blocks (BLOCK-*, OTA-GoibiboMMT-*)
-      await supabase
-        .from('hotel_bookings')
-        .delete()
-        .eq('user_id', user.id)
-        .or('ical_uid.ilike.OTA-GoibiboMMT%,ical_uid.ilike.BLOCK-%');
+      // Purge duplicate dummy UID and any template BLOCK/OTA/dummy UIDs
+      await supabase.from('hotel_bookings').delete().eq('user_id', user.id).eq('ical_uid', 'GOIBIBO-MMT-20260912-LIVE-CONFIRMED');
+      await supabase.from('hotel_bookings').delete().eq('user_id', user.id).like('ical_uid', 'BLOCK-%');
+      await supabase.from('hotel_bookings').delete().eq('user_id', user.id).like('ical_uid', 'OTA-GoibiboMMT%');
+      await supabase.from('hotel_bookings').delete().eq('user_id', user.id).like('ical_uid', 'dummy-%');
 
       const initialBookings = await supabase.from('hotel_bookings').select('*');
       let currentBookings = initialBookings.data || [];
@@ -483,7 +485,9 @@ export default function HotelLeadManagerPage() {
                     curEvent.ical_uid !== 'dummy-event-1' &&
                     !curEvent.ical_uid.startsWith('OTA-GoibiboMMT-') &&
                     !curEvent.ical_uid.startsWith('BLOCK-') &&
-                    curEvent.guest_name !== 'OTA Booking') {
+                    curEvent.guest_name !== 'OTA Booking' &&
+                    !curEvent.guest_name?.includes('Calendar Creation') &&
+                    !curEvent.guest_name?.includes('King Villa Direct Booking')) {
                   const exists = currentBookings.some((b: any) => b.ical_uid === curEvent.ical_uid);
                   if (!exists) {
                     let platformSource = "King Villa Direct";
@@ -534,35 +538,7 @@ export default function HotelLeadManagerPage() {
         }
       }
 
-      // 5. Ensure Sept 12 Goibibo / MakeMyTrip (Soham Das) booking is synchronized & displayed
-      const hasSept12Booking = currentBookings.some((b: any) => 
-        (b.check_in === 'Sept 12' || b.check_in === '20260912') && 
-        (b.ical_uid === 'GOIBIBO-MMT-20260912-LIVE-CONFIRMED' || b.guest_name?.includes('Vikram Singh') || b.guest_name?.includes('Soham Das'))
-      );
 
-      if (!hasSept12Booking && activeRooms.length > 0) {
-        const targetRoom = activeRooms[0];
-        await supabase.from('hotel_bookings').insert({
-          user_id: user.id,
-          room_id: targetRoom.id,
-          guest_name: 'Soham Das (Goibibo)',
-          source: 'Goibibo / MakeMyTrip',
-          check_in: 'Sept 12',
-          check_out: 'Sept 13', // ✅ CORRECT: 1-night stay (Goibibo portal shows 13 Sep checkout)
-          amount: 1967,
-          status: 'confirmed',
-          ical_uid: 'GOIBIBO-MMT-20260912-LIVE-CONFIRMED'
-        });
-        hasNewSync = true;
-      } else {
-        // Always correct the check_out date if it was previously saved wrong (Sept 14 → Sept 13)
-        await supabase
-          .from('hotel_bookings')
-          .update({ guest_name: 'Soham Das (Goibibo)', check_out: 'Sept 13', amount: 1967 })
-          .eq('ical_uid', 'GOIBIBO-MMT-20260912-LIVE-CONFIRMED')
-          .neq('check_out', 'Sept 13') // only update if it's still wrong
-          .eq('user_id', user.id);
-      }
 
       if (hasNewSync) {
         const refetched = await supabase.from('hotel_bookings').select('*');
