@@ -462,9 +462,14 @@ export default function HotelLeadManagerPage() {
 
       const mergedList: OtaChannel[] = [];
       rawChannels.forEach((c: any) => {
-        const isRealConnected = c.status === 'connected' && (
-          (c.connect_mode === 'ical' && !!c.ical_url && !dummyIcals.includes(c.ical_url)) ||
-          (c.connect_mode !== 'ical' && !!c.email && !dummyEmails.includes(c.email))
+        const channelKey = c.channel_id === 'goibibo' ? 'goibibo' : (c.channel_id === 'booking' ? 'bookingCom' : c.channel_id);
+        const hasRoomIcal = populatedRooms.some((r: any) => !!r.icalLinks[channelKey] && !dummyIcals.includes(r.icalLinks[channelKey]));
+        const hasMasterIcal = !!c.ical_url && !dummyIcals.includes(c.ical_url);
+        const hasAiLogin = !!c.email && !dummyEmails.includes(c.email);
+
+        const isRealConnected = (c.status === 'connected' || hasRoomIcal || hasMasterIcal) && (
+          (c.connect_mode === 'ical' && (hasMasterIcal || hasRoomIcal)) ||
+          (c.connect_mode !== 'ical' && hasAiLogin)
         );
 
         let channelName = c.name;
@@ -924,6 +929,12 @@ export default function HotelLeadManagerPage() {
   const updateRoomOtaIcal = async (roomId: string, channelId: string, val: string) => {
     const prop = channelId === 'goibibo' ? 'goibibo' : (channelId === 'booking' ? 'bookingCom' : channelId);
     setRooms(prev => prev.map(r => r.id === roomId ? { ...r, icalLinks: { ...r.icalLinks, [prop]: val } } : r));
+    
+    // Auto-connect channel state if there is a value
+    if (val.trim()) {
+      setChannels(prev => prev.map(c => c.id === channelId ? { ...c, status: 'connected' } : c));
+    }
+
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       const targetRoom = rooms.find(r => r.id === roomId);
@@ -931,6 +942,14 @@ export default function HotelLeadManagerPage() {
         await supabase.from('hotel_rooms').update({
           ical_links: { ...targetRoom.icalLinks, [prop]: val }
         }).eq('id', roomId);
+
+        // Also update the channel to connected in DB
+        if (val.trim()) {
+          await supabase.from('hotel_channels').update({
+            status: 'connected',
+            last_sync: 'Just now (Room iCal mapped)'
+          }).eq('channel_id', channelId).eq('user_id', user.id);
+        }
       }
     }
   };
