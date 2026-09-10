@@ -7,7 +7,8 @@ const path = require('path');
 
 const COOKIES_PATH = path.join(__dirname, 'goibibo_cookies.json');
 
-async function scrapeGoibibo() {
+async function scrapeGoibibo(options = {}) {
+    const { username, password } = options;
     let browser;
     try {
         const hasCookies = fs.existsSync(COOKIES_PATH);
@@ -66,8 +67,33 @@ async function scrapeGoibibo() {
                             pageTitle.includes('Connect');
 
         if (isLoginPage) {
-            console.log("⚠️  Not logged in. Please login manually in the Chrome window.");
-            console.log("   Please login with your mobile number/credentials.");
+            console.log("⚠️  Not logged in.");
+            
+            if (username || password) {
+                console.log("🔑 Auto-filling credentials provided by user...");
+                try {
+                    if (username) {
+                        const userInput = await page.$('input[type="text"], input[type="email"], input[type="tel"], input[name="username"], input[name="mobileNumber"], #username, #userId');
+                        if (userInput) {
+                            await userInput.type(username, { delay: 50 });
+                        }
+                    }
+                    if (password) {
+                        const passInput = await page.$('input[type="password"]');
+                        if (passInput) {
+                            await passInput.type(password, { delay: 50 });
+                        }
+                    }
+                    const submitBtn = await page.$('button[type="submit"], button.btn-primary, #login-btn, input[type="submit"]');
+                    if (submitBtn) {
+                        await submitBtn.click();
+                    }
+                } catch (e) {
+                    console.log("Auto-fill notice:", e.message);
+                }
+            }
+
+            console.log("   Please complete login / OTP in the Chrome window if prompted.");
             console.log("   Waiting up to 5 minutes for you to complete login...\n");
             
             // Wait for the bookings page to appear after login
@@ -93,13 +119,12 @@ async function scrapeGoibibo() {
         console.log("Extracting booking details...");
         
         // DEBUG: Save the page HTML so we can see the exact DOM structure
-        const fs = require('fs');
         const pageHtml = await page.content();
-        fs.writeFileSync(require('path').join(__dirname, 'page_dump.html'), pageHtml);
+        fs.writeFileSync(path.join(__dirname, 'page_dump.html'), pageHtml);
         console.log("Page HTML saved to page_dump.html for debugging");
         
         // Also take a screenshot
-        await page.screenshot({ path: require('path').join(__dirname, 'page_screenshot.png'), fullPage: true });
+        await page.screenshot({ path: path.join(__dirname, 'page_screenshot.png'), fullPage: true });
         console.log("Screenshot saved to page_screenshot.png");
 
         const bookings = await page.evaluate(() => {

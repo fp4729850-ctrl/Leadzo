@@ -9,7 +9,7 @@ app.use(express.json());
 app.all('/api/scrape', async (req, res) => {
     try {
         console.log("\n🚀 Received scrape request...");
-        const data = await scrapeGoibibo();
+        const data = await scrapeGoibibo(req.body || {});
         res.json({ success: true, data: data });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
