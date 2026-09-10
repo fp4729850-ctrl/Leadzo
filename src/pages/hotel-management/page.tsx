@@ -445,8 +445,19 @@ export default function HotelLeadManagerPage() {
           'Aman Sharma',
           'Vikram Malhotra',
           'Double Booking Overlap Blocked',
-          'Goibibo / MMT Guest'
+          'Goibibo / MMT Guest',
+          'Airbnb / Goibibo Guest',
+          'Direct Booking (King Villa)',
+          'King Villa Guest',
+          'OTA Booking'
         ]);
+
+      // Also purge any template demo blocks (BLOCK-*, OTA-GoibiboMMT-*)
+      await supabase
+        .from('hotel_bookings')
+        .delete()
+        .eq('user_id', user.id)
+        .or('ical_uid.ilike.OTA-GoibiboMMT%,ical_uid.ilike.BLOCK-%');
 
       const initialBookings = await supabase.from('hotel_bookings').select('*');
       let currentBookings = initialBookings.data || [];
@@ -468,7 +479,11 @@ export default function HotelLeadManagerPage() {
               if (line.startsWith('BEGIN:VEVENT')) {
                 curEvent = {};
               } else if (line.startsWith('END:VEVENT') && curEvent) {
-                if (curEvent.check_in && curEvent.check_out && curEvent.ical_uid && curEvent.ical_uid !== 'dummy-event-1') {
+                if (curEvent.check_in && curEvent.check_out && curEvent.ical_uid && 
+                    curEvent.ical_uid !== 'dummy-event-1' &&
+                    !curEvent.ical_uid.startsWith('OTA-GoibiboMMT-') &&
+                    !curEvent.ical_uid.startsWith('BLOCK-') &&
+                    curEvent.guest_name !== 'OTA Booking') {
                   const exists = currentBookings.some((b: any) => b.ical_uid === curEvent.ical_uid);
                   if (!exists) {
                     let platformSource = "King Villa Direct";
@@ -665,7 +680,11 @@ export default function HotelLeadManagerPage() {
         if (line.startsWith('BEGIN:VEVENT')) {
           currentEvent = {};
         } else if (line.startsWith('END:VEVENT') && currentEvent) {
-          if (currentEvent.check_in && currentEvent.check_out && currentEvent.ical_uid && currentEvent.ical_uid !== 'dummy-event-1' && targetRoom) {
+          if (currentEvent.check_in && currentEvent.check_out && currentEvent.ical_uid && 
+              currentEvent.ical_uid !== 'dummy-event-1' &&
+              !currentEvent.ical_uid.startsWith('OTA-GoibiboMMT-') &&
+              !currentEvent.ical_uid.startsWith('BLOCK-') &&
+              currentEvent.guest_name !== 'OTA Booking' && targetRoom) {
             const { data: existing } = await supabase
               .from('hotel_bookings')
               .select('id')
@@ -1064,7 +1083,7 @@ export default function HotelLeadManagerPage() {
             <div>
               <p className="text-xs text-muted-foreground">Total Revenue</p>
               <p className="text-xl font-bold font-mono text-emerald-400">
-                ₹{totalRevenue.toLocaleString()}
+                ₹{totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
             </div>
           </CardContent>
