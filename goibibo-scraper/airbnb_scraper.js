@@ -14,13 +14,22 @@ async function scrapeAirbnb(options = {}) {
 
     const macChrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
     let chromePath = process.env.CHROME_PATH;
+    const isCloud = process.env.NODE_ENV === 'production' || process.env.HEADLESS === 'true';
+
+    if (isCloud) {
+        try {
+            const chromium = require('@sparticuz/chromium');
+            chromePath = await chromium.executablePath();
+        } catch (e) {}
+    }
+
     if (!chromePath && fs.existsSync(macChrome)) {
         chromePath = macChrome;
     } else if (!chromePath) {
-        chromePath = puppeteer.executablePath();
+        try {
+            chromePath = await puppeteer.executablePath();
+        } catch (e) {}
     }
-
-    const isCloud = process.env.NODE_ENV === 'production' || process.env.HEADLESS === 'true';
 
     console.log(`\n🏡 [Airbnb Scraper] Launching Chrome (Headless: ${isCloud})...`);
     const browser = await puppeteer.launch({
