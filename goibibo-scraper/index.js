@@ -1,6 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const { scrapeGoibibo } = require('./scraper');
+const { scrapeAirbnb } = require('./airbnb_scraper');
+const { scrapeAgoda } = require('./agoda_scraper');
 
 const app = express();
 app.use(cors());
@@ -8,13 +10,24 @@ app.use(express.json());
 
 app.all('/api/scrape', async (req, res) => {
     try {
-        console.log("\n🚀 Received scrape request...");
-        const data = await scrapeGoibibo(req.body || {});
+        const channel = (req.body && req.body.channel) ? req.body.channel.toLowerCase() : 'goibibo';
+        console.log(`\n🚀 Received scrape request for channel: ${channel}...`);
+        
+        let data;
+        if (channel === 'airbnb') {
+            data = await scrapeAirbnb(req.body || {});
+        } else if (channel === 'agoda') {
+            data = await scrapeAgoda(req.body || {});
+        } else {
+            data = await scrapeGoibibo(req.body || {});
+        }
+
         if (data && data.needOtp) {
             return res.json({ success: true, needOtp: true, message: data.message });
         }
         res.json({ success: true, data: data });
     } catch (error) {
+        console.error("Scrape error:", error);
         res.status(500).json({ success: false, error: error.message });
     }
 });

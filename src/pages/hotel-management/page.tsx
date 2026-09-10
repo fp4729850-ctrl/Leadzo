@@ -991,42 +991,60 @@ export default function HotelLeadManagerPage() {
       return;
     }
 
-    // Phase 1: Real AI Login Attempt
+    // Phase 1: Real AI Login Attempt via Local Scraper
     setAiConnectProgress(prev => ({ ...prev, [channelId]: 'login' }));
-    toast.loading(`🤖 AI Agent initiating secure browser session for ${name}...`, { id: `ota-${channelId}` });
+    toast.loading(`🤖 AI Agent launching Chrome to connect ${name}...`, { id: `ota-${channelId}` });
 
     try {
       const scraperEndpoint = (import.meta as any).env?.VITE_SCRAPER_API_URL || 'http://localhost:4000/api/scrape';
       
-      // Attempt to reach the background scraper engine
-      let scraperActive = false;
-      try {
-        const ping = await fetch(scraperEndpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'ping', channel: channelId })
-        });
-        scraperActive = ping.ok;
-      } catch (e) {
-        scraperActive = false;
-      }
+      const res = await fetch(scraperEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          channel: channelId,
+          email: targetChannel.email,
+          password: targetChannel.password,
+          leadzoMasterIcal: masterIcalUrl
+        })
+      });
 
-      // 2FA / OTP is required for OTAs like Airbnb, Agoda, Booking.com
-      setTimeout(() => {
-        setAiConnectProgress(prev => ({ ...prev, [channelId]: 'idle' }));
-        toast.dismiss(`ota-${channelId}`);
-        
+      const resData = await res.json();
+      setAiConnectProgress(prev => ({ ...prev, [channelId]: 'idle' }));
+      toast.dismiss(`ota-${channelId}`);
+
+      if (resData.needOtp) {
         // Open Real OTP Verification Modal for the user
         setOtaOtpChannelId(channelId);
         setOtaOtpChannelName(name);
         setOtaOtpValue('');
         setOtaOtpModalOpen(true);
-        toast.info(`📲 ${name} requires 2FA / OTP verification code!`, { duration: 6000 });
-      }, 1500);
+        toast.info(resData.message || `📲 ${name} requires 2FA / OTP verification code!`, { duration: 8000 });
+      } else if (resData.success && resData.icalUrl) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase.from('hotel_channels').update({
+            status: 'connected',
+            ical_url: resData.icalUrl,
+            last_sync: 'Just now (Real AI Synced ✅)'
+          }).eq('channel_id', channelId).eq('user_id', user.id);
+        }
 
+        setChannels(prev => prev.map(c => c.id === channelId ? {
+          ...c,
+          status: 'connected',
+          icalUrl: resData.icalUrl,
+          lastSync: 'Just now (Real AI Synced ✅)'
+        } : c));
+
+        toast.success(`🎉 ${name} successfully connected! iCal feeds synchronized.`);
+        await fetchData();
+      } else {
+        toast.error(resData.error || `Could not connect to ${name}. Ensure port 4000 scraper is running.`);
+      }
     } catch (err: any) {
       setAiConnectProgress(prev => ({ ...prev, [channelId]: 'idle' }));
-      toast.error(`AI Connection error: ${err.message}`, { id: `ota-${channelId}` });
+      toast.error(`AI Connection error: ${err.message}. Make sure local scraper is running on port 4000!`, { id: `ota-${channelId}` });
     }
   };
 
@@ -1045,7 +1063,10 @@ export default function HotelLeadManagerPage() {
 
       // Attempt to communicate with scraper
       const scraperEndpoint = (import.meta as any).env?.VITE_SCRAPER_API_URL || 'http://localhost:4000/api/scrape';
+      const targetChannel = channels.find(c => c.id === otaOtpChannelId);
       let scrapeSuccess = false;
+      let returnedIcal = '';
+
       try {
         const res = await fetch(scraperEndpoint, {
           method: 'POST',
@@ -1053,20 +1074,21 @@ export default function HotelLeadManagerPage() {
           body: JSON.stringify({
             channel: otaOtpChannelId,
             otp: otaOtpValue,
-            email: channels.find(c => c.id === otaOtpChannelId)?.email,
-            password: channels.find(c => c.id === otaOtpChannelId)?.password
+            email: targetChannel?.email,
+            password: targetChannel?.password,
+            leadzoMasterIcal: masterIcalUrl
           })
         });
         const resData = await res.json();
-        scrapeSuccess = resData.success && !resData.needOtp;
+        scrapeSuccess = Boolean(resData.success && !resData.needOtp);
+        returnedIcal = resData.icalUrl || '';
       } catch (e) {
         scrapeSuccess = false;
       }
 
       if (!scrapeSuccess) {
-        // Scraper is either not configured or needs direct iCal mapping
         toast.error(
-          `⚠️ ${otaOtpChannelName} session could not be verified automatically by the local scraper (Port 4000). To avoid mock data, please use "Direct iCal Feed" tab with your official ${otaOtpChannelName} iCal link!`,
+          `⚠️ ${otaOtpChannelName} verification could not be completed automatically by local scraper. Please check the Chrome window or use "Direct iCal Feed" tab!`,
           { id: "ota-otp", duration: 9000 }
         );
         setOtaOtpModalOpen(false);
@@ -1078,15 +1100,17 @@ export default function HotelLeadManagerPage() {
       setChannels(prev => prev.map(c => c.id === otaOtpChannelId ? {
         ...c,
         status: 'connected',
+        icalUrl: returnedIcal || c.icalUrl,
         lastSync: 'Just now (Real AI Synced ✅)'
       } : c));
 
       await supabase.from('hotel_channels').update({
         status: 'connected',
+        ical_url: returnedIcal || undefined,
         last_sync: 'Just now (Real AI Synced ✅)'
       }).eq('channel_id', otaOtpChannelId).eq('user_id', user.id);
 
-      toast.success(`🎉 ${otaOtpChannelName} successfully connected via AI!`, { id: "ota-otp" });
+      toast.success(`🎉 ${otaOtpChannelName} successfully connected via AI! iCal feeds mapped.`, { id: "ota-otp" });
       setOtaOtpModalOpen(false);
       await fetchData();
     } catch (err: any) {
