@@ -15,9 +15,20 @@ async function scrapeGoibibo(options = {}) {
         
         const isCloud = process.env.NODE_ENV === 'production' || process.env.HEADLESS === 'true';
         const macChrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-        const chromePath = process.env.CHROME_PATH || (fs.existsSync(macChrome) ? macChrome : undefined);
+        let chromePath = process.env.CHROME_PATH;
+        if (!chromePath) {
+            if (fs.existsSync(macChrome)) {
+                chromePath = macChrome;
+            } else {
+                try {
+                    chromePath = puppeteer.executablePath();
+                } catch (e) {
+                    console.log("Executable path notice:", e.message);
+                }
+            }
+        }
 
-        console.log(`Launching Chrome browser (Cloud Mode: ${isCloud})...`);
+        console.log(`Launching Chrome browser (Cloud Mode: ${isCloud}, Path: ${chromePath})...`);
         browser = await puppeteer.launch({
             headless: isCloud ? 'new' : false,
             executablePath: chromePath,
