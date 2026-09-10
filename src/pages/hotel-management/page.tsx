@@ -83,6 +83,16 @@ export default function HotelLeadManagerPage() {
   const [isPushingToAll, setIsPushingToAll] = useState(false);
   const [isAiScrapingData, setIsAiScrapingData] = useState(false);
 
+  // 1-Click Room Block Dialog state
+  const [blockDialogOpen, setBlockDialogOpen] = useState(false);
+  const [blockDialogRoom, setBlockDialogRoom] = useState<Room | null>(null);
+  const [blockDialogDate, setBlockDialogDate] = useState('');
+  const [blockGuestName, setBlockGuestName] = useState('');
+  const [blockGuestPhone, setBlockGuestPhone] = useState('');
+  const [blockGuestAmount, setBlockGuestAmount] = useState('');
+  const [blockMode, setBlockMode] = useState<'block' | 'book'>('block');
+  const [isBlockingRoom, setIsBlockingRoom] = useState(false);
+
   const [isGoibiboModalOpen, setIsGoibiboModalOpen] = useState(false);
   const [goibiboUsername, setGoibiboUsername] = useState('');
   const [goibiboPassword, setGoibiboPassword] = useState('');
@@ -227,6 +237,56 @@ export default function HotelLeadManagerPage() {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'];
     const month = months[parseInt(monthStr, 10) - 1] || 'Sept';
     return `${month} ${dayStr}`;
+  };
+
+  // ─── OVERLAP DETECTOR ENGINE ───
+  // Checks if a new booking's dates overlap with any existing confirmed booking on the same room
+  const checkDateOverlap = (roomId: string, newCheckIn: string, newCheckOut: string, existingBookings: any[], excludeUid?: string): any | null => {
+    const newInTime = parseDateStrUtil(newCheckIn);
+    const newOutTime = parseDateStrUtil(newCheckOut);
+    if (isNaN(newInTime) || isNaN(newOutTime)) return null;
+
+    for (const b of existingBookings) {
+      if (b.room_id !== roomId) continue;
+      if (b.status === 'blocked') continue;
+      if (excludeUid && b.ical_uid === excludeUid) continue;
+      const existIn = parseDateStrUtil(b.check_in);
+      const existOut = parseDateStrUtil(b.check_out);
+      if (isNaN(existIn) || isNaN(existOut)) continue;
+      // Overlap condition: newCheckIn < existCheckOut AND newCheckOut > existCheckIn
+      if (newInTime < existOut && newOutTime > existIn) {
+        return b; // returns the conflicting booking
+      }
+    }
+    return null;
+  };
+
+  // Utility version of parseDateStr that works with both "Sept 12" and "20260912" formats
+  const parseDateStrUtil = (dateStr: string): number => {
+    if (!dateStr) return NaN;
+    // Handle YYYYMMDD format
+    if (/^\d{8}$/.test(dateStr)) {
+      const y = parseInt(dateStr.substring(0, 4), 10);
+      const m = parseInt(dateStr.substring(4, 6), 10) - 1;
+      const d = parseInt(dateStr.substring(6, 8), 10);
+      return new Date(y, m, d).getTime();
+    }
+    const parts = dateStr.trim().split(/\s+/);
+    if (parts.length !== 2) return NaN;
+    const monthNames: Record<string, number> = {
+      jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
+      jul: 6, aug: 7, sep: 8, sept: 8, oct: 9, nov: 10, dec: 11
+    };
+    let mIdx = -1, day = -1;
+    const p0Lower = parts[0].toLowerCase();
+    const p1Lower = parts[1].toLowerCase();
+    if (monthNames[p0Lower] !== undefined) {
+      mIdx = monthNames[p0Lower]; day = parseInt(parts[1], 10);
+    } else if (monthNames[p1Lower] !== undefined) {
+      mIdx = monthNames[p1Lower]; day = parseInt(parts[0], 10);
+    }
+    if (mIdx === -1 || isNaN(day)) return NaN;
+    return new Date(new Date().getFullYear(), mIdx, day).getTime();
   };
 
   const normalizeBookingDate = (d: string) => {
@@ -501,18 +561,38 @@ export default function HotelLeadManagerPage() {
                       guestDisplay = 'Direct Booking (King Villa)';
                     }
 
+                    // 🛡️ OVERLAP DETECTOR: Check if this new booking clashes with an existing one on same room
+                    const formattedCheckIn = formatIcalDateForUI(curEvent.check_in);
+                    const formattedCheckOut = formatIcalDateForUI(curEvent.check_out);
+                    const conflicting = checkDateOverlap(matchingRoom.id, formattedCheckIn, formattedCheckOut, currentBookings, curEvent.ical_uid);
+                    const bookingStatus = conflicting ? 'blocked' : 'confirmed';
+
+                    if (conflicting) {
+                      console.warn(`🛡️ DOUBLE BOOKING DETECTED & BLOCKED: ${guestDisplay} on ${formattedCheckIn} clashes with ${conflicting.guest_name} on Room ${matchingRoom.number}`);
+                    }
+
                     await supabase.from('hotel_bookings').insert({
                       user_id: user.id,
                       room_id: matchingRoom.id,
                       guest_name: guestDisplay,
                       source: platformSource,
-                      check_in: formatIcalDateForUI(curEvent.check_in),
-                      check_out: formatIcalDateForUI(curEvent.check_out),
+                      check_in: formattedCheckIn,
+                      check_out: formattedCheckOut,
                       amount: matchingRoom.price_per_night || 4000,
-                      status: 'confirmed',
+                      status: bookingStatus,
                       ical_uid: curEvent.ical_uid
                     });
                     hasNewSync = true;
+
+                    // Add to currentBookings so subsequent overlap checks include this new booking
+                    currentBookings.push({
+                      room_id: matchingRoom.id,
+                      check_in: formattedCheckIn,
+                      check_out: formattedCheckOut,
+                      ical_uid: curEvent.ical_uid,
+                      guest_name: guestDisplay,
+                      status: bookingStatus
+                    });
                   }
                 }
                 curEvent = null;
@@ -611,6 +691,75 @@ export default function HotelLeadManagerPage() {
     }
   };
 
+  // 🛡️ 1-Click Room Block / Quick Book Handler
+  const handleBlockRoom = async () => {
+    if (!blockDialogRoom || !blockDialogDate) return;
+    setIsBlockingRoom(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const checkIn = blockDialogDate;
+      // For block mode: block just 1 night. For book mode: user might want multi-night but default 1 night
+      const checkInTime = parseDateStrUtil(checkIn);
+      const checkOutDate = new Date(checkInTime);
+      checkOutDate.setDate(checkOutDate.getDate() + 1);
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'];
+      const checkOut = `${months[checkOutDate.getMonth()]} ${checkOutDate.getDate().toString().padStart(2, '0')}`;
+
+      // Find the room's DB id
+      const { data: dbRooms } = await supabase.from('hotel_rooms').select('id').eq('number', blockDialogRoom.number).eq('user_id', user.id).maybeSingle();
+      const roomId = dbRooms?.id || blockDialogRoom.id;
+
+      if (blockMode === 'book') {
+        // Check overlap before inserting a direct booking
+        const { data: existingBookings } = await supabase.from('hotel_bookings').select('*').eq('room_id', roomId).eq('user_id', user.id);
+        const clash = checkDateOverlap(roomId, checkIn, checkOut, existingBookings || []);
+        if (clash) {
+          toast.error(`🛡️ Double Booking Blocked! ${clash.guest_name} already has ${blockDialogRoom.number} booked on ${checkIn}`);
+          setIsBlockingRoom(false);
+          return;
+        }
+
+        await supabase.from('hotel_bookings').insert({
+          user_id: user.id,
+          room_id: roomId,
+          guest_name: blockGuestName || 'Direct Guest',
+          phone: blockGuestPhone || '',
+          source: 'Direct / AI Agent',
+          check_in: checkIn,
+          check_out: checkOut,
+          amount: parseInt(blockGuestAmount) || blockDialogRoom.pricePerNight || 4000,
+          status: 'confirmed',
+          ical_uid: `DIRECT-${Date.now()}-${Math.random().toString(36).substring(7)}`
+        });
+        toast.success(`✅ ${blockDialogRoom.number} booked for ${blockGuestName || 'Direct Guest'} on ${checkIn}! All OTA calendars will auto-block.`);
+      } else {
+        // Block mode - mark as blocked (maintenance/personal/VIP)
+        await supabase.from('hotel_bookings').insert({
+          user_id: user.id,
+          room_id: roomId,
+          guest_name: blockGuestName || 'Room Blocked (Owner)',
+          phone: '',
+          source: 'Direct / AI Agent',
+          check_in: checkIn,
+          check_out: checkOut,
+          amount: 0,
+          status: 'blocked',
+          ical_uid: `OWNER-BLOCK-${Date.now()}-${Math.random().toString(36).substring(7)}`
+        });
+        toast.success(`🛡️ ${blockDialogRoom.number} BLOCKED on ${checkIn}! Master iCal will push to all OTAs automatically.`);
+      }
+
+      setBlockDialogOpen(false);
+      await fetchData();
+    } catch (err: any) {
+      toast.error('Failed: ' + err.message);
+    } finally {
+      setIsBlockingRoom(false);
+    }
+  };
+
   const handleSyncChannel = async (channel: OtaChannel) => {
     if (!channel.icalUrl) {
       toast.error(`No iCal URL configured for ${channel.name}`);
@@ -678,15 +827,26 @@ export default function HotelLeadManagerPage() {
                 guestDisplay = 'Direct Booking (King Villa)';
               }
 
+              // 🛡️ OVERLAP DETECTOR for channel sync
+              const fmtIn = formatIcalDateForUI(currentEvent.check_in);
+              const fmtOut = formatIcalDateForUI(currentEvent.check_out);
+              const { data: roomBookings } = await supabase.from('hotel_bookings').select('*').eq('room_id', targetRoom.id).eq('user_id', user.id);
+              const clash = checkDateOverlap(targetRoom.id, fmtIn, fmtOut, roomBookings || [], currentEvent.ical_uid);
+              const syncStatus = clash ? 'blocked' : 'confirmed';
+
+              if (clash) {
+                toast.warning(`🛡️ Double Booking Blocked: ${guestDisplay} clashes with ${clash.guest_name} on ${fmtIn}`);
+              }
+
               await supabase.from('hotel_bookings').insert({
                 user_id: user.id,
                 room_id: targetRoom.id,
                 guest_name: guestDisplay,
                 source: platformSource as any,
-                check_in: formatIcalDateForUI(currentEvent.check_in),
-                check_out: formatIcalDateForUI(currentEvent.check_out),
+                check_in: fmtIn,
+                check_out: fmtOut,
                 amount: targetRoom.pricePerNight || 4000,
-                status: 'confirmed',
+                status: syncStatus,
                 ical_uid: currentEvent.ical_uid
               });
               importedCount++;
@@ -1608,7 +1768,13 @@ export default function HotelLeadManagerPage() {
                             ) : (
                               <button 
                                 onClick={() => {
-                                  toast.info(`Reserve Room ${room.number} for ${date}?`);
+                                  setBlockDialogRoom(room);
+                                  setBlockDialogDate(date);
+                                  setBlockMode('block');
+                                  setBlockGuestName('');
+                                  setBlockGuestPhone('');
+                                  setBlockGuestAmount(String(room.pricePerNight || 4000));
+                                  setBlockDialogOpen(true);
                                 }}
                                 className="h-full w-full rounded hover:bg-emerald-500/10 hover:border-emerald-500/30 border border-transparent transition-all flex items-center justify-center text-muted-foreground/30 hover:text-emerald-400 text-[10px] cursor-pointer"
                               >
@@ -2766,6 +2932,121 @@ export default function HotelLeadManagerPage() {
               </Button>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 🛡️ 1-Click Room Block / Quick Book Dialog */}
+      <Dialog open={blockDialogOpen} onOpenChange={setBlockDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <ShieldAlert size={18} className="text-rose-400" />
+              {blockDialogRoom?.number} — {blockDialogDate}
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Block this room or create a direct booking. All connected OTA calendars will auto-update.
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Mode Switcher */}
+          <div className="flex gap-2 mb-2">
+            <button
+              onClick={() => setBlockMode('block')}
+              className={cn(
+                "flex-1 py-2 rounded-md text-xs font-semibold transition-all border",
+                blockMode === 'block'
+                  ? "bg-rose-500/20 text-rose-400 border-rose-500/40 shadow-sm"
+                  : "bg-muted/30 text-muted-foreground border-border hover:bg-muted/50"
+              )}
+            >
+              🛡️ Block Room
+            </button>
+            <button
+              onClick={() => setBlockMode('book')}
+              className={cn(
+                "flex-1 py-2 rounded-md text-xs font-semibold transition-all border",
+                blockMode === 'book'
+                  ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40 shadow-sm"
+                  : "bg-muted/30 text-muted-foreground border-border hover:bg-muted/50"
+              )}
+            >
+              ✅ Book Guest
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            <div>
+              <Label className="text-[11px] text-muted-foreground">
+                {blockMode === 'block' ? 'Block Reason (Optional)' : 'Guest Name *'}
+              </Label>
+              <Input
+                placeholder={blockMode === 'block' ? 'Maintenance / Personal / VIP' : 'Guest full name'}
+                value={blockGuestName}
+                onChange={(e) => setBlockGuestName(e.target.value)}
+                className="h-8 text-xs mt-1"
+              />
+            </div>
+
+            {blockMode === 'book' && (
+              <>
+                <div>
+                  <Label className="text-[11px] text-muted-foreground">Phone</Label>
+                  <Input
+                    placeholder="+91 98765 43210"
+                    value={blockGuestPhone}
+                    onChange={(e) => setBlockGuestPhone(e.target.value)}
+                    className="h-8 text-xs mt-1"
+                  />
+                </div>
+                <div>
+                  <Label className="text-[11px] text-muted-foreground">Amount (₹)</Label>
+                  <Input
+                    placeholder="4000"
+                    value={blockGuestAmount}
+                    onChange={(e) => setBlockGuestAmount(e.target.value)}
+                    className="h-8 text-xs mt-1"
+                    type="number"
+                  />
+                </div>
+              </>
+            )}
+          </div>
+
+          <Button
+            onClick={handleBlockRoom}
+            disabled={isBlockingRoom || (blockMode === 'book' && !blockGuestName)}
+            className={cn(
+              "w-full mt-2 gap-2 font-semibold",
+              blockMode === 'block'
+                ? "bg-rose-600 hover:bg-rose-700 text-white"
+                : "bg-emerald-600 hover:bg-emerald-700 text-white"
+            )}
+          >
+            {isBlockingRoom ? (
+              <RefreshCw size={14} className="animate-spin" />
+            ) : blockMode === 'block' ? (
+              <ShieldAlert size={14} />
+            ) : (
+              <CheckCircle2 size={14} />
+            )}
+            {isBlockingRoom
+              ? 'Processing...'
+              : blockMode === 'block'
+                ? `Block ${blockDialogRoom?.number} on ${blockDialogDate}`
+                : `Book ${blockDialogRoom?.number} for ${blockGuestName || 'Guest'}`
+            }
+          </Button>
+
+          {blockMode === 'block' && (
+            <p className="text-[10px] text-muted-foreground text-center mt-1">
+              🛡️ This will mark the room as unavailable on all connected OTAs (Airbnb, Booking.com, Agoda, Goibibo)
+            </p>
+          )}
+          {blockMode === 'book' && (
+            <p className="text-[10px] text-muted-foreground text-center mt-1">
+              ✅ Overlap Detector will automatically prevent double-bookings on this room
+            </p>
+          )}
         </DialogContent>
       </Dialog>
     </div>
