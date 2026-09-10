@@ -2,6 +2,7 @@ const puppeteer = require('puppeteer');
 const fs = require('fs');
 const path = require('path');
 
+const AIRBNB_COOKIES_PATH = path.join(__dirname, 'airbnb_cookies.json');
 const AIRBNB_SESSION_DIR = path.join(process.env.HOME || '', '.leadzo-airbnb-session');
 
 async function scrapeAirbnb(options = {}) {
@@ -50,6 +51,7 @@ async function scrapeAirbnb(options = {}) {
 
     try {
         const page = await browser.newPage();
+        try { await page.bringToFront(); } catch (e) {}
         await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
         await page.evaluateOnNewDocument(() => {
             Object.defineProperty(navigator, 'webdriver', { get: () => false });
@@ -61,16 +63,30 @@ async function scrapeAirbnb(options = {}) {
             return { success: true, message: 'Airbnb Scraper ready' };
         }
 
+        // 1. If saved cookies exist, load them (Goibibo logic)
+        const hasCookies = fs.existsSync(AIRBNB_COOKIES_PATH);
+        if (hasCookies) {
+            console.log("Loading saved Airbnb session cookies from airbnb_cookies.json...");
+            try {
+                const cookies = JSON.parse(fs.readFileSync(AIRBNB_COOKIES_PATH, 'utf8'));
+                await page.setCookie(...cookies);
+            } catch (e) {
+                console.log("Airbnb cookie load notice:", e.message);
+            }
+        }
+
         console.log("Navigating to Airbnb Hosting Dashboard...");
         await page.goto('https://www.airbnb.com/hosting/listings', { waitUntil: 'domcontentloaded', timeout: 25000 });
-        await new Promise(r => setTimeout(r, 3000));
+        await new Promise(r => setTimeout(r, 4000));
 
         let currentUrl = page.url();
         console.log("Current Airbnb URL:", currentUrl);
 
+        let isLogged = !currentUrl.includes('/login') && !currentUrl.includes('/authenticate');
+
         // Check if on login page
-        if (currentUrl.includes('/login') || currentUrl.includes('/authenticate')) {
-            console.log("Not logged in. Attempting login...");
+        if (!isLogged) {
+            console.log("⚠️ Not logged in to Airbnb. Auto-filling credentials if provided, and waiting for user in Chrome window...");
             
             // If OTP provided, type OTP
             if (otp) {
@@ -106,16 +122,38 @@ async function scrapeAirbnb(options = {}) {
                         await new Promise(r => setTimeout(r, 4000));
                     } catch (e) {}
                 }
+            }
 
-                currentUrl = page.url();
-                if (currentUrl.includes('/login') || currentUrl.includes('/authenticate') || currentUrl.includes('verification')) {
+            console.log("Waiting up to 5 minutes for Airbnb login to complete in Chrome window...");
+            const loginTimeout = isCloud ? 25000 : 300000;
+            try {
+                await page.waitForFunction(() => {
+                    const url = window.location.href;
+                    const text = document.body ? document.body.innerText : '';
+                    return (!url.includes('/login') && !url.includes('/authenticate')) ||
+                           url.includes('/hosting') || text.includes('Today') || text.includes('Calendar') || text.includes('Listings');
+                }, { timeout: loginTimeout });
+
+                console.log("✅ Airbnb Login successful! Saving cookies to airbnb_cookies.json...");
+                const cookies = await page.cookies();
+                fs.writeFileSync(AIRBNB_COOKIES_PATH, JSON.stringify(cookies, null, 2));
+                await new Promise(r => setTimeout(r, 4000));
+            } catch (waitErr) {
+                const pageBody = await page.evaluate(() => document.body ? document.body.innerText : '');
+                if (pageBody.includes('OTP') || pageBody.includes('verification') || pageBody.includes('code')) {
                     return {
-                        success: true,
                         needOtp: true,
                         message: "Airbnb requires verification code or phone confirmation. Please approve in the opened Chrome window or enter the SMS OTP."
                     };
                 }
+                console.log("Airbnb login wait notice:", waitErr.message);
             }
+        } else {
+            console.log("✅ Already logged in to Airbnb via saved cookies!");
+            try {
+                const cookies = await page.cookies();
+                fs.writeFileSync(AIRBNB_COOKIES_PATH, JSON.stringify(cookies, null, 2));
+            } catch (e) {}
         }
 
         // Now logged in: navigate to listings or multi-calendar
@@ -161,3 +199,4 @@ async function scrapeAirbnb(options = {}) {
 }
 
 module.exports = { scrapeAirbnb };
+

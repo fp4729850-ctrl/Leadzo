@@ -2,6 +2,7 @@ const puppeteer = require('puppeteer');
 const fs = require('fs');
 const path = require('path');
 
+const AGODA_COOKIES_PATH = path.join(__dirname, 'agoda_cookies.json');
 const AGODA_SESSION_DIR = path.join(process.env.HOME || '', '.leadzo-agoda-session');
 
 async function scrapeAgoda(options = {}) {
@@ -62,16 +63,30 @@ async function scrapeAgoda(options = {}) {
             return { success: true, message: 'Agoda Scraper ready' };
         }
 
+        // 1. If saved cookies exist, load them (Goibibo logic)
+        const hasCookies = fs.existsSync(AGODA_COOKIES_PATH);
+        if (hasCookies) {
+            console.log("Loading saved Agoda session cookies from agoda_cookies.json...");
+            try {
+                const cookies = JSON.parse(fs.readFileSync(AGODA_COOKIES_PATH, 'utf8'));
+                await page.setCookie(...cookies);
+            } catch (e) {
+                console.log("Agoda cookie load notice:", e.message);
+            }
+        }
+
         console.log("Navigating to Agoda YCS Extranet...");
         await page.goto('https://ycs.agoda.com', { waitUntil: 'domcontentloaded', timeout: 25000 });
-        await new Promise(r => setTimeout(r, 3000));
+        await new Promise(r => setTimeout(r, 4000));
 
         let currentUrl = page.url();
         console.log("Current Agoda URL:", currentUrl);
 
+        let isLogged = !currentUrl.includes('login') && !currentUrl.includes('signin') && !currentUrl.includes('auth');
+
         // Check if on login page
-        if (currentUrl.includes('login') || currentUrl.includes('signin')) {
-            console.log("Not logged in to Agoda YCS. Attempting login...");
+        if (!isLogged) {
+            console.log("⚠️ Not logged in to Agoda. Auto-filling credentials if provided, and waiting for user in Chrome window...");
 
             // If OTP provided, type OTP
             if (otp) {
@@ -103,16 +118,38 @@ async function scrapeAgoda(options = {}) {
                         }
                     } catch (e) {}
                 }
+            }
 
-                currentUrl = page.url();
-                if (currentUrl.includes('login') || currentUrl.includes('signin') || currentUrl.includes('verification') || currentUrl.includes('otp')) {
+            console.log("Waiting up to 5 minutes for Agoda login to complete in Chrome window...");
+            const loginTimeout = isCloud ? 25000 : 300000;
+            try {
+                await page.waitForFunction(() => {
+                    const url = window.location.href;
+                    const text = document.body ? document.body.innerText : '';
+                    return (!url.includes('login') && !url.includes('signin') && !url.includes('auth')) ||
+                           text.includes('Dashboard') || text.includes('Property') || text.includes('Calendar') || text.includes('Bookings');
+                }, { timeout: loginTimeout });
+
+                console.log("✅ Agoda Login successful! Saving cookies to agoda_cookies.json...");
+                const cookies = await page.cookies();
+                fs.writeFileSync(AGODA_COOKIES_PATH, JSON.stringify(cookies, null, 2));
+                await new Promise(r => setTimeout(r, 4000));
+            } catch (waitErr) {
+                const pageBody = await page.evaluate(() => document.body ? document.body.innerText : '');
+                if (pageBody.includes('OTP') || pageBody.includes('verification') || pageBody.includes('code')) {
                     return {
-                        success: true,
                         needOtp: true,
-                        message: "Agoda YCS requires verification / OTP. Please complete or approve in the opened Chrome window or enter code."
+                        message: "Agoda YCS requires verification / OTP. Please complete in the opened Chrome window or enter code."
                     };
                 }
+                console.log("Agoda login wait notice:", waitErr.message);
             }
+        } else {
+            console.log("✅ Already logged in to Agoda via saved cookies!");
+            try {
+                const cookies = await page.cookies();
+                fs.writeFileSync(AGODA_COOKIES_PATH, JSON.stringify(cookies, null, 2));
+            } catch (e) {}
         }
 
         // Navigate to calendar sync page
