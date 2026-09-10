@@ -165,6 +165,45 @@ async function scrapeAgoda(options = {}) {
             console.log("Extracted Agoda iCal Feed:", extractedIcal);
         }
 
+        // 2-Way Sync: Inject Leadzo Master iCal into Agoda YCS if provided
+        if (leadzoMasterIcal) {
+            console.log("📡 [Injection Bot] Checking Agoda Calendar Sync to inject Leadzo Master iCal...");
+            try {
+                const importBtn = await page.evaluate(() => {
+                    const elements = Array.from(document.querySelectorAll('button, a, span, div'));
+                    const target = elements.find(el => {
+                        const txt = (el.innerText || '').toLowerCase();
+                        return txt.includes('import calendar') || txt.includes('calendar sync') || txt.includes('sync calendar') || txt === 'sync';
+                    });
+                    if (target) { target.click(); return true; }
+                    return false;
+                });
+
+                if (importBtn) {
+                    await new Promise(r => setTimeout(r, 2000));
+                    const urlInput = await page.$('input[placeholder*="http"], input[placeholder*="ical"], input[name*="url"], input[id*="url"], input[type="url"], input[type="text"]');
+                    if (urlInput) {
+                        await urlInput.click({ clickCount: 3 });
+                        await urlInput.type(leadzoMasterIcal, { delay: 30 });
+                        const nameInput = await page.$('input[placeholder*="name"], input[name*="name"], input[id*="name"]');
+                        if (nameInput) {
+                            await nameInput.click({ clickCount: 3 });
+                            await nameInput.type('Leadzo AI Master', { delay: 30 });
+                        }
+                        await page.evaluate(() => {
+                            const btns = Array.from(document.querySelectorAll('button'));
+                            const saveBtn = btns.find(b => ['save', 'import', 'sync', 'submit'].some(k => (b.innerText || '').toLowerCase().includes(k)));
+                            if (saveBtn) saveBtn.click();
+                        });
+                        console.log("✅ [Injection Bot] Leadzo Master iCal injected & saved into Agoda!");
+                        await new Promise(r => setTimeout(r, 2000));
+                    }
+                }
+            } catch (injectErr) {
+                console.log("Agoda iCal injection notice:", injectErr.message);
+            }
+        }
+
         return {
             success: true,
             channel: 'agoda',

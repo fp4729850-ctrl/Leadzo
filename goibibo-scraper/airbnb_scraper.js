@@ -170,9 +170,43 @@ async function scrapeAirbnb(options = {}) {
             console.log("Extracted Airbnb iCal Feed:", extractedIcal);
         }
 
-        // If Leadzo master ical provided, inject it
+        // 2-Way Sync: Inject Leadzo Master iCal into Airbnb
         if (leadzoMasterIcal) {
-            console.log("Injecting Leadzo master iCal into Airbnb:", leadzoMasterIcal);
+            console.log("📡 [Injection Bot] Checking Airbnb Calendar Sync to inject Leadzo Master iCal...");
+            try {
+                const importTrigger = await page.evaluate(() => {
+                    const elements = Array.from(document.querySelectorAll('button, a, span'));
+                    const target = elements.find(el => {
+                        const txt = (el.innerText || '').toLowerCase();
+                        return txt.includes('sync calendars') || txt.includes('import calendar') || txt.includes('availability settings');
+                    });
+                    if (target) { target.click(); return true; }
+                    return false;
+                });
+
+                if (importTrigger) {
+                    await new Promise(r => setTimeout(r, 2000));
+                    const urlInput = await page.$('input[name*="calendar_url"], input[id*="calendar_url"], input[placeholder*="https://"], input[type="url"], input[type="text"]');
+                    if (urlInput) {
+                        await urlInput.click({ clickCount: 3 });
+                        await urlInput.type(leadzoMasterIcal, { delay: 30 });
+                        const nameInput = await page.$('input[name*="calendar_name"], input[id*="calendar_name"], input[placeholder*="Name"]');
+                        if (nameInput) {
+                            await nameInput.click({ clickCount: 3 });
+                            await nameInput.type('Leadzo AI Master', { delay: 30 });
+                        }
+                        await page.evaluate(() => {
+                            const btns = Array.from(document.querySelectorAll('button'));
+                            const submitBtn = btns.find(b => ['import calendar', 'save', 'done'].some(k => (b.innerText || '').toLowerCase().includes(k)));
+                            if (submitBtn) submitBtn.click();
+                        });
+                        console.log("✅ [Injection Bot] Leadzo Master iCal injected & saved into Airbnb!");
+                        await new Promise(r => setTimeout(r, 2000));
+                    }
+                }
+            } catch (injectErr) {
+                console.log("Airbnb iCal injection notice:", injectErr.message);
+            }
         }
 
         // Fallback standard listing URL if ical not found directly on multi-calendar HTML
