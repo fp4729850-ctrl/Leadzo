@@ -16,6 +16,17 @@ async function scrapeGoibibo(options = {}) {
         const isCloud = process.env.NODE_ENV === 'production' || process.env.HEADLESS === 'true';
         const macChrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
         let chromePath = process.env.CHROME_PATH;
+
+        if (isCloud) {
+            try {
+                const chromium = require('@sparticuz/chromium');
+                chromePath = await chromium.executablePath();
+                console.log("Using @sparticuz/chromium executablePath:", chromePath);
+            } catch (e) {
+                console.log("Sparticuz chromium notice:", e.message);
+            }
+        }
+
         if (!chromePath) {
             if (fs.existsSync(macChrome)) {
                 chromePath = macChrome;
