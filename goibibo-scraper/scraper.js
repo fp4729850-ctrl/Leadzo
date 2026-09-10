@@ -2,61 +2,84 @@ const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 puppeteer.use(StealthPlugin());
 
-let globalBrowser = null;
-
-async function scrapeGoibibo(cookiesArray) {
+async function scrapeGoibibo() {
+    let page;
     try {
-        // In the cloud, we run headless and stateless
-        if (!globalBrowser || !globalBrowser.connected) {
-            console.log("Launching new headless cloud browser instance...");
-            globalBrowser = await puppeteer.launch({
-                headless: 'new', // Cloud servers must be headless
-                // On cloud (like Railway), Puppeteer downloads its own Chromium so we don't strictly need executablePath,
-                // but we can pass args for sandboxing.
-                args: [
-                    '--no-sandbox',
-                    '--disable-setuid-sandbox',
-                    '--disable-blink-features=AutomationControlled',
-                    '--disable-infobars'
-                ],
-                ignoreDefaultArgs: ['--enable-automation']
-            });
-        } else {
-            console.log("Reusing cloud browser instance...");
-        }
+        console.log("Connecting to your already-running Chrome browser...");
+        
+        // Connect to the user's REAL Chrome browser via remote debugging
+        const browser = await puppeteer.connect({
+            browserURL: 'http://localhost:9222',
+            defaultViewport: null
+        });
 
-        const page = await globalBrowser.newPage();
-
-        // Inject the passed cookies
-        console.log("Injecting user session cookies...");
-        await page.setCookie(...cookiesArray);
+        console.log("Connected! Opening new tab for Goibibo...");
+        page = await browser.newPage();
 
         console.log("Navigating to Goibibo Extranet...");
-        await page.goto('https://in.goibibo.com/newextranet/bookings/bookingslist', { waitUntil: 'networkidle2' });
+        await page.goto('https://in.goibibo.com/newextranet/bookings/bookingslist', { 
+            waitUntil: 'networkidle2',
+            timeout: 30000 
+        });
 
-        // Wait a moment for data to render, checking if login was successful
+        // Wait for data to render
         await new Promise(resolve => setTimeout(resolve, 5000));
-        
+
         const currentUrl = page.url();
+        console.log("Current URL:", currentUrl);
+
         if (currentUrl.includes('login') || currentUrl.includes('auth')) {
-            throw new Error("Cookies are expired or invalid. Goibibo redirected to the login page. Please update your cookies.");
+            await page.screenshot({ path: 'error.png', fullPage: true });
+            throw new Error("Not logged in. Please login to Goibibo in your Chrome browser first, then try again.");
         }
 
-        console.log("Extracting booking details from the DOM...");
-        
+        console.log("Login confirmed! Extracting booking details...");
+
+        // Extract real booking data from the page
         const bookings = await page.evaluate(() => {
             const results = [];
-            // Generic placeholder for actual DOM parsing logic
-            return results;
+            // Try to find booking rows in the Goibibo Extranet table
+            const rows = document.querySelectorAll('tr, .booking-row, [class*="booking"], [class*="Booking"]');
+            
+            rows.forEach(row => {
+                const cells = row.querySelectorAll('td, [class*="cell"], [class*="Cell"]');
+                if (cells.length >= 3) {
+                    const text = row.innerText;
+                    // Only include rows that look like booking data
+                    if (text.includes('Check-In') || text.includes('Check-Out') || text.includes('Guests') || text.includes('₹')) {
+                        results.push({
+                            raw_text: text.trim(),
+                            guest_name: cells[0]?.innerText?.trim() || '',
+                            stay_duration: cells[1]?.innerText?.trim() || '',
+                            room_info: cells[2]?.innerText?.trim() || '',
+                        });
+                    }
+                }
+            });
+
+            // Also capture the full page text for parsing
+            return {
+                bookings: results,
+                pageText: document.body.innerText.substring(0, 5000),
+                pageTitle: document.title
+            };
         });
-        
-        // Clean up page to save memory on the cloud server
+
+        console.log("Extracted data:", JSON.stringify(bookings, null, 2));
+
+        // Close only the tab we opened, NOT the user's browser
         await page.close();
+        
+        // Disconnect from the browser (don't close it!)
+        browser.disconnect();
 
         return bookings;
 
     } catch (error) {
-        console.error("Scraping failed:", error);
+        console.error("Scraping failed:", error.message);
+        if (page) {
+            try { await page.close(); } catch(e) {}
+        }
         throw error;
     }
 }
