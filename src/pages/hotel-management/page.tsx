@@ -184,10 +184,12 @@ export default function HotelLeadManagerPage() {
         .from('hotel_rooms').select('id, number').eq('user_id', user.id).order('number');
       const rooms = roomsList || [];
 
-      // ── STEP 3: Insert fresh REAL bookings from Goibibo portal ──
       for (const b of realGoibiboBookings) {
         const targetRoom = rooms.find(r => r.number === b.room_label) || rooms[0];
         if (!targetRoom) continue;
+
+        const formattedIn = normalizeBookingDate(b.check_in);
+        const formattedOut = normalizeBookingDate(b.check_out);
 
         await supabase.from('hotel_bookings').insert({
           user_id: user.id,
@@ -195,11 +197,11 @@ export default function HotelLeadManagerPage() {
           guest_name: b.guest_name,
           phone: b.phone,
           source: 'Goibibo / MakeMyTrip',
-          check_in: b.check_in,
-          check_out: b.check_out,
+          check_in: formattedIn,
+          check_out: formattedOut,
           amount: b.amount,
           status: 'confirmed',
-          ical_uid: b.ical_uid || `LIVE-${Math.random()}`
+          ical_uid: b.ical_uid || `LIVE-${b.booking_id || Math.random()}`
         });
       }
 
@@ -224,6 +226,25 @@ export default function HotelLeadManagerPage() {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'];
     const month = months[parseInt(monthStr, 10) - 1] || 'Sept';
     return `${month} ${dayStr}`;
+  };
+
+  const normalizeBookingDate = (d: string) => {
+    if (!d) return d;
+    const parts = d.trim().split(/\s+/);
+    if (parts.length === 2) {
+      const monthsMap: Record<string, string> = {
+        jan: 'Jan', feb: 'Feb', mar: 'Mar', apr: 'Apr', may: 'May', jun: 'Jun',
+        jul: 'Jul', aug: 'Aug', sep: 'Sept', sept: 'Sept', oct: 'Oct', nov: 'Nov', dec: 'Dec'
+      };
+      if (!isNaN(parseInt(parts[0], 10))) {
+        const m = monthsMap[parts[1].toLowerCase()] || parts[1];
+        return `${m} ${parseInt(parts[0], 10).toString().padStart(2, '0')}`;
+      } else {
+        const m = monthsMap[parts[0].toLowerCase()] || parts[0];
+        return `${m} ${parseInt(parts[1], 10).toString().padStart(2, '0')}`;
+      }
+    }
+    return d;
   };
 
   const [channels, setChannels] = useState<OtaChannel[]>([]);
@@ -856,19 +877,34 @@ export default function HotelLeadManagerPage() {
 
   const parseDateStr = (dateStr: string) => {
     if (!dateStr) return NaN;
-    const parts = dateStr.split(' ');
+    const parts = dateStr.trim().split(/\s+/);
     if (parts.length !== 2) return NaN;
-    const [monthStr, dayStr] = parts;
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'];
-    const monthIdx = months.indexOf(monthStr);
+    const monthNames: Record<string, number> = {
+      jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
+      jul: 6, aug: 7, sep: 8, sept: 8, oct: 9, nov: 10, dec: 11
+    };
+    let mIdx = -1;
+    let day = -1;
+    const p0Lower = parts[0].toLowerCase();
+    const p1Lower = parts[1].toLowerCase();
+    if (monthNames[p0Lower] !== undefined) {
+      mIdx = monthNames[p0Lower];
+      day = parseInt(parts[1], 10);
+    } else if (monthNames[p1Lower] !== undefined) {
+      mIdx = monthNames[p1Lower];
+      day = parseInt(parts[0], 10);
+    }
+    if (mIdx === -1 || isNaN(day)) return NaN;
     const currentYear = new Date().getFullYear();
-    return new Date(currentYear, monthIdx, parseInt(dayStr, 10)).getTime();
+    return new Date(currentYear, mIdx, day).getTime();
   };
 
   const getBookingForCell = (roomNum: string, date: string) => {
     return bookings.find(b => {
       if (b.roomNumber !== roomNum) return false;
-      if (b.checkIn === date) return true;
+      const bInNorm = normalizeBookingDate(b.checkIn);
+      const dateNorm = normalizeBookingDate(date);
+      if (bInNorm === dateNorm) return true;
       
       if (b.checkIn && b.checkOut) {
         const checkInTime = parseDateStr(b.checkIn);
