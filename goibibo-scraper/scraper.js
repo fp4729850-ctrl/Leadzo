@@ -53,22 +53,31 @@ async function scrapeGoibibo() {
         await new Promise(resolve => setTimeout(resolve, 3000));
         
         const currentUrl = page.url();
+        const pageTitle = await page.title();
         console.log("Current URL:", currentUrl);
+        console.log("Page Title:", pageTitle);
 
         // Check if we need to login
-        if (currentUrl.includes('login') || currentUrl.includes('auth') || currentUrl.includes('signin')) {
+        const isLoginPage = !hasCookies || 
+                            currentUrl.includes('login') || 
+                            currentUrl.includes('auth') || 
+                            currentUrl.includes('signin') || 
+                            pageTitle.includes('Registration') || 
+                            pageTitle.includes('Connect');
+
+        if (isLoginPage) {
             console.log("⚠️  Not logged in. Please login manually in the Chrome window.");
-            console.log("   Use your PHONE NUMBER to login (avoid Google Sign-In).");
+            console.log("   Please login with your mobile number/credentials.");
             console.log("   Waiting up to 5 minutes for you to complete login...\n");
             
             // Wait for the bookings page to appear after login
             await page.waitForFunction(() => {
                 const text = document.body.innerText || '';
-                return text.includes('Guest Name') || 
-                       text.includes('Check-in') || 
-                       text.includes('Bookings') ||
-                       text.includes('Booking ID') ||
-                       text.includes('Stay Duration');
+                return (text.includes('Guest Name') || 
+                        text.includes('Stay Duration') || 
+                        text.includes('Check-In') ||
+                        text.includes('Booking ID')) && 
+                       !text.includes('Free Hotel Registration');
             }, { timeout: 300000 }); // 5 minutes
 
             console.log("✅ Login successful! Saving cookies for future use...");
@@ -82,27 +91,74 @@ async function scrapeGoibibo() {
         }
 
         console.log("Extracting booking details...");
+        
+        // DEBUG: Save the page HTML so we can see the exact DOM structure
+        const fs = require('fs');
+        const pageHtml = await page.content();
+        fs.writeFileSync(require('path').join(__dirname, 'page_dump.html'), pageHtml);
+        console.log("Page HTML saved to page_dump.html for debugging");
+        
+        // Also take a screenshot
+        await page.screenshot({ path: require('path').join(__dirname, 'page_screenshot.png'), fullPage: true });
+        console.log("Screenshot saved to page_screenshot.png");
 
         const bookings = await page.evaluate(() => {
             const results = [];
-            const rows = document.querySelectorAll('tr');
             
-            rows.forEach((row, index) => {
-                if (index === 0) return; // skip header
+            // Goibibo Extranet table: each booking row is a <tr> with multiple <td> cells
+            // Columns: Guest Name | Stay Duration | Room & Meal Plan | Booking ID | Guest Contact | Net Amount
+            const allRows = document.querySelectorAll('table tr');
+            
+            allRows.forEach((row) => {
                 const cells = row.querySelectorAll('td');
-                if (cells.length >= 4) {
-                    const text = row.innerText;
-                    if (text.includes('₹') || text.includes('Check-In') || text.includes('Guests')) {
-                        results.push({
-                            raw_text: text.trim().replace(/\n/g, ' | '),
-                            guest_name: cells[0]?.innerText?.trim() || '',
-                            stay_duration: cells[1]?.innerText?.trim() || '',
-                            room_info: cells[2]?.innerText?.trim() || '',
-                            booking_id: cells[3]?.innerText?.trim() || '',
-                            amount: cells[cells.length - 1]?.innerText?.trim() || '',
-                        });
-                    }
-                }
+                // Booking rows typically have 6+ cells (Guest Name, Stay, Room, BookingID, Contact, Amount)
+                if (cells.length < 5) return;
+                
+                const rowText = row.innerText || '';
+                
+                // Skip rows that are headers, date separators, or promotional banners
+                if (rowText.includes('Guest Name') || rowText.includes('Stay Duration')) return;
+                if (rowText.includes('No Bookings') || rowText.includes('Offer Promotion')) return;
+                if (!rowText.includes('Check-In') && !rowText.includes('Guests')) return;
+                
+                // Extract guest name (first cell) - e.g., "MUKUL KUM...\n+1 Guests"
+                const guestCell = cells[0]?.innerText?.trim() || '';
+                const guestNameMatch = guestCell.split('\n')[0]?.trim() || guestCell;
+                
+                // Extract stay duration (second cell) - e.g., "Check-In: 11 Sep\nCheck-Out: 12 Sep"
+                const stayCell = cells[1]?.innerText?.trim() || '';
+                const checkInMatch = stayCell.match(/Check-In[:\s]*(\d+\s+\w+)/i);
+                const checkOutMatch = stayCell.match(/Check-Out[:\s]*(\d+\s+\w+)/i);
+                const checkIn = checkInMatch ? checkInMatch[1].trim() : '';
+                const checkOut = checkOutMatch ? checkOutMatch[1].trim() : '';
+                
+                // Extract room info (third cell) - e.g., "1 Small\nDelux No. 02"
+                const roomCell = cells[2]?.innerText?.trim() || '';
+                
+                // Extract booking ID (fourth cell) - e.g., "GH25081277146554"
+                const bookingIdCell = cells[3]?.innerText?.trim() || '';
+                
+                // Extract guest contact/phone (fifth cell) - e.g., "919867738371"
+                const contactCell = cells[4]?.innerText?.trim() || '';
+                const phoneMatch = contactCell.match(/(\d{10,12})/);
+                const phone = phoneMatch ? phoneMatch[1] : contactCell;
+                
+                // Extract net amount (last cell) - e.g., "₹ 1,415.88"
+                const amountCell = cells[cells.length - 1]?.innerText?.trim() || '';
+                const amountMatch = amountCell.match(/[\d,]+\.?\d*/);
+                const amount = amountMatch ? parseFloat(amountMatch[0].replace(/,/g, '')) : 0;
+                
+                results.push({
+                    guest_name: guestNameMatch,
+                    check_in: checkIn,
+                    check_out: checkOut,
+                    room_info: roomCell,
+                    room_label: roomCell,
+                    booking_id: bookingIdCell,
+                    phone: phone,
+                    amount: amount,
+                    raw_text: rowText.trim().replace(/\n/g, ' | ')
+                });
             });
 
             return {
@@ -117,7 +173,7 @@ async function scrapeGoibibo() {
         console.log("Data:", JSON.stringify(bookings, null, 2));
 
         await browser.close();
-        return bookings;
+        return bookings.bookings;
 
     } catch (error) {
         console.error("Scraping failed:", error.message);
