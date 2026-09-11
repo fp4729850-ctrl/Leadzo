@@ -5,7 +5,8 @@ import {
   Link as LinkIcon, Plus, User, Phone, Globe, Lock, AlertTriangle, 
   Sparkles, Copy, Check, ExternalLink, Bot, BedDouble, Hotel, CalendarCheck, ShieldAlert,
   Settings, Key, Layers, X, Wand2, Rocket, MapPin, Target, ArrowRight, Camera,
-  TrendingUp, DollarSign, Percent, Users, ArrowUpRight, MessageCircle, CheckCircle, Database, DownloadCloud
+  TrendingUp, DollarSign, Percent, Users, ArrowUpRight, MessageCircle, CheckCircle, Database, DownloadCloud,
+  Eye, EyeOff
 } from "lucide-react";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, Legend } from "recharts";
 import { Button } from "@/components/ui/button.tsx";
@@ -78,6 +79,21 @@ export default function HotelLeadManagerPage() {
   const [newChannelIcal, setNewChannelIcal] = useState("");
   const [isAddingChannel, setIsAddingChannel] = useState(false);
   const [masterIcalUrl, setMasterIcalUrl] = useState<string>("");
+  // Map to control password visibility per channel
+  const [showPasswordMap, setShowPasswordMap] = useState<Record<string, boolean>>({});
+  const togglePasswordVisibility = (channelId: string) => {
+    setShowPasswordMap(prev => ({ ...prev, [channelId]: !prev[channelId] }));
+  };
+  // Persist credentials to Supabase
+  const persistChannelCreds = async (channelId: string, email: string, password: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    await supabase.from('hotel_channels')
+      .update({ email, password })
+      .eq('channel_id', channelId)
+      .eq('user_id', user.id);
+    toast.success(`${channelId} credentials saved.`);
+  };
   const [currentUserId, setCurrentUserId] = useState<string>("");
   // Per-channel AI connect progress: 'idle' | 'login' | 'extract' | 'inject' | 'done'
   const [aiConnectProgress, setAiConnectProgress] = useState<Record<string, string>>({});
@@ -1055,7 +1071,8 @@ export default function HotelLeadManagerPage() {
         // We have cookies from the extension! Proceed with normal AI sync!
         // Fall through to Phase 1 below
       } else {
-        // No cookies synced yet! Force them to install the extension.
+        // No cookies synced yet! Prompt user to install extension.
+        toast.error(`Chrome Extension not installed or cookies missing for ${name}. Please install the Leadzo Extension.`);
         setExtensionChannelId(channelId.toLowerCase());
         setIsExtensionModalOpen(true);
         return;
@@ -2133,6 +2150,7 @@ export default function HotelLeadManagerPage() {
                         onClick={async () => {
                           const { data: { user } } = await supabase.auth.getUser();
                           if (user) {
+                            // Update channel to pending and clear credentials
                             await supabase.from('hotel_channels').update({
                               status: 'pending',
                               email: '',
@@ -2140,6 +2158,18 @@ export default function HotelLeadManagerPage() {
                               ical_url: '',
                               last_sync: 'Not connected'
                             }).eq('channel_id', channel.id).eq('user_id', user.id);
+                            // Also clear any iCal links for this channel from all rooms
+                            const { data: rooms } = await supabase.from('hotel_rooms').select('id, ical_links').eq('user_id', user.id);
+                            if (rooms && rooms.length) {
+                              for (const r of rooms) {
+                                if (r.ical_links && r.ical_links[channel.id]) {
+                                  // Set the specific channel link to null to remove it
+                                  await supabase.from('hotel_rooms')
+                                    .update({ ical_links: { ...r.ical_links, [channel.id]: null } })
+                                    .eq('id', r.id);
+                                }
+                              }
+                            }
                           }
                           setChannels(prev => prev.map(c => c.id === channel.id ? {
                             ...c, status: 'pending', email: '', password: '', icalUrl: '', lastSync: 'Not connected'
@@ -2185,18 +2215,26 @@ export default function HotelLeadManagerPage() {
                           className="text-xs" 
                         />
                       </div>
-                      <div className="space-y-1">
+                      <div className="space-y-1 flex items-center">
                         <Label className="text-[11px] text-muted-foreground">{channel.name} Password</Label>
-                        <Input 
-                          type="password" 
-                          placeholder="••••••••" 
-                          value={channel.password}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setChannels(prev => prev.map(c => c.id === channel.id ? { ...c, password: val } : c));
-                          }}
-                          className="text-xs font-mono" 
-                        />
+                        <div className="flex items-center gap-1 w-full">
+                          <Input 
+                            type={showPasswordMap[channel.id] ? "text" : "password"}
+                            placeholder="••••••••"
+                            value={channel.password}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setChannels(prev => prev.map(c => c.id === channel.id ? { ...c, password: val } : c));
+                            }}
+                            className="text-xs font-mono flex-1"
+                          />
+                          <Button variant="ghost" size="sm" onClick={() => togglePasswordVisibility(channel.id)} className="h-8 w-8 p-0">
+                            {showPasswordMap[channel.id] ? <EyeOff size={14} /> : <Eye size={14} />}
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => persistChannelCreds(channel.id, channel.email, channel.password)} className="h-8 px-2">
+                            Save
+                          </Button>
+                        </div>
                       </div>
                       {/* Multi-phase AI Progress Indicator */}
                       {aiConnectProgress[channel.id] && aiConnectProgress[channel.id] !== 'idle' && (
