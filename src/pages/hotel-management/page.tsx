@@ -1038,8 +1038,8 @@ export default function HotelLeadManagerPage() {
 
   const handleConnectOtaViaAi = async (channelId: string, name: string) => {
     // If Goibibo, Agoda, or Airbnb, route to the dedicated interactive Puppeteer scraper dialog
-    if (['goibibo', 'agoda', 'airbnb'].includes(channelId)) {
-      openInteractiveModal(channelId as any);
+    if (['goibibo', 'agoda', 'airbnb'].includes(channelId.toLowerCase())) {
+      openInteractiveModal(channelId.toLowerCase() as any);
       return;
     }
 
