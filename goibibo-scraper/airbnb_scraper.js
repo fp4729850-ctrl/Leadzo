@@ -30,17 +30,13 @@ async function scrapeAirbnb(options = {}) {
         } catch (e) {}
     }
 
-    console.log(`\n🏡 [Airbnb Scraper] Launching Chrome (Headless: ${isCloud})...`);
+    const hasCookies = (sessionCookies && Array.isArray(sessionCookies) && sessionCookies.length > 0);
+    const isHeadless = isCloud || hasCookies;
+    console.log(`\n🏡 [Airbnb Scraper] Running in Background (Headless: ${isHeadless})...`);
     const browser = await puppeteer.launch({
-        headless: isCloud ? 'new' : false,
-        executablePath: chromePath,
-        userDataDir: AIRBNB_SESSION_DIR,
-        defaultViewport: isCloud ? { width: 1280, height: 900 } : null,
+        headless: isHeadless ? 'new' : false,
+        defaultViewport: { width: 1280, height: 900 },
         args: [
-            `--user-data-dir=${AIRBNB_SESSION_DIR}`,
-            '--no-first-run',
-            '--no-default-browser-check',
-            '--start-maximized',
             '--no-sandbox',
             '--disable-setuid-sandbox',
             '--disable-dev-shm-usage',
