@@ -2260,6 +2260,7 @@ export default function HotelLeadManagerPage() {
                         </div>
                       )}
                       <Button 
+                        type="button"
                         onClick={() => handleConnectOtaViaAi(channel.id, channel.name)}
                         disabled={!!aiConnectProgress[channel.id] && aiConnectProgress[channel.id] !== 'idle' && aiConnectProgress[channel.id] !== 'done'}
                         size="sm" 
