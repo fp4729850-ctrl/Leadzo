@@ -446,7 +446,42 @@ export default function HotelLeadManagerPage() {
       }
 
       const refreshedChannelsRes = await supabase.from('hotel_channels').select('*');
-      const rawChannels = refreshedChannelsRes.data || channelsRes.data || [];
+      let rawChannels = refreshedChannelsRes.data || channelsRes.data || [];
+
+      // --- Fix Duplicate King Villa & Ensure Booking.com ---
+      const kingVillaChannels = rawChannels.filter((c: any) => c.channel_id.toLowerCase().includes('king') || c.channel_id.toLowerCase().includes('villa') || c.channel_id === 'direct');
+      if (kingVillaChannels.length > 1) {
+        const dupToUpdate = kingVillaChannels[1];
+        await supabase.from('hotel_channels').update({
+          channel_id: 'booking',
+          name: 'Booking.com',
+          icon_color: 'text-blue-400',
+          badge_bg: 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+        }).eq('id', dupToUpdate.id);
+        
+        for (let i = 2; i < kingVillaChannels.length; i++) {
+          await supabase.from('hotel_channels').delete().eq('id', kingVillaChannels[i].id);
+        }
+        
+        const reFetch = await supabase.from('hotel_channels').select('*');
+        if (reFetch.data) rawChannels = reFetch.data;
+      } else if (!rawChannels.find((c: any) => c.channel_id === 'booking')) {
+         await supabase.from('hotel_channels').insert({
+            user_id: user.id,
+            channel_id: 'booking',
+            name: 'Booking.com',
+            icon_color: 'text-blue-400',
+            badge_bg: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+            connect_mode: 'ai',
+            email: '',
+            password: '',
+            ical_url: '',
+            status: 'pending',
+            last_sync: 'Not connected'
+         });
+         const reFetch2 = await supabase.from('hotel_channels').select('*');
+         if (reFetch2.data) rawChannels = reFetch2.data;
+      }
 
       const dummyEmails = ['hotel.grand@booking.com', 'host@airbnb.com', 'hotel.grand@gmail.com'];
 
