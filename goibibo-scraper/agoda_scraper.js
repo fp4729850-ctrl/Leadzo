@@ -168,6 +168,8 @@ async function scrapeAgoda(options = {}) {
         if (icalMatch) {
             extractedIcal = icalMatch[0];
             console.log("Extracted Agoda iCal Feed:", extractedIcal);
+        } else {
+            console.log("❌ Failed to extract iCal link.");
         }
 
         // 2-Way Sync: Inject Leadzo Master iCal into Agoda YCS if provided
@@ -209,12 +211,21 @@ async function scrapeAgoda(options = {}) {
             }
         }
 
-        return {
-            success: true,
-            channel: 'agoda',
-            icalUrl: extractedIcal || `https://ycs.agoda.com/en-us/calendar`,
-            message: extractedIcal ? '✅ Agoda iCal successfully extracted & connected!' : 'Logged in successfully to Agoda YCS. Session cookies saved.'
-        };
+        if (extractedIcal) {
+            return {
+                success: true,
+                channel: 'agoda',
+                icalUrl: extractedIcal,
+                message: '✅ Agoda iCal successfully extracted & connected!'
+            };
+        } else {
+            return {
+                success: false,
+                channel: 'agoda',
+                error: "Failed to verify login or extract iCal. Cloudflare Captcha or security check might have blocked the Cloud Scraper.",
+                needOtp: false
+            };
+        }
     } catch (err) {
         console.error("Agoda Scraper Error:", err);
         return { success: false, error: err.message };
