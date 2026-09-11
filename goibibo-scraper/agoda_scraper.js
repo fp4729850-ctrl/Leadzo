@@ -225,7 +225,8 @@ async function scrapeAgoda(options = {}) {
                 success: true,
                 channel: 'agoda',
                 icalUrl: extractedIcal,
-                message: '✅ Agoda iCal successfully extracted & connected!'
+                message: '✅ Agoda iCal successfully extracted \u0026 connected!',
+                needOtp: false
             };
         } else {
             return {
