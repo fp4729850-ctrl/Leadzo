@@ -31,7 +31,7 @@ async function scrapeAgoda(options = {}) {
     }
 
     const hasCookies = (sessionCookies && Array.isArray(sessionCookies) && sessionCookies.length > 0);
-    const isHeadless = isCloud || hasCookies;
+    const isHeadless = action === 'capture_cookies' ? false : (isCloud || hasCookies);
     console.log(`\n🏨 [Agoda Scraper] Running in Background (Headless: ${isHeadless})...`);
     const launchOptions = {
             headless: isHeadless ? 'new' : false,
@@ -155,13 +155,35 @@ async function scrapeAgoda(options = {}) {
                 try {
                     const cookies = await page.cookies();
                     fs.writeFileSync(AGODA_COOKIES_PATH, JSON.stringify(cookies, null, 2));
+                    if (action === 'capture_cookies') {
+                        await browser.close();
+                        return {
+                            success: true,
+                            cookies: cookies,
+                            message: 'Agoda fresh cookies captured successfully!'
+                        };
+                    }
                 } catch(e) {}
+            } else if (action === 'capture_cookies') {
+                await browser.close();
+                return {
+                    success: false,
+                    error: "Could not detect successful Agoda login. Please log in completely in the browser."
+                };
             }
         } else {
             console.log("✅ Already logged in to Agoda via saved cookies!");
             try {
                 const cookies = await page.cookies();
                 fs.writeFileSync(AGODA_COOKIES_PATH, JSON.stringify(cookies, null, 2));
+                if (action === 'capture_cookies') {
+                    await browser.close();
+                    return {
+                        success: true,
+                        cookies: cookies,
+                        message: 'Agoda fresh cookies captured successfully!'
+                    };
+                }
             } catch (e) {}
         }
 

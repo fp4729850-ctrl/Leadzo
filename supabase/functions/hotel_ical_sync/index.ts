@@ -57,7 +57,7 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { user_id, channel_id, ical_url, source_name } = await req.json().catch(() => ({}));
+    const { user_id, channel_id, ical_url, source_name, cookies, session_cookies } = await req.json().catch(() => ({}));
     if (!user_id) throw new Error("user_id is required");
 
     // Fetch all rooms for the user
@@ -75,7 +75,10 @@ serve(async (req) => {
     // Helper to process an iCal URL
     const processFeed = async (url: string, src: string, targetRoomId: string) => {
       try {
-        const resp = await fetch(url);
+        const cookieHeader = cookies && cookies.trim().length > 0
+        ? cookies
+        : (session_cookies?.map((c:any)=>`${c.name}=${c.value}`).join('; ') ?? '');
+        const resp = await fetch(url, cookieHeader ? { headers: { Cookie: cookieHeader } } : undefined);
         if (!resp.ok) return 0;
         const text = await resp.text();
         const parsed = parseICal(text, src);

@@ -99,6 +99,7 @@ export default function HotelLeadManagerPage() {
   const [aiConnectProgress, setAiConnectProgress] = useState<Record<string, string>>({});
   const [isPushingToAll, setIsPushingToAll] = useState(false);
   const [isAiScrapingData, setIsAiScrapingData] = useState(false);
+  const [isCapturingAgoda, setIsCapturingAgoda] = useState(false);
 
   // 1-Click Room Block Dialog state
   const [blockDialogOpen, setBlockDialogOpen] = useState(false);
@@ -901,7 +902,8 @@ export default function HotelLeadManagerPage() {
             user_id: user.id,
             channel_id: channel.id,
             ical_url: channel.icalUrl,
-            source_name: channel.name
+            source_name: channel.name,
+            cookies: document.cookie
           }
         });
       } catch (edgeErr) {
@@ -1139,6 +1141,77 @@ export default function HotelLeadManagerPage() {
     } catch (err: any) {
       setAiConnectProgress(prev => ({ ...prev, [channelId]: 'idle' }));
       toast.error(`AI Connection error: ${err.message}. Make sure local scraper is running on port 4000!`, { id: `ota-${channelId}` });
+    }
+  };
+
+  const handleCaptureAgodaCookies = async (targetChannel: OtaChannel) => {
+    if (!targetChannel?.email?.trim()) {
+      toast.error("Please enter your Agoda Login Email / ID first!");
+      return;
+    }
+
+    setIsCapturingAgoda(true);
+    toast.loading("🤖 Launching Chrome to Agoda YCS... Please login to capture fresh cookies.", { id: "agoda-cookie-sync", duration: 120000 });
+
+    try {
+      if (targetChannel.email && targetChannel.password) {
+        await persistChannelCreds(targetChannel.id, targetChannel.email, targetChannel.password);
+      }
+
+      const scraperEndpoint = (import.meta as any).env?.VITE_SCRAPER_API_URL || 'http://localhost:4000/api/scrape';
+      const res = await fetch(scraperEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          channel: 'agoda',
+          action: 'capture_cookies',
+          email: targetChannel.email,
+          password: targetChannel.password
+        })
+      });
+
+      const resData = await res.json();
+      if (resData.needOtp) {
+        setOtaOtpChannelId('agoda');
+        setOtaOtpChannelName('Agoda');
+        setOtaOtpValue('');
+        setOtaOtpModalOpen(true);
+        toast.info(resData.message || "📲 Agoda requires 2FA / OTP verification code!", { id: "agoda-cookie-sync", duration: 8000 });
+        return;
+      }
+
+      if (resData.success && resData.cookies && resData.cookies.length > 0) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { error } = await supabase
+            .from('hotel_channels')
+            .update({
+              session_cookies: resData.cookies,
+              status: 'connected',
+              last_sync: 'Just now (Fresh Cookies Synced)'
+            })
+            .eq('channel_id', 'agoda')
+            .eq('user_id', user.id);
+
+          if (!error) {
+            setChannels(prev => prev.map(c => c.id === 'agoda' ? {
+              ...c,
+              sessionCookies: resData.cookies,
+              status: 'connected',
+              lastSync: 'Just now'
+            } : c));
+            toast.success("🎉 Fresh Agoda cookies captured & Supabase updated successfully!", { id: "agoda-cookie-sync" });
+          } else {
+            toast.error("Failed to update Supabase: " + error.message, { id: "agoda-cookie-sync" });
+          }
+        }
+      } else {
+        toast.error(resData.error || "Failed to capture cookies from Agoda. Please ensure login completed.", { id: "agoda-cookie-sync" });
+      }
+    } catch (err: any) {
+      toast.error(`Error connecting to local scraper: ${err.message}. Ensure scraper is running on port 4000.`, { id: "agoda-cookie-sync" });
+    } finally {
+      setIsCapturingAgoda(false);
     }
   };
 
@@ -2276,6 +2349,32 @@ export default function HotelLeadManagerPage() {
                         {aiConnectProgress[channel.id] === 'done' && '✅ Reconnect & Re-inject'}
                         {(!aiConnectProgress[channel.id] || aiConnectProgress[channel.id] === 'idle') && 'Auto-Connect + Inject Leadzo iCal via AI'}
                       </Button>
+
+                      {channel.id === 'agoda' && (
+                        <>
+                          <Button 
+                            type="button"
+                            variant="outline"
+                            size="sm" 
+                            onClick={() => handleCaptureAgodaCookies(channel)}
+                            disabled={isCapturingAgoda}
+                            className="w-full gap-2 border-amber-500/50 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 font-medium cursor-pointer text-xs mt-2"
+                          >
+                            {isCapturingAgoda ? <RefreshCw size={13} className="animate-spin text-amber-400" /> : <Key size={13} className="text-amber-400" />}
+                            {isCapturingAgoda ? "Opening Agoda YCS & Capturing..." : "🔑 Fresh Login & Capture Cookies to Supabase"}
+                          </Button>
+                          {channel.sessionCookies && (
+                            <div className="flex items-center justify-between text-[11px] bg-emerald-500/10 border border-emerald-500/20 rounded px-2.5 py-1 text-emerald-400 mt-1">
+                              <span className="flex items-center gap-1.5 font-medium">
+                                <CheckCircle2 size={12} /> Agoda Cookies Active in Supabase
+                              </span>
+                              <span className="text-[10px] text-muted-foreground font-mono">
+                                {Array.isArray(channel.sessionCookies) ? `${channel.sessionCookies.length} cookies` : 'Active'}
+                              </span>
+                            </div>
+                          )}
+                        </>
+                      )}
                     </div>
                   ) : (
                     <div className="space-y-3 pt-1">
