@@ -24,9 +24,7 @@ async function scrapeAgoda(options = {}) {
         } catch (e) {}
     }
 
-    if (!chromePath && fs.existsSync(macChrome)) {
-        chromePath = macChrome;
-    } else if (!chromePath) {
+    if (!chromePath) {
         try {
             chromePath = await puppeteer.executablePath();
         } catch (e) {}
@@ -39,6 +37,9 @@ async function scrapeAgoda(options = {}) {
         userDataDir: AGODA_SESSION_DIR,
         defaultViewport: isCloud ? { width: 1280, height: 900 } : null,
         args: [
+            `--user-data-dir=${AGODA_SESSION_DIR}`,
+            '--no-first-run',
+            '--no-default-browser-check',
             '--start-maximized',
             '--no-sandbox',
             '--disable-setuid-sandbox',

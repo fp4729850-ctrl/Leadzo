@@ -1061,7 +1061,6 @@ export default function HotelLeadManagerPage() {
       }
     }
 
-    const targetChannel = channels.find(c => c.id === channelId);
     if (!targetChannel?.email?.trim()) {
       toast.error(`Please enter your ${name} Login Email / ID first!`);
       return;
