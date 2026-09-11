@@ -33,18 +33,22 @@ async function scrapeAgoda(options = {}) {
     const hasCookies = (sessionCookies && Array.isArray(sessionCookies) && sessionCookies.length > 0);
     const isHeadless = isCloud || hasCookies;
     console.log(`\n🏨 [Agoda Scraper] Running in Background (Headless: ${isHeadless})...`);
-    const browser = await puppeteer.launch({
-        headless: isHeadless ? 'new' : false,
-        defaultViewport: { width: 1280, height: 900 },
-        args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-blink-features=AutomationControlled',
-            '--window-size=1280,900'
-        ],
-        ignoreDefaultArgs: ['--enable-automation']
-    });
+    const launchOptions = {
+            headless: isHeadless ? 'new' : false,
+            defaultViewport: { width: 1280, height: 900 },
+            args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-blink-features=AutomationControlled',
+                '--window-size=1280,900'
+            ],
+            ignoreDefaultArgs: ['--enable-automation']
+        };
+        if (chromePath && require('fs').existsSync(chromePath)) {
+            launchOptions.executablePath = chromePath;
+        }
+        const browser = await puppeteer.launch(launchOptions);
 
     try {
         const page = await browser.newPage();

@@ -41,9 +41,8 @@ async function scrapeGoibibo(options = {}) {
         const hasLocalSession = !isCloud && fs.existsSync(localSessionDir);
 
         console.log(`Launching Chrome browser (Cloud Mode: ${isCloud}, Path: ${chromePath})...`);
-        browser = await puppeteer.launch({
+        const launchOptions = {
             headless: isCloud ? 'new' : false,
-            executablePath: chromePath,
             userDataDir: hasLocalSession ? localSessionDir : undefined,
             defaultViewport: isCloud ? { width: 1280, height: 900 } : null,
             args: [
@@ -58,7 +57,11 @@ async function scrapeGoibibo(options = {}) {
                 '--window-size=1280,900'
             ],
             ignoreDefaultArgs: ['--enable-automation']
-        });
+        };
+        if (chromePath && fs.existsSync(chromePath)) {
+            launchOptions.executablePath = chromePath;
+        }
+        browser = await puppeteer.launch(launchOptions);
 
         const page = await browser.newPage();
         
