@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "Leadzo AI - OTA Sync",
+  "version": "1.0",
+  "description": "Automatically syncs OTA session cookies (Agoda, Airbnb) to Leadzo AI for zero-click AI background scraping.",
+  "permissions": [
+    "cookies",
+    "storage",
+    "tabs"
+  ],
+  "host_permissions": [
+    "https://*.agoda.com/*",
+    "https://*.airbnb.com/*",
+    "https://*.goibibo.com/*",
+    "https://*.makemytrip.com/*",
+    "https://*.leadzoai.com/*",
+    "http://localhost:5173/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.leadzoai.com/*",
+        "http://localhost:5173/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Leadzo AI Sync"
+  }
+}

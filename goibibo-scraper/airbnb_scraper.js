@@ -6,7 +6,7 @@ const AIRBNB_COOKIES_PATH = path.join(__dirname, 'airbnb_cookies.json');
 const AIRBNB_SESSION_DIR = path.join(process.env.HOME || '', '.leadzo-airbnb-session');
 
 async function scrapeAirbnb(options = {}) {
-    const { username, email, password, otp, leadzoMasterIcal, action } = options;
+    const { username, email, password, otp, leadzoMasterIcal, action, sessionCookies } = options;
     const loginEmail = email || username || '';
 
     if (!fs.existsSync(AIRBNB_SESSION_DIR)) {
@@ -63,9 +63,16 @@ async function scrapeAirbnb(options = {}) {
             return { success: true, message: 'Airbnb Scraper ready' };
         }
 
-        // 1. If saved cookies exist, load them (Goibibo logic)
-        const hasCookies = fs.existsSync(AIRBNB_COOKIES_PATH);
-        if (hasCookies) {
+        // 1. If session cookies are provided by DB, or saved cookies exist locally, load them
+        const hasLocalCookies = fs.existsSync(AIRBNB_COOKIES_PATH);
+        if (sessionCookies && Array.isArray(sessionCookies) && sessionCookies.length > 0) {
+            console.log("Loading Airbnb session cookies from Supabase DB payload...");
+            try {
+                await page.setCookie(...sessionCookies);
+            } catch (e) {
+                console.error("Failed to set DB cookies:", e);
+            }
+        } else if (hasLocalCookies) {
             console.log("Loading saved Airbnb session cookies from airbnb_cookies.json...");
             try {
                 const cookies = JSON.parse(fs.readFileSync(AIRBNB_COOKIES_PATH, 'utf8'));

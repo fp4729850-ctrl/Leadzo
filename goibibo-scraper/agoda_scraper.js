@@ -6,7 +6,7 @@ const AGODA_COOKIES_PATH = path.join(__dirname, 'agoda_cookies.json');
 const AGODA_SESSION_DIR = path.join(process.env.HOME || '', '.leadzo-agoda-session');
 
 async function scrapeAgoda(options = {}) {
-    const { username, email, password, otp, leadzoMasterIcal, action } = options;
+    const { username, email, password, otp, leadzoMasterIcal, action, sessionCookies } = options;
     const loginEmail = email || username || '';
 
     if (!fs.existsSync(AGODA_SESSION_DIR)) {
@@ -63,9 +63,16 @@ async function scrapeAgoda(options = {}) {
             return { success: true, message: 'Agoda Scraper ready' };
         }
 
-        // 1. If saved cookies exist, load them (Goibibo logic)
-        const hasCookies = fs.existsSync(AGODA_COOKIES_PATH);
-        if (hasCookies) {
+        // 1. If session cookies are provided by DB, or saved cookies exist locally, load them
+        const hasLocalCookies = fs.existsSync(AGODA_COOKIES_PATH);
+        if (sessionCookies && Array.isArray(sessionCookies) && sessionCookies.length > 0) {
+            console.log("Loading Agoda session cookies from Supabase DB payload...");
+            try {
+                await page.setCookie(...sessionCookies);
+            } catch (e) {
+                console.error("Failed to set DB cookies:", e);
+            }
+        } else if (hasLocalCookies) {
             console.log("Loading saved Agoda session cookies from agoda_cookies.json...");
             try {
                 const cookies = JSON.parse(fs.readFileSync(AGODA_COOKIES_PATH, 'utf8'));

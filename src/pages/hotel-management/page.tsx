@@ -5,7 +5,7 @@ import {
   Link as LinkIcon, Plus, User, Phone, Globe, Lock, AlertTriangle, 
   Sparkles, Copy, Check, ExternalLink, Bot, BedDouble, Hotel, CalendarCheck, ShieldAlert,
   Settings, Key, Layers, X, Wand2, Rocket, MapPin, Target, ArrowRight, Camera,
-  TrendingUp, DollarSign, Percent, Users, ArrowUpRight, MessageCircle, CheckCircle, Database
+  TrendingUp, DollarSign, Percent, Users, ArrowUpRight, MessageCircle, CheckCircle, Database, DownloadCloud
 } from "lucide-react";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, Legend } from "recharts";
 import { Button } from "@/components/ui/button.tsx";
@@ -108,7 +108,9 @@ export default function HotelLeadManagerPage() {
   const [otaOtpValue, setOtaOtpValue] = useState('');
   const [isSubmittingOtaOtp, setIsSubmittingOtaOtp] = useState(false);
 
-  // Removed static useEffect, handled dynamically in openInteractiveModal
+  // Chrome Extension Modal State
+  const [isExtensionModalOpen, setIsExtensionModalOpen] = useState(false);
+  const [extensionChannelId, setExtensionChannelId] = useState('');
 
   const openInteractiveModal = (channelId: 'goibibo' | 'agoda' | 'airbnb' = 'goibibo') => {
     setInteractiveChannelId(channelId);
@@ -585,7 +587,8 @@ export default function HotelLeadManagerPage() {
           password: dummyEmails.includes(c.email) ? '' : (c.password || ''),
           icalUrl: (c.ical_url && !c.ical_url.includes('sample') && !c.ical_url.includes('12345678')) ? c.ical_url : '',
           status: isRealConnected ? 'connected' : 'pending',
-          lastSync: isRealConnected ? (c.last_sync || 'Just now') : 'Not connected'
+          lastSync: isRealConnected ? (c.last_sync || 'Just now') : 'Not connected',
+          sessionCookies: c.session_cookies || null
         });
       }
       setChannels(mergedList);
@@ -1037,10 +1040,25 @@ export default function HotelLeadManagerPage() {
   };
 
   const handleConnectOtaViaAi = async (channelId: string, name: string) => {
-    // If Goibibo, Agoda, or Airbnb, route to the dedicated interactive Puppeteer scraper dialog
-    if (['goibibo', 'agoda', 'airbnb'].includes(channelId.toLowerCase())) {
-      openInteractiveModal(channelId.toLowerCase() as any);
+    const targetChannel = channels.find(c => c.id === channelId);
+    
+    // If Goibibo, route to the dedicated interactive Puppeteer scraper dialog
+    if (channelId.toLowerCase() === 'goibibo') {
+      openInteractiveModal('goibibo');
       return;
+    }
+
+    // For Agoda/Airbnb, we MUST use Chrome Extension to bypass Captcha
+    if (['agoda', 'airbnb'].includes(channelId.toLowerCase())) {
+      if (targetChannel && targetChannel.sessionCookies) {
+        // We have cookies from the extension! Proceed with normal AI sync!
+        // Fall through to Phase 1 below
+      } else {
+        // No cookies synced yet! Force them to install the extension.
+        setExtensionChannelId(channelId.toLowerCase());
+        setIsExtensionModalOpen(true);
+        return;
+      }
     }
 
     const targetChannel = channels.find(c => c.id === channelId);
@@ -1063,7 +1081,8 @@ export default function HotelLeadManagerPage() {
           channel: channelId,
           email: targetChannel.email,
           password: targetChannel.password,
-          leadzoMasterIcal: masterIcalUrl
+          leadzoMasterIcal: masterIcalUrl,
+          sessionCookies: targetChannel.sessionCookies
         })
       });
 
@@ -3279,6 +3298,42 @@ export default function HotelLeadManagerPage() {
               ✅ Overlap Detector will automatically prevent double-bookings on this room
             </p>
           )}
+        </DialogContent>
+      </Dialog>
+      {/* Chrome Extension Install Modal */}
+      <Dialog open={isExtensionModalOpen} onOpenChange={setIsExtensionModalOpen}>
+        <DialogContent className="sm:max-w-[450px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base text-indigo-400 capitalize">
+              <DownloadCloud size={18} />
+              Install Leadzo Chrome Extension
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground mt-2">
+              Due to strict Cloudflare security on <strong className="text-white capitalize">{extensionChannelId}</strong>, our cloud server gets blocked by Captcha when trying to log in directly.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-md">
+              <p className="text-[11px] text-amber-300 flex flex-col gap-1.5 font-medium leading-relaxed">
+                <span className="flex items-center gap-1"><Sparkles size={14} /> <strong>1-Click AI Bypass Required:</strong></span>
+                Please install the Leadzo AI Chrome Extension. It will securely sync your session directly from your browser, bypassing all captchas!
+              </p>
+            </div>
+            
+            <div className="space-y-2 text-[11px] text-slate-300">
+              <p>1. <a href="#" className="text-indigo-400 hover:underline">Download Leadzo AI Extension</a> (coming to web store soon)</p>
+              <p>2. Go to <strong>{extensionChannelId}.com</strong> and log in</p>
+              <p>3. The extension will automatically sync your session.</p>
+              <p>4. Come back here and click "Auto-Connect" again!</p>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+            <Button variant="ghost" size="sm" onClick={() => setIsExtensionModalOpen(false)}>
+              Got it
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
