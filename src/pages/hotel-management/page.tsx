@@ -483,6 +483,17 @@ export default function HotelLeadManagerPage() {
          if (reFetch2.data) rawChannels = reFetch2.data;
       }
 
+      // IN-MEMORY FALLBACK: Drop any duplicate King Villas (in case DB changes haven't propagated)
+      let kvCount = 0;
+      rawChannels = rawChannels.filter((c: any) => {
+         const isKv = c.channel_id.toLowerCase().includes('king') || c.channel_id.toLowerCase().includes('villa') || c.channel_id === 'direct';
+         if (isKv) {
+            kvCount++;
+            if (kvCount > 1) return false;
+         }
+         return true;
+      });
+
       const dummyEmails = ['hotel.grand@booking.com', 'host@airbnb.com', 'hotel.grand@gmail.com'];
 
       // Reset any mock / dummy seeded credentials so channels start clean and not connected
