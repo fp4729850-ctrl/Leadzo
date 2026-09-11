@@ -129,13 +129,8 @@ async function scrapeAgoda(options = {}) {
                     return (!url.includes('login') && !url.includes('signin') && !url.includes('auth')) ||
                            text.includes('Dashboard') || text.includes('Property') || text.includes('Calendar') || text.includes('Bookings');
                 }, { timeout: loginTimeout });
-
-                console.log("✅ Agoda Login successful! Saving cookies to agoda_cookies.json...");
-                const cookies = await page.cookies();
-                fs.writeFileSync(AGODA_COOKIES_PATH, JSON.stringify(cookies, null, 2));
-                await new Promise(r => setTimeout(r, 4000));
             } catch (waitErr) {
-                const pageBody = await page.evaluate(() => document.body ? document.body.innerText : '');
+                const pageBody = await page.evaluate(() => document.body ? document.body.innerText : '').catch(()=>'');
                 if (pageBody.includes('OTP') || pageBody.includes('verification') || pageBody.includes('code')) {
                     return {
                         needOtp: true,
@@ -143,6 +138,16 @@ async function scrapeAgoda(options = {}) {
                     };
                 }
                 console.log("Agoda login wait notice:", waitErr.message);
+            }
+
+            // Navigation causes waitForFunction to throw, so we always check url afterwards to save cookies
+            const afterWaitUrl = page.url();
+            if (!afterWaitUrl.includes('login') && !afterWaitUrl.includes('signin') && !afterWaitUrl.includes('auth')) {
+                console.log("✅ Agoda Login successful! Saving cookies to agoda_cookies.json...");
+                try {
+                    const cookies = await page.cookies();
+                    fs.writeFileSync(AGODA_COOKIES_PATH, JSON.stringify(cookies, null, 2));
+                } catch(e) {}
             }
         } else {
             console.log("✅ Already logged in to Agoda via saved cookies!");
@@ -159,7 +164,7 @@ async function scrapeAgoda(options = {}) {
 
         let extractedIcal = '';
         const pageContent = await page.content();
-        const icalMatch = pageContent.match(/https:\/\/ycs\.agoda\.com\/[a-zA-Z0-9_\-\/]+\.ics/);
+        const icalMatch = pageContent.match(/https:\/\/[a-zA-Z0-9_\-\.\/]+\.ics/);
         if (icalMatch) {
             extractedIcal = icalMatch[0];
             console.log("Extracted Agoda iCal Feed:", extractedIcal);
