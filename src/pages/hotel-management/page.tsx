@@ -32,6 +32,7 @@ interface OtaChannel {
   icalUrl: string;
   status: "connected" | "syncing" | "pending";
   lastSync: string;
+  sessionCookies?: any;
 }
 
 interface RoomIcalLinks {
