@@ -93,12 +93,13 @@ export default function HotelLeadManagerPage() {
   const [blockMode, setBlockMode] = useState<'block' | 'book'>('block');
   const [isBlockingRoom, setIsBlockingRoom] = useState(false);
 
-  const [isGoibiboModalOpen, setIsGoibiboModalOpen] = useState(false);
-  const [goibiboUsername, setGoibiboUsername] = useState('');
-  const [goibiboPassword, setGoibiboPassword] = useState('');
-  const [goibiboOtp, setGoibiboOtp] = useState('');
-  const [goibiboStep, setGoibiboStep] = useState<'creds' | 'otp'>('creds');
-  const [saveGoibiboCreds, setSaveGoibiboCreds] = useState(true);
+  const [isInteractiveModalOpen, setIsInteractiveModalOpen] = useState(false);
+  const [interactiveChannelId, setInteractiveChannelId] = useState<'goibibo' | 'agoda' | 'airbnb'>('goibibo');
+  const [interactiveUsername, setInteractiveUsername] = useState('');
+  const [interactivePassword, setInteractivePassword] = useState('');
+  const [interactiveOtp, setInteractiveOtp] = useState('');
+  const [interactiveStep, setInteractiveStep] = useState<'creds' | 'otp'>('creds');
+  const [saveInteractiveCreds, setSaveInteractiveCreds] = useState(true);
 
   // Generic Real OTA AI Connect & OTP State (Airbnb, Agoda, Booking.com)
   const [otaOtpModalOpen, setOtaOtpModalOpen] = useState(false);
@@ -107,48 +108,52 @@ export default function HotelLeadManagerPage() {
   const [otaOtpValue, setOtaOtpValue] = useState('');
   const [isSubmittingOtaOtp, setIsSubmittingOtaOtp] = useState(false);
 
-  useEffect(() => {
-    const saved = localStorage.getItem('leadzo_goibibo_creds');
+  // Removed static useEffect, handled dynamically in openInteractiveModal
+
+  const openInteractiveModal = (channelId: 'goibibo' | 'agoda' | 'airbnb' = 'goibibo') => {
+    setInteractiveChannelId(channelId);
+    setInteractiveStep('creds');
+    const saved = localStorage.getItem(`leadzo_${channelId}_creds`);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (parsed.username) setGoibiboUsername(parsed.username);
-        if (parsed.password) setGoibiboPassword(parsed.password);
+        setInteractiveUsername(parsed.username || '');
+        setInteractivePassword(parsed.password || '');
       } catch(e) {}
+    } else {
+      setInteractiveUsername('');
+      setInteractivePassword('');
     }
-  }, []);
-
-  const openGoibiboModal = () => {
-    setGoibiboStep('creds');
-    setIsGoibiboModalOpen(true);
+    setIsInteractiveModalOpen(true);
   };
 
   const handleAiEnrichment = async () => {
-    openGoibiboModal();
+    openInteractiveModal('goibibo');
   };
 
-  const executeAiEnrichment = async (userCreds?: { username?: string; password?: string; otp?: string }) => {
+  const executeAiEnrichment = async (userCreds?: { username?: string; password?: string; otp?: string; channelId?: string }) => {
     setIsAiScrapingData(true);
     toast.loading("🤖 AI Agent spinning up browser...", { id: "ai-enrich" });
 
     try {
-      const uname = userCreds?.username !== undefined ? userCreds.username : goibiboUsername;
-      const pass = userCreds?.password !== undefined ? userCreds.password : goibiboPassword;
-      const otpVal = userCreds?.otp !== undefined ? userCreds.otp : goibiboOtp;
+      const uname = userCreds?.username !== undefined ? userCreds.username : interactiveUsername;
+      const pass = userCreds?.password !== undefined ? userCreds.password : interactivePassword;
+      const otpVal = userCreds?.otp !== undefined ? userCreds.otp : interactiveOtp;
+      const channel = userCreds?.channelId !== undefined ? userCreds.channelId : interactiveChannelId;
 
-      if (saveGoibiboCreds && uname) {
-        localStorage.setItem('leadzo_goibibo_creds', JSON.stringify({
+      if (saveInteractiveCreds && uname) {
+        localStorage.setItem(`leadzo_${channel}_creds`, JSON.stringify({
           username: uname,
           password: pass
         }));
       }
 
-      toast.loading("🔑 Connecting to AI Scraper Service...", { id: "ai-enrich" });
+      toast.loading(`🔑 Connecting to AI Scraper Service for ${channel}...`, { id: "ai-enrich" });
       
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      const storedCookies = localStorage.getItem('goibibo_scraper_cookies');
+      const storedCookies = localStorage.getItem(`${channel}_scraper_cookies`);
       let cookiesObj = [];
       try {
         if (storedCookies) cookiesObj = JSON.parse(storedCookies);
@@ -158,14 +163,21 @@ export default function HotelLeadManagerPage() {
       const response = await fetch(scraperEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cookies: cookiesObj, username: uname, password: pass, otp: otpVal })
+        body: JSON.stringify({ 
+          channel: channel,
+          cookies: cookiesObj, 
+          username: uname, 
+          password: pass, 
+          otp: otpVal,
+          leadzoMasterIcal: masterIcalUrl
+        })
       });
       const json = await response.json();
 
       if (json.needOtp) {
         setIsAiScrapingData(false);
-        setGoibiboStep('otp');
-        setIsGoibiboModalOpen(true);
+        setInteractiveStep('otp');
+        setIsInteractiveModalOpen(true);
         toast.info("📲 OTP required! Please enter the OTP sent to your mobile.", { id: "ai-enrich", duration: 8000 });
         return;
       }
@@ -174,9 +186,9 @@ export default function HotelLeadManagerPage() {
         throw new Error(json.error || "Scraping API failed");
       }
 
-      setIsGoibiboModalOpen(false);
-      setGoibiboStep('creds');
-      setGoibiboOtp('');
+      setIsInteractiveModalOpen(false);
+      setInteractiveStep('creds');
+      setInteractiveOtp('');
 
       toast.loading("🔍 Scraping successful. Processing extracted bookings...", { id: "ai-enrich" });
 
@@ -1025,9 +1037,9 @@ export default function HotelLeadManagerPage() {
   };
 
   const handleConnectOtaViaAi = async (channelId: string, name: string) => {
-    // If Goibibo, route to the dedicated Goibibo Puppeteer scraper dialog
-    if (channelId === 'goibibo') {
-      openGoibiboModal();
+    // If Goibibo, Agoda, or Airbnb, route to the dedicated interactive Puppeteer scraper dialog
+    if (['goibibo', 'agoda', 'airbnb'].includes(channelId)) {
+      openInteractiveModal(channelId as any);
       return;
     }
 
@@ -2993,29 +3005,29 @@ export default function HotelLeadManagerPage() {
       </Tabs>
 
       {/* Goibibo Credentials & OTP Modal */}
-      <Dialog open={isGoibiboModalOpen} onOpenChange={setIsGoibiboModalOpen}>
+      <Dialog open={isInteractiveModalOpen} onOpenChange={setIsInteractiveModalOpen}>
         <DialogContent className="sm:max-w-[450px]">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-base text-indigo-400">
+            <DialogTitle className="flex items-center gap-2 text-base text-indigo-400 capitalize">
               <Database size={18} />
-              {goibiboStep === 'otp' ? 'Goibibo OTP Verification' : 'Goibibo / Ingo-MMT AI Sync Login'}
+              {interactiveStep === 'otp' ? `${interactiveChannelId} OTP Verification` : `${interactiveChannelId} AI Sync Login`}
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
-              {goibiboStep === 'otp'
+              {interactiveStep === 'otp'
                 ? 'Enter the 4-digit or 6-digit OTP sent to your registered mobile number / email.'
-                : 'Enter your Goibibo / MakeMyTrip Extranet credentials. The AI Agent will automatically fill them and fetch live bookings.'}
+                : `Enter your ${interactiveChannelId} Extranet credentials. The AI Agent will automatically fill them and inject the master iCal.`}
             </DialogDescription>
           </DialogHeader>
 
-          {goibiboStep === 'creds' ? (
+          {interactiveStep === 'creds' ? (
             <div className="space-y-4 py-2">
               <div className="space-y-2">
                 <label className="text-xs font-medium text-slate-300">Registered Mobile / Email ID</label>
                 <input
                   type="text"
                   placeholder="e.g. 9876543210 or hotel@example.com"
-                  value={goibiboUsername}
-                  onChange={(e) => setGoibiboUsername(e.target.value)}
+                  value={interactiveUsername}
+                  onChange={(e) => setInteractiveUsername(e.target.value)}
                   className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-md focus:outline-none focus:border-indigo-500 text-white"
                 />
               </div>
@@ -3024,8 +3036,8 @@ export default function HotelLeadManagerPage() {
                 <input
                   type="password"
                   placeholder="Extranet Password"
-                  value={goibiboPassword}
-                  onChange={(e) => setGoibiboPassword(e.target.value)}
+                  value={interactivePassword}
+                  onChange={(e) => setInteractivePassword(e.target.value)}
                   className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-md focus:outline-none focus:border-indigo-500 text-white"
                 />
               </div>
@@ -3033,8 +3045,8 @@ export default function HotelLeadManagerPage() {
                 <input
                   type="checkbox"
                   id="remember_creds"
-                  checked={saveGoibiboCreds}
-                  onChange={(e) => setSaveGoibiboCreds(e.target.checked)}
+                  checked={saveInteractiveCreds}
+                  onChange={(e) => setSaveInteractiveCreds(e.target.checked)}
                   className="rounded border-slate-700 bg-slate-900 text-indigo-500"
                 />
                 <label htmlFor="remember_creds" className="text-xs text-slate-400 cursor-pointer">
@@ -3047,7 +3059,7 @@ export default function HotelLeadManagerPage() {
               <div className="p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-md">
                 <p className="text-xs text-indigo-300 flex items-center gap-1.5 font-medium">
                   <Sparkles size={14} />
-                  OTP requested for: <span className="font-bold text-white">{goibiboUsername}</span>
+                  OTP requested for: <span className="font-bold text-white">{interactiveUsername}</span>
                 </p>
               </div>
               <div className="space-y-2">
@@ -3055,9 +3067,9 @@ export default function HotelLeadManagerPage() {
                 <input
                   type="text"
                   placeholder="e.g. 1234 or 123456"
-                  value={goibiboOtp}
+                  value={interactiveOtp}
                   maxLength={6}
-                  onChange={(e) => setGoibiboOtp(e.target.value)}
+                  onChange={(e) => setInteractiveOtp(e.target.value)}
                   className="w-full px-3 py-2.5 text-center text-lg tracking-widest font-mono bg-slate-900 border border-indigo-500/50 rounded-md focus:outline-none focus:border-indigo-400 text-white"
                 />
               </div>
@@ -3065,13 +3077,13 @@ export default function HotelLeadManagerPage() {
           )}
 
           <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
-            <Button variant="ghost" size="sm" onClick={() => { setIsGoibiboModalOpen(false); setGoibiboStep('creds'); }}>
+            <Button variant="ghost" size="sm" onClick={() => { setIsInteractiveModalOpen(false); setInteractiveStep('creds'); }}>
               Cancel
             </Button>
-            {goibiboStep === 'creds' ? (
+            {interactiveStep === 'creds' ? (
               <Button
                 size="sm"
-                onClick={() => executeAiEnrichment({ username: goibiboUsername, password: goibiboPassword })}
+                onClick={() => executeAiEnrichment({ username: interactiveUsername, password: interactivePassword })}
                 className="bg-indigo-600 hover:bg-indigo-500 text-white gap-2"
               >
                 <Bot size={14} />
@@ -3080,8 +3092,8 @@ export default function HotelLeadManagerPage() {
             ) : (
               <Button
                 size="sm"
-                onClick={() => executeAiEnrichment({ username: goibiboUsername, password: goibiboPassword, otp: goibiboOtp })}
-                disabled={!goibiboOtp || isAiScrapingData}
+                onClick={() => executeAiEnrichment({ username: interactiveUsername, password: interactivePassword, otp: interactiveOtp })}
+                disabled={!interactiveOtp || isAiScrapingData}
                 className="bg-emerald-600 hover:bg-emerald-500 text-white gap-2"
               >
                 <CheckCircle size={14} />
