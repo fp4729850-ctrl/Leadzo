@@ -33,10 +33,8 @@ app.all('/api/scrape', async (req, res) => {
             data = await scrapeGoibibo(req.body || {});
         }
 
-        if (data && data.needOtp) {
-            return res.json({ success: true, needOtp: true, message: data.message });
-        }
-        res.json({ success: true, data: data });
+        // Directly forward the scraper response (already contains success/needOtp fields)
+        res.json(data);
     } catch (error) {
         console.error("Scrape error:", error);
         res.status(500).json({ success: false, error: error.message });
