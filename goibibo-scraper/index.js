@@ -46,6 +46,7 @@ app.all('/api/scrape', async (req, res) => {
 });
 
 const { injectAllRoomsToGoibibo } = require('./goibibo_calendar_injector');
+const { injectAllRoomsToAirbnb } = require('./airbnb_calendar_injector');
 
 app.all('/api/goibibo/inject-calendar', async (req, res) => {
     try {
@@ -54,6 +55,17 @@ app.all('/api/goibibo/inject-calendar', async (req, res) => {
         res.json(result);
     } catch (err) {
         console.error("Injection API Error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+app.all('/api/airbnb/inject-calendar', async (req, res) => {
+    try {
+        console.log("\n⚡ [API] Triggering Airbnb Extranet iCal Auto-Injection...");
+        const result = await injectAllRoomsToAirbnb(req.body || {});
+        res.json(result);
+    } catch (err) {
+        console.error("Airbnb Injection API Error:", err);
         res.status(500).json({ success: false, error: err.message });
     }
 });

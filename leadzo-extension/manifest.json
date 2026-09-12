@@ -11,6 +11,7 @@
   "host_permissions": [
     "https://*.agoda.com/*",
     "https://*.airbnb.com/*",
+    "https://*.airbnb.co.in/*",
     "https://*.goibibo.com/*",
     "https://*.makemytrip.com/*",
     "https://*.leadzoai.com/*",

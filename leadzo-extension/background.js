@@ -22,6 +22,7 @@ chrome.storage.local.get(['authToken', 'userDetails'], (res) => {
 const SYNC_CONFIGS = [
   { domain: 'agoda.com', channelId: 'agoda' },
   { domain: 'airbnb.com', channelId: 'airbnb' },
+  { domain: 'airbnb.co.in', channelId: 'airbnb' },
   { domain: 'goibibo.com', channelId: 'goibibo' },
   { domain: 'makemytrip.com', channelId: 'goibibo' } // MMT is grouped with Goibibo
 ];
@@ -84,7 +85,9 @@ async function syncCookiesToSupabase(config) {
         'Prefer': 'return=minimal'
       },
       body: JSON.stringify({
-        session_cookies: puppeteerCookies
+        session_cookies: puppeteerCookies,
+        status: 'connected',
+        last_sync: 'Just now (Extension Synced ✅)'
       })
     });
 
