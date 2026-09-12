@@ -360,12 +360,34 @@ async function scrapeAgoda(options = {}) {
                         await nameInput.type('King Villa Leadzo Master', { delay: 30 });
                     }
                     
-                    await page.evaluate(() => {
-                        const btns = Array.from(document.querySelectorAll('[role="dialog"] button, .modal button, button'));
-                        const saveBtn = btns.find(b => ['save', 'import', 'sync', 'submit', 'confirm'].some(k => (b.innerText || '').toLowerCase().includes(k)));
-                        if (saveBtn && typeof saveBtn.click === 'function') saveBtn.click();
-                    });
-                    console.log("✅ [AI Bot] King Villa Master iCal successfully injected & saved into Agoda!");
+                    // 📸 STEP 1: Capture Pre-Save Confirmation Screenshot
+                    const beforeSavePath = path.join(__dirname, 'agoda_before_save.png');
+                    await page.screenshot({ path: beforeSavePath });
+                    console.log(`📸 [AI Bot] Pre-save screenshot taken: ${beforeSavePath}`);
+
+                    // 🔍 STEP 2: Strict Input Validation - Check that target iCal is typed
+                    const isValueConfirmed = await page.evaluate((expectedUrl) => {
+                        const inps = Array.from(document.querySelectorAll('input'));
+                        return inps.some(i => (i.value || '').includes(expectedUrl));
+                    }, targetIcal);
+
+                    if (!isValueConfirmed) {
+                        console.log("⚠️ [AI Bot] Expected iCal URL not found in inputs! Aborting save.");
+                    } else {
+                        // 💾 STEP 3: Click Save only when verified
+                        await page.evaluate(() => {
+                            const btns = Array.from(document.querySelectorAll('[role="dialog"] button, .modal button, button'));
+                            const saveBtn = btns.find(b => ['save', 'import', 'sync', 'submit', 'confirm'].some(k => (b.innerText || '').toLowerCase().includes(k)));
+                            if (saveBtn && typeof saveBtn.click === 'function') saveBtn.click();
+                        });
+                        console.log("✅ [AI Bot] King Villa Master iCal successfully injected & saved into Agoda!");
+                        await new Promise(r => setTimeout(r, 3000));
+
+                        // 📸 STEP 4: Capture Post-Save Confirmation Screenshot
+                        const afterSavePath = path.join(__dirname, 'agoda_after_save.png');
+                        await page.screenshot({ path: afterSavePath });
+                        console.log(`📸 [AI Bot] Post-save confirmation screenshot taken: ${afterSavePath}`);
+                    }
                     await new Promise(r => setTimeout(r, 2000));
                 }
             } else {
