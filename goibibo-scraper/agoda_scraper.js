@@ -215,44 +215,89 @@ async function scrapeAgoda(options = {}) {
         };
         await dismissPopups();
 
-        // Step 1: Check if stuck on Property Search / Multi-property page
+        // Step 1: Check if on Property Search / Multi-property Listings page
         let curUrl = page.url();
         console.log("Current Agoda Extranet URL:", curUrl);
         if (curUrl.includes('propertysearch') || curUrl.includes('iam/property') || curUrl.includes('property-search')) {
-            console.log("🏨 [AI Bot] Detected Property Search page! Finding King Villa (50628060)...");
+            console.log("🏨 [AI Bot] Detected Property Listings page! Selecting King Villa (50628060)...");
+            
+            // 1. Clear any accidental text in the search bar
             await page.evaluate(() => {
-                const items = Array.from(document.querySelectorAll('a, button, tr, div, span'));
-                const villa = items.find(el => {
-                    const txt = (el.innerText || '').toLowerCase();
-                    return txt.includes('king villa') || txt.includes('50628060');
+                const searchBoxes = document.querySelectorAll('input[type="text"], input[type="search"]');
+                searchBoxes.forEach(box => {
+                    box.value = '';
+                    box.dispatchEvent(new Event('input', { bubbles: true }));
+                    box.dispatchEvent(new Event('change', { bubbles: true }));
                 });
-                if (villa && typeof villa.click === 'function') villa.click();
             });
-            await new Promise(r => setTimeout(r, 4000));
+            await new Promise(r => setTimeout(r, 1000));
+
+            // 2. Click King Villa specifically from the table row
+            const clicked = await page.evaluate(() => {
+                const allElements = Array.from(document.querySelectorAll('*'));
+                const idEl = allElements.find(el => el.children.length === 0 && (el.textContent || '').includes('50628060'));
+                if (idEl) {
+                    let parent = idEl;
+                    for (let i = 0; i < 6 && parent; i++) {
+                        parent = parent.parentElement;
+                        if (!parent) break;
+                        const link = parent.querySelector('a') || parent.querySelector('button') || parent.querySelector('[role="button"]');
+                        if (link && typeof link.click === 'function') {
+                            link.click();
+                            return true;
+                        }
+                    }
+                    if (idEl.parentElement && typeof idEl.parentElement.click === 'function') {
+                        idEl.parentElement.click();
+                        return true;
+                    }
+                }
+                
+                // Fallback: Click top "All properties" dropdown and select King Villa
+                const topDropdown = Array.from(document.querySelectorAll('button, div, span')).find(el => (el.textContent || '').includes('All properties'));
+                if (topDropdown && typeof topDropdown.click === 'function') {
+                    topDropdown.click();
+                }
+                return false;
+            });
+
+            if (clicked) {
+                console.log("👉 [AI Bot] Clicked King Villa row! Waiting for property extranet navigation...");
+                await new Promise(r => setTimeout(r, 4000));
+            } else {
+                // If top dropdown was opened, select King Villa option
+                await page.evaluate(() => {
+                    const villaOpt = Array.from(document.querySelectorAll('li, div, a, span')).find(e => (e.textContent || '').includes('King Villa') && (e.textContent || '').includes('50628060'));
+                    if (villaOpt && typeof villaOpt.click === 'function') villaOpt.click();
+                });
+                await new Promise(r => setTimeout(r, 3000));
+            }
             await dismissPopups();
         }
 
-        // Step 2: Navigate deeply to Calendar
-        console.log("📅 [AI Bot] Navigating to Calendar & Availability...");
+        // Step 2: Navigate into King Villa's Calendar
+        console.log("📅 [AI Bot] Navigating to King Villa Calendar & Availability...");
         try {
             await page.goto('https://ycs.agoda.com/en-us/calendar?propertyId=50628060', { waitUntil: 'domcontentloaded', timeout: 25000 });
         } catch (navErr) {
             console.log("Direct calendar URL notice, falling back to menu clicks:", navErr.message);
         }
-        await new Promise(r => setTimeout(r, 3000));
+        await new Promise(r => setTimeout(r, 4000));
         await dismissPopups();
 
-        // Fallback: Click Calendar from sidebar / header if not on calendar
-        await page.evaluate(() => {
-            const links = Array.from(document.querySelectorAll('a, button, span, li, div'));
-            const calLink = links.find(l => {
-                const txt = (l.innerText || '').trim().toLowerCase();
-                return txt === 'calendar' || txt.includes('rates & availability') || txt.includes('calendar & pricing');
+        // If not yet on calendar, click Calendar from sidebar / menu
+        if (!page.url().includes('calendar')) {
+            await page.evaluate(() => {
+                const links = Array.from(document.querySelectorAll('a, button, span, li, div'));
+                const calLink = links.find(l => {
+                    const txt = (l.innerText || '').trim().toLowerCase();
+                    return txt === 'calendar' || txt.includes('rates & availability') || txt.includes('calendar & pricing');
+                });
+                if (calLink && typeof calLink.click === 'function') calLink.click();
             });
-            if (calLink && typeof calLink.click === 'function') calLink.click();
-        });
-        await new Promise(r => setTimeout(r, 3000));
-        await dismissPopups();
+            await new Promise(r => setTimeout(r, 3000));
+            await dismissPopups();
+        }
 
         let extractedIcal = '';
         const pageContent = await page.content();
@@ -267,8 +312,12 @@ async function scrapeAgoda(options = {}) {
 
         // 2-Way Sync: Inject Leadzo Master iCal into Agoda YCS if provided
         const targetIcal = leadzoMasterIcal || 'https://king-villa.vercel.app/api/ical/export/5.ics';
-        if (targetIcal) {
-            console.log(`📡 [AI Bot] Deep-hunting for 'Calendar Sync' / 'Import Calendar' controls to inject: ${targetIcal}`);
+        // GUARD: Ensure we are NEVER injecting on the Property Search / Listings page!
+        const nowUrl = page.url();
+        const isListingSearchPage = nowUrl.includes('propertysearch') || nowUrl.includes('iam/property');
+
+        if (targetIcal && !isListingSearchPage) {
+            console.log(`📡 [AI Bot] Inside property calendar! Hunting for 'Calendar Sync' / 'Import' modal...`);
             let syncModalFound = false;
             for (let attempt = 1; attempt <= 4; attempt++) {
                 syncModalFound = await page.evaluate(() => {
@@ -283,32 +332,47 @@ async function scrapeAgoda(options = {}) {
                     return false;
                 });
                 if (syncModalFound) {
-                    console.log(`✅ [AI Bot] Found and clicked Calendar Sync control on attempt ${attempt}!`);
+                    console.log(`✅ [AI Bot] Found and opened Calendar Sync modal!`);
                     break;
                 }
                 await new Promise(r => setTimeout(r, 1500));
             }
 
             await new Promise(r => setTimeout(r, 2000));
-            const urlInput = await page.$('input[placeholder*="http"], input[placeholder*="ical"], input[name*="url"], input[id*="url"], input[type="url"], input[type="text"]');
+            // Specifically find the iCal input inside the modal dialog (NEVER a search bar!)
+            const urlInput = await page.$('[role="dialog"] input, .modal input, .ant-modal input, input[placeholder*="http" i], input[placeholder*="ical" i], input[placeholder*="url" i], input[name*="url" i], input[id*="url" i], input[type="url"]');
+            
             if (urlInput) {
-                await urlInput.click({ clickCount: 3 });
-                await urlInput.type(targetIcal, { delay: 30 });
-                const nameInput = await page.$('input[placeholder*="name"], input[name*="name"], input[id*="name"]');
-                if (nameInput) {
-                    await nameInput.click({ clickCount: 3 });
-                    await nameInput.type('King Villa Leadzo Master', { delay: 30 });
+                // Verify this input is not a search box
+                const isSearchBox = await page.evaluate(inp => {
+                    const p = (inp.getAttribute('placeholder') || '').toLowerCase();
+                    const n = (inp.getAttribute('name') || '').toLowerCase();
+                    return p.includes('search') || n.includes('search') || inp.type === 'search';
+                }, urlInput);
+
+                if (!isSearchBox) {
+                    await urlInput.click({ clickCount: 3 });
+                    await urlInput.type(targetIcal, { delay: 30 });
+                    
+                    const nameInput = await page.$('[role="dialog"] input[placeholder*="name" i], .modal input[placeholder*="name" i], input[placeholder*="name" i], input[name*="name" i]');
+                    if (nameInput) {
+                        await nameInput.click({ clickCount: 3 });
+                        await nameInput.type('King Villa Leadzo Master', { delay: 30 });
+                    }
+                    
+                    await page.evaluate(() => {
+                        const btns = Array.from(document.querySelectorAll('[role="dialog"] button, .modal button, button'));
+                        const saveBtn = btns.find(b => ['save', 'import', 'sync', 'submit', 'confirm'].some(k => (b.innerText || '').toLowerCase().includes(k)));
+                        if (saveBtn && typeof saveBtn.click === 'function') saveBtn.click();
+                    });
+                    console.log("✅ [AI Bot] King Villa Master iCal successfully injected & saved into Agoda!");
+                    await new Promise(r => setTimeout(r, 2000));
                 }
-                await page.evaluate(() => {
-                    const btns = Array.from(document.querySelectorAll('button'));
-                    const saveBtn = btns.find(b => ['save', 'import', 'sync', 'submit', 'confirm'].some(k => (b.innerText || '').toLowerCase().includes(k)));
-                    if (saveBtn && typeof saveBtn.click === 'function') saveBtn.click();
-                });
-                console.log("✅ [AI Bot] King Villa Master iCal successfully injected & saved into Agoda!");
-                await new Promise(r => setTimeout(r, 2000));
             } else {
-                console.log("ℹ️ [AI Bot] Import dialog inputs not directly exposed; Calendar Sync page checked.");
+                console.log("ℹ️ [AI Bot] Calendar Sync modal inputs not visible directly; verified on property calendar.");
             }
+        } else if (isListingSearchPage) {
+            console.log("⚠️ [AI Bot] Guard activated: Current page is Property Search. Skipped typing iCal into search box.");
         }
 
         if (extractedIcal) {
