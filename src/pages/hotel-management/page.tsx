@@ -1943,8 +1943,13 @@ export default function HotelLeadManagerPage() {
                           ₹{Number(b.amount || 0).toLocaleString()}
                         </td>
                         <td className="p-3">
-                          <Badge className="bg-emerald-500/15 text-emerald-300 border-emerald-500/30 text-[10px]">
-                            Confirmed
+                          <Badge className={cn(
+                            "border text-[10px]",
+                            b.status === "blocked"
+                              ? "bg-rose-500/15 text-rose-300 border-rose-500/30"
+                              : "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
+                          )}>
+                            {b.status === "blocked" ? "🔒 Confirmed Blocked" : "Confirmed"}
                           </Badge>
                         </td>
                         <td className="p-3 text-right">
@@ -2177,15 +2182,23 @@ export default function HotelLeadManagerPage() {
                                       booking.source === "Agoda" && "bg-amber-500/20 text-amber-300 border border-amber-500/40",
                                       (booking.source === "King Villa" || booking.source.includes("King Villa")) && "bg-purple-500/20 text-purple-300 border border-purple-500/40",
                                       booking.source === "Direct / AI Agent" && booking.status !== "blocked" && "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40",
-                                      booking.status === "blocked" && "bg-slate-800 text-slate-400 border border-slate-700"
+                                      booking.status === "blocked" && "bg-slate-900/90 text-rose-300 border border-rose-500/40 shadow-inner"
                                     )}
-                                    title={`${booking.guestName} (${booking.source}) - ₹${booking.amount.toLocaleString()}`}
+                                    title={`${booking.guestName} (${booking.status === "blocked" ? "Confirmed Blocked" : booking.source}) - ₹${booking.amount.toLocaleString()}`}
                                   >
                                     <span className="font-bold truncate text-[11px] leading-tight text-white">{booking.guestName}</span>
                                     <div className="flex items-center justify-between text-[9px] opacity-90 pt-0.5 border-t border-white/10">
-                                      <span className="truncate max-w-[55px]">{booking.source}</span>
-                                      {booking.amount > 0 && (
-                                        <span className="font-bold text-emerald-300">₹{booking.amount.toLocaleString()}</span>
+                                      {booking.status === "blocked" ? (
+                                        <span className="truncate font-semibold text-rose-300 flex items-center gap-1">
+                                          🔒 Confirmed Blocked
+                                        </span>
+                                      ) : (
+                                        <>
+                                          <span className="truncate max-w-[55px]">{booking.source}</span>
+                                          {booking.amount > 0 && (
+                                            <span className="font-bold text-emerald-300">₹{booking.amount.toLocaleString()}</span>
+                                          )}
+                                        </>
                                       )}
                                     </div>
                                   </div>
@@ -2194,12 +2207,19 @@ export default function HotelLeadManagerPage() {
                                   <DialogHeader>
                                     <DialogTitle className="flex items-center justify-between text-base">
                                       <span>Reservation Voucher Details</span>
-                                      <Badge variant="outline" className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30">
-                                        ✓ {booking.status}
+                                      <Badge variant="outline" className={cn(
+                                        "border",
+                                        booking.status === "blocked" 
+                                          ? "bg-rose-500/15 text-rose-400 border-rose-500/30" 
+                                          : "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+                                      )}>
+                                        {booking.status === "blocked" ? "🔒 Confirmed Blocked" : `✓ ${booking.status}`}
                                       </Badge>
                                     </DialogTitle>
                                     <DialogDescription className="text-xs">
-                                      Live OTA reservation captured by AI Agent from {booking.source}
+                                      {booking.status === "blocked" 
+                                        ? "Room blocked for maintenance/personal use. Synced to all connected OTAs via Master iCal feed."
+                                        : `Live OTA reservation captured by AI Agent from ${booking.source}`}
                                     </DialogDescription>
                                   </DialogHeader>
                                   <div className="space-y-3 py-2 text-xs">
