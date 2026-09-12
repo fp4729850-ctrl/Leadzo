@@ -747,7 +747,79 @@ export default function HotelLeadManagerPage() {
         }
       }
 
+      // 5. 🤖 Auto-Sync with Local AI Scraper (Goibibo / Airbnb / Agoda)
+      try {
+        const scraperEndpoint = (import.meta as any).env?.VITE_SCRAPER_API_URL || 'http://localhost:4000/api/scrape';
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3500);
 
+        const scrapeResp = await fetch(scraperEndpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ channel: 'goibibo' }),
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        if (scrapeResp.ok) {
+          const json = await scrapeResp.json();
+          if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+            for (const b of json.data) {
+              const matchingRoom = activeRooms.find((r: any) => r.number === b.room_label) || activeRooms[0];
+              if (!matchingRoom) continue;
+
+              const formattedIn = normalizeBookingDate(b.check_in);
+              const formattedOut = normalizeBookingDate(b.check_out);
+              const icalUid = b.booking_id ? `GOIBIBO-${b.booking_id}` : (b.ical_uid || `LIVE-${b.guest_name}-${formattedIn}`);
+
+              const exists = currentBookings.some((cb: any) => 
+                cb.ical_uid === icalUid || 
+                (cb.guest_name === b.guest_name && cb.check_in === formattedIn)
+              );
+
+              if (!exists) {
+                const conflicting = checkDateOverlap(matchingRoom.id, formattedIn, formattedOut, currentBookings, icalUid);
+                const bookingStatus = conflicting ? 'blocked' : 'confirmed';
+
+                const { data: insertedBooking, error: insErr } = await supabase.from('hotel_bookings').insert({
+                  user_id: user.id,
+                  room_id: matchingRoom.id,
+                  guest_name: b.guest_name,
+                  phone: b.phone || '',
+                  source: 'Goibibo / MakeMyTrip',
+                  check_in: formattedIn,
+                  check_out: formattedOut,
+                  amount: b.amount || matchingRoom.price_per_night || 2000,
+                  status: bookingStatus,
+                  ical_uid: icalUid
+                }).select().single();
+
+                if (!insErr && insertedBooking) {
+                  hasNewSync = true;
+                  currentBookings.push(insertedBooking);
+                } else {
+                  hasNewSync = true;
+                  currentBookings.push({
+                    id: `temp-${Date.now()}-${Math.random()}`,
+                    user_id: user.id,
+                    room_id: matchingRoom.id,
+                    guest_name: b.guest_name,
+                    phone: b.phone || '',
+                    source: 'Goibibo / MakeMyTrip',
+                    check_in: formattedIn,
+                    check_out: formattedOut,
+                    amount: b.amount || 2000,
+                    status: bookingStatus,
+                    ical_uid: icalUid
+                  });
+                }
+              }
+            }
+          }
+        }
+      } catch (scraperErr) {
+        // Silent catch: if scraper daemon is offline or timed out, standard iCal/DB sync proceeds normally
+      }
 
       if (hasNewSync) {
         const refetched = await supabase.from('hotel_bookings').select('*');

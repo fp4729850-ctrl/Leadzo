@@ -371,6 +371,7 @@ async function scrapeGoibibo(options = {}) {
             { guest_name: "RAHEMATALI SHAIKH", check_in: "12 Sep", check_out: "13 Sep", room_label: "Room 1", room_info: "1 Super Delux Room No 1", booking_id: "NH20067515731800", phone: "917600448681", amount: 1966.5 },
             { guest_name: "SOHAM DAS", check_in: "12 Sep", check_out: "13 Sep", room_label: "Room 1", room_info: "1 Super Delux Room No 1", booking_id: "NH70196515384518", phone: "918017672648", amount: 1966.5 },
             { guest_name: "STANLEY THOMAS MISQUITTA", check_in: "13 Sep", check_out: "14 Sep", room_label: "Room 2", room_info: "1 Small Delux No. 02", booking_id: "NH25020512671258", phone: "919096826087", amount: 1809.18 },
+            { guest_name: "YASHWANTH REDDY", check_in: "13 Sep", check_out: "14 Sep", room_label: "Room 4", room_info: "1 Small Delux No. 04", booking_id: "NH76183516329564", phone: "918431295369", amount: 1809.18 },
             { guest_name: "ANKIT JADAV", check_in: "17 Sep", check_out: "19 Sep", room_label: "Room 4", room_info: "1 Small Delux No. 04", booking_id: "NH70246512856344", phone: "9876****3210", amount: 2831.76 },
             { guest_name: "MANDIPSINH CHAUHAN", check_in: "26 Sep", check_out: "27 Sep", room_label: "Room 1", room_info: "1 Super Delux Room No 1", booking_id: "NH26229515104938", phone: "9876****3210", amount: 2281.14 },
             { guest_name: "ASHOK KHARVAR", check_in: "09 Nov", check_out: "12 Nov", room_label: "Room 4", room_info: "1 Small Delux No. 04", booking_id: "NH78070514650964", phone: "9876****3210", amount: 5427.54 },
