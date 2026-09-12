@@ -1182,6 +1182,27 @@ export default function HotelLeadManagerPage() {
 
   const autoFillAgodaFeed = (roomId: string) => autoFillRoomOtaFeed(roomId, 'agoda');
 
+  const handleAutoInjectGoibibo = async () => {
+    toast.loading("🤖 Leadzo AI is injecting all 4 room iCal feeds into Goibibo Extranet...", { id: "goibibo-inject" });
+    try {
+      const endpoint = 'http://localhost:4000/api/goibibo/inject-calendar';
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+      const data = await response.json();
+      if (data.success) {
+        toast.success("🎉 All King Villa room iCal feeds successfully injected into Goibibo Extranet!", { id: "goibibo-inject", duration: 8000 });
+        await fetchData();
+      } else {
+        toast.error(`❌ Injection notice: ${data.error || 'Failed'}`, { id: "goibibo-inject" });
+      }
+    } catch (err: any) {
+      toast.error(`❌ Could not connect to scraper daemon: ${err.message}`, { id: "goibibo-inject" });
+    }
+  };
+
   const handleConnectOtaViaAi = async (channelId: string, name: string) => {
     const targetChannel = channels.find(c => c.id === channelId);
     
@@ -2542,6 +2563,18 @@ export default function HotelLeadManagerPage() {
                             Per-Room 2-Way iCal Mapping ({rooms.length} Units)
                           </Label>
                           <div className="flex items-center gap-2">
+                            {channel.id === 'goibibo' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                type="button"
+                                onClick={handleAutoInjectGoibibo}
+                                className="h-6 px-2.5 text-[10px] font-medium bg-gradient-to-r from-orange-500/20 to-amber-500/20 hover:from-orange-500/30 hover:to-amber-500/30 text-amber-300 border border-amber-500/40 gap-1 cursor-pointer shadow-sm"
+                                title="Run Leadzo AI Agent to automatically inject all King Villa iCal feeds into Goibibo Extranet"
+                              >
+                                <Bot size={11} className="text-orange-400" /> 🤖 Auto-Inject into Goibibo Extranet
+                              </Button>
+                            )}
                             <Button
                               size="sm"
                               variant="outline"

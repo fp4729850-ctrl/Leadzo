@@ -45,6 +45,19 @@ app.all('/api/scrape', async (req, res) => {
     }
 });
 
+const { injectAllRoomsToGoibibo } = require('./goibibo_calendar_injector');
+
+app.all('/api/goibibo/inject-calendar', async (req, res) => {
+    try {
+        console.log("\n⚡ [API] Triggering Goibibo Extranet iCal Auto-Injection...");
+        const result = await injectAllRoomsToGoibibo(req.body || {});
+        res.json(result);
+    } catch (err) {
+        console.error("Injection API Error:", err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
     console.log(`\n🟢 Goibibo Scraper API running on port ${PORT}`);
