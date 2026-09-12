@@ -386,11 +386,11 @@ export default function HotelLeadManagerPage() {
 
       // 1. Ensure King Villa's 5 real units exist
       const kingVillaUnitDefs = [
-        { number: "Room 1", type: "King Villa - Bedroom 1", price_per_night: 4000, ical: "https://king-villa.vercel.app/api/ical/export/1.ics" },
-        { number: "Room 2", type: "King Villa - Bedroom 2", price_per_night: 4000, ical: "https://king-villa.vercel.app/api/ical/export/2.ics" },
-        { number: "Room 3", type: "King Villa - Bedroom 3", price_per_night: 4000, ical: "https://king-villa.vercel.app/api/ical/export/3.ics" },
-        { number: "Room 4", type: "King Villa - Bedroom 4", price_per_night: 4000, ical: "https://king-villa.vercel.app/api/ical/export/4.ics" },
-        { number: "Entire Villa", type: "Entire King Villa", price_per_night: 20000, ical: "https://king-villa.vercel.app/api/ical/export/5.ics" }
+        { number: "Room 1", type: "King Villa - Bedroom 1", price_per_night: 4000, ical: `https://stbqeiapgdaklktrlrjm.supabase.co/functions/v1/leadzo_master_ical?user_id=${user.id}&room_id=39688b67-ea6d-4526-bdae-d68edc1720d3` },
+        { number: "Room 2", type: "King Villa - Bedroom 2", price_per_night: 4000, ical: `https://stbqeiapgdaklktrlrjm.supabase.co/functions/v1/leadzo_master_ical?user_id=${user.id}&room_id=9820ca74-f16f-49cf-9b65-9c62cba167a9` },
+        { number: "Room 3", type: "King Villa - Bedroom 3", price_per_night: 4000, ical: `https://stbqeiapgdaklktrlrjm.supabase.co/functions/v1/leadzo_master_ical?user_id=${user.id}&room_id=92666322-e804-44ef-b966-ac5e302bc22e` },
+        { number: "Room 4", type: "King Villa - Bedroom 4", price_per_night: 4000, ical: `https://stbqeiapgdaklktrlrjm.supabase.co/functions/v1/leadzo_master_ical?user_id=${user.id}&room_id=438bd6c2-335d-4c09-80d1-428419e34d5c` },
+        { number: "Entire Villa", type: "Entire King Villa", price_per_night: 20000, ical: `https://stbqeiapgdaklktrlrjm.supabase.co/functions/v1/leadzo_master_ical?user_id=${user.id}` }
       ];
 
       const hasOldRooms = roomsRes.data?.some((r: any) => r.number === "101" || r.number === "102");
@@ -786,10 +786,7 @@ export default function HotelLeadManagerPage() {
     // Build master iCal URL after auth
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) {
-        const supabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL ||
-          window.location.origin.includes('localhost') 
-            ? 'https://xpqruwkbymqkjcmtnwvs.supabase.co'
-            : 'https://xpqruwkbymqkjcmtnwvs.supabase.co';
+        const supabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL || 'https://stbqeiapgdaklktrlrjm.supabase.co';
         setCurrentUserId(user.id);
         setMasterIcalUrl(`${supabaseUrl}/functions/v1/leadzo_master_ical?user_id=${user.id}`);
       }

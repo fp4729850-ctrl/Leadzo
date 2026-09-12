@@ -19,14 +19,14 @@ const AIRBNB_LISTINGS = [
     name: 'King Villa – Fun Stay Near Beach',
     status: 'Listed',
     airbnbListingId: '1428110151030219910',
-    exportUrl: 'https://king-villa.vercel.app/api/ical/export/5.ics',
+    exportUrl: 'https://stbqeiapgdaklktrlrjm.supabase.co/functions/v1/leadzo_master_ical?user_id=1e3f3ea0-fc51-4880-bf95-f1ad19366c5d',
     airbnbExportUrl: 'https://www.airbnb.co.in/calendar/ical/1428110151030219910.ics?t=3dce546eb46141e7b38ad1a36e35a5d4'
   },
   {
     name: 'King Villa',
     status: 'Unlisted',
     airbnbListingId: '1186706763106357682',
-    exportUrl: 'https://king-villa.vercel.app/api/ical/export/5.ics',
+    exportUrl: 'https://stbqeiapgdaklktrlrjm.supabase.co/functions/v1/leadzo_master_ical?user_id=1e3f3ea0-fc51-4880-bf95-f1ad19366c5d',
     airbnbExportUrl: 'https://www.airbnb.co.in/calendar/ical/1186706763106357682.ics?t=6217cb878bd54416a5f95597b8be2de8'
   }
 ];
