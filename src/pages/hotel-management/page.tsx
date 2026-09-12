@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   Building2, Calendar, RefreshCw, CheckCircle2, ShieldCheck, 
@@ -1055,6 +1055,49 @@ export default function HotelLeadManagerPage() {
           }).eq('channel_id', channelId).eq('user_id', user.id);
         }
       }
+    }
+  };
+
+  const autoSaveTimeoutRef = useRef<Record<string, any>>({});
+
+  const persistRoomIcalToDb = async (roomId: string, prop: string, channelId: string, val: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    
+    const { data: currentDbRoom } = await supabase.from('hotel_rooms').select('ical_links').eq('id', roomId).maybeSingle();
+    const currentLinks = currentDbRoom?.ical_links || {};
+    const updatedLinks = { ...currentLinks, [prop]: val };
+
+    await supabase.from('hotel_rooms').update({ ical_links: updatedLinks }).eq('id', roomId);
+
+    if (val.trim()) {
+      await supabase.from('hotel_channels').update({
+        status: 'connected',
+        last_sync: 'Just now (Auto-saved)'
+      }).eq('channel_id', channelId).eq('user_id', user.id);
+    }
+  };
+
+  const handleRoomIcalChange = (roomId: string, channelId: string, val: string) => {
+    const prop = channelId === 'goibibo' ? 'goibibo' : (channelId === 'booking' ? 'bookingCom' : channelId);
+    setRooms(prev => prev.map(r => r.id === roomId ? { ...r, icalLinks: { ...r.icalLinks, [prop]: val } } : r));
+    if (val.trim()) {
+      setChannels(prev => prev.map(c => c.id === channelId ? { ...c, status: 'connected' } : c));
+    }
+    const key = `${roomId}-${prop}`;
+    if (autoSaveTimeoutRef.current[key]) clearTimeout(autoSaveTimeoutRef.current[key]);
+    autoSaveTimeoutRef.current[key] = setTimeout(() => {
+      persistRoomIcalToDb(roomId, prop, channelId, val);
+    }, 600);
+  };
+
+  const handleRoomIcalPaste = async (roomId: string, channelId: string, e: React.ClipboardEvent<HTMLInputElement>) => {
+    const pastedText = e.clipboardData.getData('text');
+    if (pastedText && pastedText.trim().startsWith('http')) {
+      const prop = channelId === 'goibibo' ? 'goibibo' : (channelId === 'booking' ? 'bookingCom' : channelId);
+      setRooms(prev => prev.map(r => r.id === roomId ? { ...r, icalLinks: { ...r.icalLinks, [prop]: pastedText } } : r));
+      await persistRoomIcalToDb(roomId, prop, channelId, pastedText);
+      toast.success("⚡ iCal pasted & auto-saved to Supabase!");
     }
   };
 
@@ -2474,7 +2517,8 @@ export default function HotelLeadManagerPage() {
                                   <Input
                                     placeholder={`Paste ${channel.name} iCal feed for ${room.number}...`}
                                     value={currentRoomOtaIcal}
-                                    onChange={(e) => updateRoomOtaIcal(room.id, channel.id, e.target.value)}
+                                    onChange={(e) => handleRoomIcalChange(room.id, channel.id, e.target.value)}
+                                    onPaste={(e) => handleRoomIcalPaste(room.id, channel.id, e)}
                                     className="text-[11px] font-mono h-7 flex-1"
                                   />
                                   <Button
