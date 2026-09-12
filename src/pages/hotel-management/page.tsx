@@ -1058,6 +1058,19 @@ export default function HotelLeadManagerPage() {
     }
   };
 
+  const saveRoomOtaIcal = async (roomId: string, channelId: string, val: string) => {
+    await updateRoomOtaIcal(roomId, channelId, val);
+    const targetRoom = rooms.find(r => r.id === roomId);
+    toast.success(`✅ ${targetRoom?.number || 'Room'} iCal saved to Supabase!`);
+  };
+
+  const autoFillAgodaFeed = async (roomId: string) => {
+    const agodaFeedUrl = 'https://ycs.agoda.com/en-us/calendar/export?propertyId=50628060';
+    await updateRoomOtaIcal(roomId, 'agoda', agodaFeedUrl);
+    const targetRoom = rooms.find(r => r.id === roomId);
+    toast.success(`🎉 Agoda iCal feed auto-filled & saved for ${targetRoom?.number || 'Room'}!`);
+  };
+
   const handleConnectOtaViaAi = async (channelId: string, name: string) => {
     const targetChannel = channels.find(c => c.id === channelId);
     
@@ -2457,12 +2470,35 @@ export default function HotelLeadManagerPage() {
                                     <span className="text-amber-400 text-[9px]">Not Linked</span>
                                   )}
                                 </div>
-                                <Input
-                                  placeholder={`Paste ${channel.name} iCal feed for ${room.number}...`}
-                                  value={currentRoomOtaIcal}
-                                  onChange={(e) => updateRoomOtaIcal(room.id, channel.id, e.target.value)}
-                                  className="text-[11px] font-mono h-7"
-                                />
+                                <div className="flex items-center gap-1.5">
+                                  <Input
+                                    placeholder={`Paste ${channel.name} iCal feed for ${room.number}...`}
+                                    value={currentRoomOtaIcal}
+                                    onChange={(e) => updateRoomOtaIcal(room.id, channel.id, e.target.value)}
+                                    className="text-[11px] font-mono h-7 flex-1"
+                                  />
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    type="button"
+                                    onClick={() => saveRoomOtaIcal(room.id, channel.id, currentRoomOtaIcal)}
+                                    className="h-7 px-2 text-[10px] shrink-0 font-medium hover:bg-emerald-500/20 hover:text-emerald-300 cursor-pointer"
+                                  >
+                                    Save
+                                  </Button>
+                                  {channel.id === 'agoda' && (
+                                    <Button
+                                      size="sm"
+                                      variant="secondary"
+                                      type="button"
+                                      onClick={() => autoFillAgodaFeed(room.id)}
+                                      className="h-7 px-2 text-[10px] shrink-0 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 gap-1 cursor-pointer"
+                                      title="Auto-fetch King Villa feed from Agoda"
+                                    >
+                                      <Bot size={11} /> Auto-Fill
+                                    </Button>
+                                  )}
+                                </div>
                               </div>
 
                               {/* 2. Outgoing Leadzo Master iCal to inject into OTA */}
