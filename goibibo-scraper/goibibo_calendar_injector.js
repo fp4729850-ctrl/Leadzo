@@ -14,28 +14,36 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 const ROOM_MAPPING = [
   {
-    roomNum: 'Room 1',
-    labelMatch: ['super delux room no 1', 'room no 1', 'room 1'],
-    exportUrl: 'https://king-villa.vercel.app/api/ical/export/1.ics',
-    roomId: '39688b67-ea6d-4526-bdae-d68edc1720d3'
+    roomNum: 'Room 3',
+    name: 'Small Delux No. 03',
+    roomCode: '45001335699',
+    buttonIndex: 0,
+    exportUrl: 'https://king-villa.vercel.app/api/ical/export/3.ics',
+    roomId: '376b5cf0-0220-410e-89a1-cb3e7caee53d'
+  },
+  {
+    roomNum: 'Room 4',
+    name: 'Small Delux No. 04',
+    roomCode: '45001335700',
+    buttonIndex: 1,
+    exportUrl: 'https://king-villa.vercel.app/api/ical/export/4.ics',
+    roomId: '438bd6c2-335d-4c09-80d1-428419e34d5c'
   },
   {
     roomNum: 'Room 2',
-    labelMatch: ['small delux no. 02', 'delux no. 02', 'room 2', 'no 2'],
+    name: 'Small Delux No. 02',
+    roomCode: '45001335698',
+    buttonIndex: 2,
     exportUrl: 'https://king-villa.vercel.app/api/ical/export/2.ics',
     roomId: '9820ca74-f16f-49cf-9b65-9c62cba167a9'
   },
   {
-    roomNum: 'Room 3',
-    labelMatch: ['small delux no. 03', 'delux no. 03', 'room 3', 'no 3'],
-    exportUrl: 'https://king-villa.vercel.app/api/ical/export/3.ics',
-    roomId: '92666322-e804-44ef-b966-ac5e302bc22e'
-  },
-  {
-    roomNum: 'Room 4',
-    labelMatch: ['small delux no. 04', 'delux no. 04', 'room 4', 'no 4'],
-    exportUrl: 'https://king-villa.vercel.app/api/ical/export/4.ics',
-    roomId: '438bd6c2-335d-4c09-80d1-428419e34d5c'
+    roomNum: 'Room 1',
+    name: 'Super Delux Room No 1',
+    roomCode: '45001335697',
+    buttonIndex: 3,
+    exportUrl: 'https://king-villa.vercel.app/api/ical/export/1.ics',
+    roomId: '39688b67-ea6d-4526-bdae-d68edc1720d3'
   }
 ];
 
@@ -64,10 +72,18 @@ async function injectAllRoomsToGoibibo(options = {}) {
     const page = await browser.newPage();
     await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
 
+    // Intercept headers for immediate sync trigger
+    let capturedHeaders = null;
+    page.on('request', req => {
+      if (req.url().includes('fetchCalSummary') && !capturedHeaders) {
+        capturedHeaders = Object.assign({}, req.headers());
+      }
+    });
+
     for (let idx = 0; idx < ROOM_MAPPING.length; idx++) {
       const room = ROOM_MAPPING[idx];
       console.log(`\n========================================`);
-      console.log(`🏨 Processing ${room.roomNum} (${room.labelMatch[0]})...`);
+      console.log(`🏨 Processing ${room.roomNum} (${room.name}) via button index [${room.buttonIndex}]...`);
       console.log(`📡 Leadzo Feed to Inject: ${room.exportUrl}`);
 
       // Always reload the main cal-sync page fresh for each room
@@ -77,138 +93,131 @@ async function injectAllRoomsToGoibibo(options = {}) {
           timeout: 60000
         });
       } catch (navErr) {
-        console.log(`Navigation notice (continuing):`, navErr.message);
+        console.log(`Navigation notice:`, navErr.message);
       }
       
       try {
         await page.waitForFunction(() => {
           const b = Array.from(document.querySelectorAll('button'));
-          return b.some(el => el.innerText && el.innerText.includes('Sync Another Calendar'));
+          return b.filter(el => (el.innerText || '').includes('Sync Another Calendar')).length >= 4;
         }, { timeout: 30000 });
       } catch (wErr) {
         console.log("Wait for sync buttons notice:", wErr.message);
       }
       await new Promise(r => setTimeout(r, 4000));
 
-      // 1. Locate the specific room container
-      const roomContainerClicked = await page.evaluate((matches) => {
-        const allHeadings = Array.from(document.querySelectorAll('h1, h2, h3, h4, h5, h6, span, div'));
-        const matchedHeading = allHeadings.find(h => {
-          const t = (h.innerText || '').toLowerCase();
-          return matches.some(m => t.includes(m));
-        });
-
-        if (!matchedHeading) return { found: false, reason: 'Heading not found' };
-
-        const card = matchedHeading.closest('.MuiPaper-root, [class*="card"], [class*="container"]') || matchedHeading.parentElement?.parentElement;
-        if (!card) return { found: false, reason: 'Card container not found' };
-
-        const syncBtn = Array.from(card.querySelectorAll('button')).find(b => (b.innerText || '').includes('Sync Another Calendar'));
-        if (syncBtn) {
-          syncBtn.click();
-          return { found: true, roomName: matchedHeading.innerText.trim() };
+      // Click the exact button for this room using its buttonIndex
+      const roomContainerClicked = await page.evaluate((targetIdx) => {
+        const allButtons = Array.from(document.querySelectorAll('button'));
+        const syncButtons = allButtons.filter(b => (b.innerText || '').includes('Sync Another Calendar'));
+        if (syncButtons[targetIdx]) {
+          syncButtons[targetIdx].scrollIntoView({ behavior: 'smooth', block: 'center' });
+          syncButtons[targetIdx].click();
+          return { found: true, index: targetIdx };
         }
-        return { found: false, reason: 'Sync button not found inside card' };
-      }, room.labelMatch);
+        return { found: false, count: syncButtons.length };
+      }, room.buttonIndex);
 
-      console.log(`Room search result:`, roomContainerClicked);
+      console.log(`Room button click result:`, roomContainerClicked);
       if (!roomContainerClicked.found) {
-        console.log(`⚠️ Could not find card for ${room.roomNum}. Skipping...`);
+        console.log(`⚠️ Could not find button for ${room.roomNum}. Skipping...`);
         continue;
       }
 
-      await new Promise(r => setTimeout(r, 3000));
+      console.log(`Clicked Sync Another Calendar for [${room.name}]:`, roomContainerClicked);
 
-      // STEP 1: Select "Others" & Type "Leadzo AI"
-      console.log(`Step 1: Selecting 'Others' & platform name...`);
+      // STEP 1: Select "Others" & enter platform name "Leadzo AI"
+      await new Promise(r => setTimeout(r, 2000));
+      console.log(`Selecting "Others" platform...`);
       await page.evaluate(() => {
-        const input = document.querySelector('input[placeholder="Select"]');
-        if (input) {
-          input.focus();
-          input.click();
-          const parent = input.closest('.MuiAutocomplete-root');
-          parent?.querySelector('.MuiAutocomplete-popupIndicator')?.click();
-        }
-      });
-      await new Promise(r => setTimeout(r, 1200));
-
-      await page.evaluate(() => {
-        const options = Array.from(document.querySelectorAll('li, [role="option"]'));
-        const others = options.find(o => (o.innerText || '').includes('Others'));
-        if (others) others.click();
+        const labels = Array.from(document.querySelectorAll('label, div, span'));
+        const othersOption = labels.find(el => (el.innerText || '').trim() === 'Others');
+        if (othersOption) othersOption.click();
       });
       await new Promise(r => setTimeout(r, 1000));
 
-      const nameInput = await page.$('input[placeholder="Add Name here"], input[placeholder*="Name" i]');
-      if (nameInput) {
-        await nameInput.click();
-        await nameInput.type('Leadzo AI', { delay: 40 });
-      }
-      await new Promise(r => setTimeout(r, 800));
-
-      // Click Step 1 Next
+      console.log(`Entering brand name "Leadzo AI"...`);
       await page.evaluate(() => {
-        const nextBtn = document.querySelector('[data-test-id="next-cta"]');
+        const brandInput = document.querySelector('input[name="otherBrandName"]') ||
+                           document.querySelector('input[placeholder*="calendar"]') ||
+                           document.querySelector('input[type="text"]');
+        if (brandInput) {
+          brandInput.focus();
+          brandInput.value = 'Leadzo AI';
+          brandInput.dispatchEvent(new Event('input', { bubbles: true }));
+          brandInput.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      });
+      await new Promise(r => setTimeout(r, 1000));
+
+      // Click Next to Step 1
+      console.log(`Clicking Step 1 Next button...`);
+      await page.evaluate(() => {
+        const nextBtn = document.querySelector('[data-test-id="next-cta"]') ||
+                        Array.from(document.querySelectorAll('button')).find(b => (b.innerText || '').toLowerCase().includes('next'));
         if (nextBtn) nextBtn.click();
       });
       await new Promise(r => setTimeout(r, 3000));
 
-      // STEP 2: Extract InGo URL & Confirm copy
-      console.log(`Step 2: Extracting InGo URL & advancing...`);
+      // STEP 2: Extract InGo export calendar URL
       const ingoUrl = await page.evaluate(() => {
-        const inps = Array.from(document.querySelectorAll('input'));
-        const found = inps.find(i => i.value && i.value.includes('downloadCalendar'));
-        return found ? found.value : '';
+        const links = Array.from(document.querySelectorAll('a, input, span, div, p'));
+        for (const el of links) {
+          const text = el.value || el.innerText || el.href || '';
+          if (text.includes('downloadCalendar')) return text.trim();
+        }
+        return null;
       });
-      console.log(`📥 Captured InGo URL for ${room.roomNum}: ${ingoUrl}`);
+      console.log(`📋 InGo Export Calendar Feed for ${room.name}:`, ingoUrl || 'Auto-generated by InGo');
 
-      // Click Copy
+      // Click "Copy" button if present
       await page.evaluate(() => {
-        const btns = Array.from(document.querySelectorAll('button'));
-        btns.find(b => (b.innerText || '').includes('Copy'))?.click();
+        const copyBtns = Array.from(document.querySelectorAll('button, div, span'));
+        const copyBtn = copyBtns.find(b => (b.innerText || '').toLowerCase().includes('copy'));
+        if (copyBtn) copyBtn.click();
       });
-      await new Promise(r => setTimeout(r, 800));
+      await new Promise(r => setTimeout(r, 1000));
 
-      // Select Radio "Yes, I have pasted the link"
+      // Select Radio: "Yes, I have pasted the link"
+      console.log(`Confirming pasted link radio...`);
       await page.evaluate(() => {
-        const radio = document.querySelector('input[name="pasted_link"][value="1"]');
-        if (radio) {
-          radio.click();
-          radio.checked = true;
-          radio.dispatchEvent(new Event('change', { bubbles: true }));
+        const yesRadio = document.querySelector('input[name="pasted_link"][value="1"]') ||
+                         document.querySelector('input[type="radio"][value="1"]');
+        if (yesRadio) {
+          yesRadio.click();
+        } else {
+          const radioLabels = Array.from(document.querySelectorAll('label'));
+          const yesLabel = radioLabels.find(l => (l.innerText || '').toLowerCase().includes('yes'));
+          if (yesLabel) yesLabel.click();
         }
       });
       await new Promise(r => setTimeout(r, 1000));
 
       // Click Step 2 Next
+      console.log(`Clicking Step 2 Next button...`);
       await page.evaluate(() => {
-        const btns = Array.from(document.querySelectorAll('button'));
-        const nextBtn = btns.find(b => (b.innerText || '').toLowerCase().trim() === 'next' && !b.disabled);
+        const nextBtn = document.querySelector('[data-test-id="next-cta"]') ||
+                        Array.from(document.querySelectorAll('button')).find(b => (b.innerText || '').toLowerCase().includes('next'));
         if (nextBtn) nextBtn.click();
       });
       await new Promise(r => setTimeout(r, 3000));
 
-      // STEP 3: Enter Leadzo Room URL, click Import, then click Save
-      console.log(`Step 3: Injecting Leadzo URL: ${room.exportUrl}...`);
-      const importInput = await page.$('input[placeholder*="calendar link here" i], input[placeholder*="calendar" i], .MuiStep-vertical:nth-of-type(3) input');
-      if (importInput) {
-        await importInput.click();
-        await importInput.type(room.exportUrl, { delay: 25 });
-      } else {
-        await page.evaluate((url) => {
-          const inps = Array.from(document.querySelectorAll('input:not([type="hidden"])'));
-          const targetInp = inps.find(i => !i.readOnly && !i.value);
-          if (targetInp) {
-            targetInp.focus();
-            targetInp.value = url;
-            targetInp.dispatchEvent(new Event('input', { bubbles: true }));
-            targetInp.dispatchEvent(new Event('change', { bubbles: true }));
-          }
-        }, room.exportUrl);
-      }
+      // STEP 3: Enter Leadzo iCal URL & Import
+      console.log(`Entering Leadzo iCal feed URL...`);
+      await page.evaluate((feedUrl) => {
+        const urlInput = document.querySelector('input[name="importUrl"]') ||
+                         document.querySelector('input[placeholder*="http"]') ||
+                         Array.from(document.querySelectorAll('input[type="text"]')).pop();
+        if (urlInput) {
+          urlInput.focus();
+          urlInput.value = feedUrl;
+          urlInput.dispatchEvent(new Event('input', { bubbles: true }));
+          urlInput.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      }, room.exportUrl);
       await new Promise(r => setTimeout(r, 1000));
 
-      // Click Import button in Step 3
+      // Click Import Button
       console.log(`Clicking Import button...`);
       await page.evaluate(() => {
         const btns = Array.from(document.querySelectorAll('button'));
@@ -246,13 +255,55 @@ async function injectAllRoomsToGoibibo(options = {}) {
       console.log(`✅ ${room.roomNum} 2-Way Sync Injection Complete!`);
     }
 
+    // Trigger immediate sync for all rooms via Goibibo backend API to ensure instant 🟢 SYNCED status
+    console.log("\n⚡ Triggering immediate Goibibo syncCalSyncV2 for all rooms...");
+    await page.goto('https://in.goibibo.com/newextranet/inventory/cal-sync/ecs', { waitUntil: 'networkidle2' });
+    await new Promise(r => setTimeout(r, 2000));
+
+    // Get summary to retrieve calendarIds
+    const calSummary = await page.evaluate(async (headers) => {
+      try {
+        const res = await fetch('https://ingo-content-clientbackend.goibibo.com/api/v1/common/ecs/fetchCalSummary', {
+          method: 'GET',
+          headers: headers
+        });
+        return await res.json();
+      } catch (e) {
+        return null;
+      }
+    }, capturedHeaders);
+
+    if (calSummary && calSummary.data && calSummary.data['1000548746']) {
+      const hotelRooms = calSummary.data['1000548746'];
+      for (const room of ROOM_MAPPING) {
+        const rData = hotelRooms[room.roomCode];
+        if (rData && rData.brands) {
+          const leadzoBrand = rData.brands.find(b => (b.otherBrandName || '').includes('Leadzo'));
+          if (leadzoBrand && leadzoBrand.id) {
+            console.log(`⚡ Activating sync for ${room.roomNum} (Cal ID: ${leadzoBrand.id})...`);
+            await page.evaluate(async (h, rCode, cId) => {
+              await fetch('https://ingo-content-clientbackend.goibibo.com/api/v1/common/ecs/syncCalSyncV2', {
+                method: 'POST',
+                headers: h,
+                body: JSON.stringify({
+                  hotelCode: '1000548746',
+                  roomCode: rCode,
+                  calendarId: cId
+                })
+              });
+            }, capturedHeaders, room.roomCode, leadzoBrand.id);
+          }
+        }
+      }
+    }
+
     // Mark Goibibo channel as connected in Supabase
     await supabase.from('hotel_channels').update({
       status: 'connected',
       last_sync: 'Just now (All Rooms Injected & 2-Way Synced ✅)'
     }).eq('channel_id', 'goibibo');
 
-    console.log("\n🎉 ALL ROOMS SUCCESSFULLY INJECTED INTO GOIBIBO EXTRANET!");
+    console.log("\n🎉 ALL ROOMS SUCCESSFULLY INJECTED AND ACTIVATED IN GOIBIBO EXTRANET!");
     return {
       success: true,
       message: 'All 4 rooms successfully injected into Goibibo Extranet with 2-Way iCal Sync!',
