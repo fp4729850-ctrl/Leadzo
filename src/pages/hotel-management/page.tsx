@@ -1206,9 +1206,9 @@ export default function HotelLeadManagerPage() {
   const handleConnectOtaViaAi = async (channelId: string, name: string) => {
     const targetChannel = channels.find(c => c.id === channelId);
     
-    // If Goibibo, route to the dedicated interactive Puppeteer scraper dialog
+    // If Goibibo, directly execute full automated Puppeteer 2-way injection
     if (channelId.toLowerCase() === 'goibibo') {
-      openInteractiveModal('goibibo');
+      await handleAutoInjectGoibibo();
       return;
     }
 
