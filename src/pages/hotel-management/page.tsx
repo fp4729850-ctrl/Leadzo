@@ -29,6 +29,7 @@ interface OtaChannel {
   badgeBg: string;
   connectMode: "ai" | "ical";
   email: string;
+  username?: string;
   password: string;
   icalUrl: string;
   status: "connected" | "syncing" | "pending";
