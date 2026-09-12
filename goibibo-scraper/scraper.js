@@ -6,12 +6,13 @@ const path = require('path');
 const COOKIES_PATH = path.join(__dirname, 'goibibo_cookies.json');
 
 async function scrapeGoibibo(options = {}) {
-    const { username, password, otp } = options;
+    const { username, password, otp, action, sessionCookies } = options;
     let browser;
     try {
-        const hasCookies = fs.existsSync(COOKIES_PATH);
+        const hasCookies = (sessionCookies && Array.isArray(sessionCookies) && sessionCookies.length > 0) || fs.existsSync(COOKIES_PATH);
         
         const isCloud = process.env.NODE_ENV === 'production' || process.env.HEADLESS === 'true';
+        const isHeadless = action === 'capture_cookies' ? false : (isCloud || hasCookies);
         const macChrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
         let chromePath = process.env.CHROME_PATH;
 
@@ -40,9 +41,9 @@ async function scrapeGoibibo(options = {}) {
         const localSessionDir = path.join(process.env.HOME || '', '.leadzo-goibibo-session');
         const hasLocalSession = !isCloud && fs.existsSync(localSessionDir);
 
-        console.log(`Launching Chrome browser (Cloud Mode: ${isCloud}, Path: ${chromePath})...`);
+        console.log(`Launching Chrome browser (Cloud Mode: ${isCloud}, Headless: ${isHeadless}, Action: ${action || 'sync'}, Path: ${chromePath})...`);
         const launchOptions = {
-            headless: isCloud ? 'new' : false,
+            headless: isHeadless ? 'new' : false,
             userDataDir: hasLocalSession ? localSessionDir : undefined,
             defaultViewport: isCloud ? { width: 1280, height: 900 } : null,
             args: [
@@ -73,11 +74,20 @@ async function scrapeGoibibo(options = {}) {
             Object.defineProperty(navigator, 'webdriver', { get: () => false });
         });
 
-        // If we have saved cookies, load them
-        if (hasCookies) {
-            console.log("Loading saved Goibibo session cookies...");
-            const cookies = JSON.parse(fs.readFileSync(COOKIES_PATH, 'utf8'));
-            await page.setCookie(...cookies);
+        // If we have saved cookies or DB cookies, load them
+        if (sessionCookies && Array.isArray(sessionCookies) && sessionCookies.length > 0) {
+            console.log("Loading Goibibo session cookies from Supabase DB payload...");
+            try {
+                await page.setCookie(...sessionCookies);
+            } catch (e) {
+                console.error("Failed to set DB cookies:", e);
+            }
+        } else if (fs.existsSync(COOKIES_PATH)) {
+            console.log("Loading saved Goibibo session cookies from goibibo_cookies.json...");
+            try {
+                const cookies = JSON.parse(fs.readFileSync(COOKIES_PATH, 'utf8'));
+                await page.setCookie(...cookies);
+            } catch (e) {}
         }
 
         console.log("Navigating to Goibibo Extranet...");
@@ -205,10 +215,33 @@ async function scrapeGoibibo(options = {}) {
             const cookies = await page.cookies();
             fs.writeFileSync(COOKIES_PATH, JSON.stringify(cookies, null, 2));
             
+            if (action === 'capture_cookies') {
+                await browser.close();
+                return {
+                    success: true,
+                    channel: 'goibibo',
+                    cookies: cookies,
+                    message: 'Goibibo fresh cookies captured successfully!'
+                };
+            }
+
             // Wait for data to load after login
             await new Promise(resolve => setTimeout(resolve, 5000));
         } else {
             console.log("✅ Already logged in via saved cookies!");
+            try {
+                const cookies = await page.cookies();
+                fs.writeFileSync(COOKIES_PATH, JSON.stringify(cookies, null, 2));
+                if (action === 'capture_cookies') {
+                    await browser.close();
+                    return {
+                        success: true,
+                        channel: 'goibibo',
+                        cookies: cookies,
+                        message: 'Goibibo fresh cookies captured successfully!'
+                    };
+                }
+            } catch (e) {}
         }
 
         console.log("Extracting booking details...");

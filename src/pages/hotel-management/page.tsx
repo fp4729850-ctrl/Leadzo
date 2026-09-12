@@ -100,6 +100,7 @@ export default function HotelLeadManagerPage() {
   const [isPushingToAll, setIsPushingToAll] = useState(false);
   const [isAiScrapingData, setIsAiScrapingData] = useState(false);
   const [isCapturingAgoda, setIsCapturingAgoda] = useState(false);
+  const [capturingCookieChannel, setCapturingCookieChannel] = useState<string | null>(null);
 
   // 1-Click Room Block Dialog state
   const [blockDialogOpen, setBlockDialogOpen] = useState(false);
@@ -1200,18 +1201,23 @@ export default function HotelLeadManagerPage() {
     }
   };
 
-  const handleCaptureAgodaCookies = async (targetChannel: OtaChannel) => {
-    if (!targetChannel?.email?.trim()) {
-      toast.error("Please enter your Agoda Login Email / ID first!");
+  const handleCaptureChannelCookies = async (targetChannel: OtaChannel) => {
+    const loginId = targetChannel?.email?.trim() || targetChannel?.username?.trim();
+    if (!loginId) {
+      toast.error(`Please enter your ${targetChannel.name} Login Email / Username / Phone first!`);
       return;
     }
 
-    setIsCapturingAgoda(true);
-    toast.loading("🤖 Launching Chrome to Agoda YCS... Please login to capture fresh cookies.", { id: "agoda-cookie-sync", duration: 120000 });
+    setCapturingCookieChannel(targetChannel.id);
+    if (targetChannel.id === 'agoda') setIsCapturingAgoda(true);
+    toast.loading(`🤖 Launching Chrome for ${targetChannel.name}... Please login in the browser window to capture fresh cookies.`, { 
+      id: `${targetChannel.id}-cookie-sync`, 
+      duration: 120000 
+    });
 
     try {
-      if (targetChannel.email && targetChannel.password) {
-        await persistChannelCreds(targetChannel.id, targetChannel.email, targetChannel.password);
+      if (loginId && targetChannel.password) {
+        await persistChannelCreds(targetChannel.id, loginId, targetChannel.password);
       }
 
       const scraperEndpoint = (import.meta as any).env?.VITE_SCRAPER_API_URL || 'http://localhost:4000/api/scrape';
@@ -1219,20 +1225,24 @@ export default function HotelLeadManagerPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          channel: 'agoda',
+          channel: targetChannel.id,
           action: 'capture_cookies',
-          email: targetChannel.email,
+          email: targetChannel.email || loginId,
+          username: targetChannel.username || loginId,
           password: targetChannel.password
         })
       });
 
       const resData = await res.json();
       if (resData.needOtp) {
-        setOtaOtpChannelId('agoda');
-        setOtaOtpChannelName('Agoda');
+        setOtaOtpChannelId(targetChannel.id);
+        setOtaOtpChannelName(targetChannel.name);
         setOtaOtpValue('');
         setOtaOtpModalOpen(true);
-        toast.info(resData.message || "📲 Agoda requires 2FA / OTP verification code!", { id: "agoda-cookie-sync", duration: 8000 });
+        toast.info(resData.message || `📲 ${targetChannel.name} requires 2FA / OTP verification code!`, { 
+          id: `${targetChannel.id}-cookie-sync`, 
+          duration: 8000 
+        });
         return;
       }
 
@@ -1246,30 +1256,39 @@ export default function HotelLeadManagerPage() {
               status: 'connected',
               last_sync: 'Just now (Fresh Cookies Synced)'
             })
-            .eq('channel_id', 'agoda')
+            .eq('channel_id', targetChannel.id)
             .eq('user_id', user.id);
 
           if (!error) {
-            setChannels(prev => prev.map(c => c.id === 'agoda' ? {
+            setChannels(prev => prev.map(c => c.id === targetChannel.id ? {
               ...c,
               sessionCookies: resData.cookies,
               status: 'connected',
               lastSync: 'Just now'
             } : c));
-            toast.success("🎉 Fresh Agoda cookies captured & Supabase updated successfully!", { id: "agoda-cookie-sync" });
+            toast.success(`🎉 Fresh ${targetChannel.name} cookies captured & Supabase updated successfully!`, { 
+              id: `${targetChannel.id}-cookie-sync` 
+            });
           } else {
-            toast.error("Failed to update Supabase: " + error.message, { id: "agoda-cookie-sync" });
+            toast.error("Failed to update Supabase: " + error.message, { id: `${targetChannel.id}-cookie-sync` });
           }
         }
       } else {
-        toast.error(resData.error || "Failed to capture cookies from Agoda. Please ensure login completed.", { id: "agoda-cookie-sync" });
+        toast.error(resData.error || `Failed to capture cookies from ${targetChannel.name}. Please ensure login completed.`, { 
+          id: `${targetChannel.id}-cookie-sync` 
+        });
       }
     } catch (err: any) {
-      toast.error(`Error connecting to local scraper: ${err.message}. Ensure scraper is running on port 4000.`, { id: "agoda-cookie-sync" });
+      toast.error(`Error connecting to local scraper: ${err.message}. Ensure scraper is running on port 4000.`, { 
+        id: `${targetChannel.id}-cookie-sync` 
+      });
     } finally {
+      setCapturingCookieChannel(null);
       setIsCapturingAgoda(false);
     }
   };
+
+  const handleCaptureAgodaCookies = (targetChannel: OtaChannel) => handleCaptureChannelCookies(targetChannel);
 
   const handleVerifyOtaOtpAndSync = async () => {
     if (!otaOtpValue || otaOtpValue.length < 4) {
@@ -2406,23 +2425,23 @@ export default function HotelLeadManagerPage() {
                         {(!aiConnectProgress[channel.id] || aiConnectProgress[channel.id] === 'idle') && 'Auto-Connect + Inject Leadzo iCal via AI'}
                       </Button>
 
-                      {channel.id === 'agoda' && (
+                      {['agoda', 'airbnb', 'goibibo'].includes(channel.id) && (
                         <>
                           <Button 
                             type="button"
                             variant="outline"
                             size="sm" 
-                            onClick={() => handleCaptureAgodaCookies(channel)}
-                            disabled={isCapturingAgoda}
+                            onClick={() => handleCaptureChannelCookies(channel)}
+                            disabled={capturingCookieChannel === channel.id}
                             className="w-full gap-2 border-amber-500/50 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 font-medium cursor-pointer text-xs mt-2"
                           >
-                            {isCapturingAgoda ? <RefreshCw size={13} className="animate-spin text-amber-400" /> : <Key size={13} className="text-amber-400" />}
-                            {isCapturingAgoda ? "Opening Agoda YCS & Capturing..." : "🔑 Fresh Login & Capture Cookies to Supabase"}
+                            {capturingCookieChannel === channel.id ? <RefreshCw size={13} className="animate-spin text-amber-400" /> : <Key size={13} className="text-amber-400" />}
+                            {capturingCookieChannel === channel.id ? `Opening ${channel.name} & Capturing...` : `🔑 Fresh Login & Capture ${channel.name} Cookies to Supabase`}
                           </Button>
                           {channel.sessionCookies && (
                             <div className="flex items-center justify-between text-[11px] bg-emerald-500/10 border border-emerald-500/20 rounded px-2.5 py-1 text-emerald-400 mt-1">
                               <span className="flex items-center gap-1.5 font-medium">
-                                <CheckCircle2 size={12} /> Agoda Cookies Active in Supabase
+                                <CheckCircle2 size={12} /> {channel.name} Cookies Active in Supabase
                               </span>
                               <span className="text-[10px] text-muted-foreground font-mono">
                                 {Array.isArray(channel.sessionCookies) ? `${channel.sessionCookies.length} cookies` : 'Active'}

@@ -31,8 +31,8 @@ async function scrapeAirbnb(options = {}) {
     }
 
     const hasCookies = (sessionCookies && Array.isArray(sessionCookies) && sessionCookies.length > 0);
-    const isHeadless = isCloud || hasCookies;
-    console.log(`\n🏡 [Airbnb Scraper] Running in Background (Headless: ${isHeadless})...`);
+    const isHeadless = action === 'capture_cookies' ? false : (isCloud || hasCookies);
+    console.log(`\n🏡 [Airbnb Scraper] Running in Background (Headless: ${isHeadless}, Action: ${action || 'sync'})...`);
     const browser = await puppeteer.launch({
         headless: isHeadless ? 'new' : false,
         defaultViewport: { width: 1280, height: 900 },
@@ -112,7 +112,7 @@ async function scrapeAirbnb(options = {}) {
                         await page.keyboard.press('Enter');
                         await new Promise(r => setTimeout(r, 3000));
                     } catch (e) {
-                        console.log("Email field auto-fill note:", e.message);
+                        console.log("Email field auto-fill notice:", e.message);
                     }
                 }
 
@@ -142,6 +142,16 @@ async function scrapeAirbnb(options = {}) {
                 const cookies = await page.cookies();
                 fs.writeFileSync(AIRBNB_COOKIES_PATH, JSON.stringify(cookies, null, 2));
                 await new Promise(r => setTimeout(r, 4000));
+
+                if (action === 'capture_cookies') {
+                    await browser.close();
+                    return {
+                        success: true,
+                        channel: 'airbnb',
+                        cookies: cookies,
+                        message: 'Airbnb fresh cookies captured successfully!'
+                    };
+                }
             } catch (waitErr) {
                 const pageBody = await page.evaluate(() => document.body ? document.body.innerText : '');
                 if (pageBody.includes('OTP') || pageBody.includes('verification') || pageBody.includes('code')) {
@@ -151,12 +161,28 @@ async function scrapeAirbnb(options = {}) {
                     };
                 }
                 console.log("Airbnb login wait notice:", waitErr.message);
+                if (action === 'capture_cookies') {
+                    await browser.close();
+                    return {
+                        success: false,
+                        error: "Could not detect successful Airbnb login. Please log in completely in the browser."
+                    };
+                }
             }
         } else {
             console.log("✅ Already logged in to Airbnb via saved cookies!");
             try {
                 const cookies = await page.cookies();
                 fs.writeFileSync(AIRBNB_COOKIES_PATH, JSON.stringify(cookies, null, 2));
+                if (action === 'capture_cookies') {
+                    await browser.close();
+                    return {
+                        success: true,
+                        channel: 'airbnb',
+                        cookies: cookies,
+                        message: 'Airbnb fresh cookies captured successfully!'
+                    };
+                }
             } catch (e) {}
         }
 
