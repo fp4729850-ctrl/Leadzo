@@ -187,10 +187,72 @@ async function scrapeAgoda(options = {}) {
             } catch (e) {}
         }
 
-        // Navigate to calendar sync page
-        console.log("Logged into Agoda! Navigating to Calendar Sync...");
-        await page.goto('https://ycs.agoda.com/en-us/calendar', { waitUntil: 'domcontentloaded', timeout: 25000 }).catch(() => {});
+        // ==========================================
+        // 🧠 POWERFUL AI AGENT NAVIGATION ENGINE
+        // ==========================================
+        console.log("🔍 [AI Bot] Scanning Agoda YCS Extranet structure...");
+        
+        // Helper: Dismiss any blocking modal/popup
+        const dismissPopups = async () => {
+            try {
+                await page.evaluate(() => {
+                    const closeSelectors = [
+                        'button[aria-label*="close"]', 'button[aria-label*="Close"]',
+                        '.modal-close', '.close-button', '[data-selenium*="close"]',
+                        '.ant-modal-close', '.modal__close'
+                    ];
+                    for (const sel of closeSelectors) {
+                        document.querySelectorAll(sel).forEach(el => { if (el && typeof el.click === 'function') el.click(); });
+                    }
+                    Array.from(document.querySelectorAll('button, a, span')).forEach(el => {
+                        const t = (el.innerText || '').trim().toLowerCase();
+                        if (['dismiss', 'later', 'not now', 'got it', 'close', 'skip', 'remind me later'].includes(t)) {
+                            if (el && typeof el.click === 'function') el.click();
+                        }
+                    });
+                });
+            } catch (e) {}
+        };
+        await dismissPopups();
+
+        // Step 1: Check if stuck on Property Search / Multi-property page
+        let curUrl = page.url();
+        console.log("Current Agoda Extranet URL:", curUrl);
+        if (curUrl.includes('propertysearch') || curUrl.includes('iam/property') || curUrl.includes('property-search')) {
+            console.log("🏨 [AI Bot] Detected Property Search page! Finding King Villa (50628060)...");
+            await page.evaluate(() => {
+                const items = Array.from(document.querySelectorAll('a, button, tr, div, span'));
+                const villa = items.find(el => {
+                    const txt = (el.innerText || '').toLowerCase();
+                    return txt.includes('king villa') || txt.includes('50628060');
+                });
+                if (villa && typeof villa.click === 'function') villa.click();
+            });
+            await new Promise(r => setTimeout(r, 4000));
+            await dismissPopups();
+        }
+
+        // Step 2: Navigate deeply to Calendar
+        console.log("📅 [AI Bot] Navigating to Calendar & Availability...");
+        try {
+            await page.goto('https://ycs.agoda.com/en-us/calendar?propertyId=50628060', { waitUntil: 'domcontentloaded', timeout: 25000 });
+        } catch (navErr) {
+            console.log("Direct calendar URL notice, falling back to menu clicks:", navErr.message);
+        }
         await new Promise(r => setTimeout(r, 3000));
+        await dismissPopups();
+
+        // Fallback: Click Calendar from sidebar / header if not on calendar
+        await page.evaluate(() => {
+            const links = Array.from(document.querySelectorAll('a, button, span, li, div'));
+            const calLink = links.find(l => {
+                const txt = (l.innerText || '').trim().toLowerCase();
+                return txt === 'calendar' || txt.includes('rates & availability') || txt.includes('calendar & pricing');
+            });
+            if (calLink && typeof calLink.click === 'function') calLink.click();
+        });
+        await new Promise(r => setTimeout(r, 3000));
+        await dismissPopups();
 
         let extractedIcal = '';
         const pageContent = await page.content();
@@ -204,41 +266,48 @@ async function scrapeAgoda(options = {}) {
         }
 
         // 2-Way Sync: Inject Leadzo Master iCal into Agoda YCS if provided
-        if (leadzoMasterIcal) {
-            console.log("📡 [Injection Bot] Checking Agoda Calendar Sync to inject Leadzo Master iCal...");
-            try {
-                const importBtn = await page.evaluate(() => {
-                    const elements = Array.from(document.querySelectorAll('button, a, span, div'));
+        const targetIcal = leadzoMasterIcal || 'https://king-villa.vercel.app/api/ical/export/5.ics';
+        if (targetIcal) {
+            console.log(`📡 [AI Bot] Deep-hunting for 'Calendar Sync' / 'Import Calendar' controls to inject: ${targetIcal}`);
+            let syncModalFound = false;
+            for (let attempt = 1; attempt <= 4; attempt++) {
+                syncModalFound = await page.evaluate(() => {
+                    const elements = Array.from(document.querySelectorAll('button, a, span, div, tab, [role="tab"], [role="button"]'));
                     const target = elements.find(el => {
-                        const txt = (el.innerText || '').toLowerCase();
-                        return txt.includes('import calendar') || txt.includes('calendar sync') || txt.includes('sync calendar') || txt === 'sync';
+                        const txt = (el.innerText || '').trim().toLowerCase();
+                        return txt.includes('import calendar') || txt.includes('calendar sync') || 
+                               txt.includes('sync calendar') || txt.includes('sync calendars') || 
+                               txt === 'sync' || txt === 'ical sync' || txt.includes('add calendar');
                     });
-                    if (target) { target.click(); return true; }
+                    if (target && typeof target.click === 'function') { target.click(); return true; }
                     return false;
                 });
-
-                if (importBtn) {
-                    await new Promise(r => setTimeout(r, 2000));
-                    const urlInput = await page.$('input[placeholder*="http"], input[placeholder*="ical"], input[name*="url"], input[id*="url"], input[type="url"], input[type="text"]');
-                    if (urlInput) {
-                        await urlInput.click({ clickCount: 3 });
-                        await urlInput.type(leadzoMasterIcal, { delay: 30 });
-                        const nameInput = await page.$('input[placeholder*="name"], input[name*="name"], input[id*="name"]');
-                        if (nameInput) {
-                            await nameInput.click({ clickCount: 3 });
-                            await nameInput.type('Leadzo AI Master', { delay: 30 });
-                        }
-                        await page.evaluate(() => {
-                            const btns = Array.from(document.querySelectorAll('button'));
-                            const saveBtn = btns.find(b => ['save', 'import', 'sync', 'submit'].some(k => (b.innerText || '').toLowerCase().includes(k)));
-                            if (saveBtn) saveBtn.click();
-                        });
-                        console.log("✅ [Injection Bot] Leadzo Master iCal injected & saved into Agoda!");
-                        await new Promise(r => setTimeout(r, 2000));
-                    }
+                if (syncModalFound) {
+                    console.log(`✅ [AI Bot] Found and clicked Calendar Sync control on attempt ${attempt}!`);
+                    break;
                 }
-            } catch (injectErr) {
-                console.log("Agoda iCal injection notice:", injectErr.message);
+                await new Promise(r => setTimeout(r, 1500));
+            }
+
+            await new Promise(r => setTimeout(r, 2000));
+            const urlInput = await page.$('input[placeholder*="http"], input[placeholder*="ical"], input[name*="url"], input[id*="url"], input[type="url"], input[type="text"]');
+            if (urlInput) {
+                await urlInput.click({ clickCount: 3 });
+                await urlInput.type(targetIcal, { delay: 30 });
+                const nameInput = await page.$('input[placeholder*="name"], input[name*="name"], input[id*="name"]');
+                if (nameInput) {
+                    await nameInput.click({ clickCount: 3 });
+                    await nameInput.type('King Villa Leadzo Master', { delay: 30 });
+                }
+                await page.evaluate(() => {
+                    const btns = Array.from(document.querySelectorAll('button'));
+                    const saveBtn = btns.find(b => ['save', 'import', 'sync', 'submit', 'confirm'].some(k => (b.innerText || '').toLowerCase().includes(k)));
+                    if (saveBtn && typeof saveBtn.click === 'function') saveBtn.click();
+                });
+                console.log("✅ [AI Bot] King Villa Master iCal successfully injected & saved into Agoda!");
+                await new Promise(r => setTimeout(r, 2000));
+            } else {
+                console.log("ℹ️ [AI Bot] Import dialog inputs not directly exposed; Calendar Sync page checked.");
             }
         }
 
