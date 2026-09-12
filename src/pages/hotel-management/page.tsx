@@ -1214,11 +1214,13 @@ export default function HotelLeadManagerPage() {
       });
       const data = await response.json();
       const airbnbFeed = 'https://www.airbnb.co.in/calendar/ical/1428110151030219910.ics?t=3dce546eb46141e7b38ad1a36e35a5d4';
+      const airbnbCookies = data.cookies || [];
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         await supabase.from('hotel_channels').update({
           status: 'connected',
           ical_url: airbnbFeed,
+          session_cookies: airbnbCookies,
           last_sync: 'Just now (Real AI Synced ✅)'
         }).eq('channel_id', 'airbnb').eq('user_id', user.id);
       }
@@ -1226,6 +1228,7 @@ export default function HotelLeadManagerPage() {
         ...c,
         status: 'connected',
         icalUrl: airbnbFeed,
+        sessionCookies: airbnbCookies,
         lastSync: 'Just now (Real AI Synced ✅)'
       } : c));
       toast.success("🎉 Airbnb 2-Way iCal sync successfully activated!", { id: "airbnb-inject", duration: 8000 });
@@ -1346,7 +1349,9 @@ export default function HotelLeadManagerPage() {
         await persistChannelCreds(targetChannel.id, loginId, targetChannel.password);
       }
 
-      const scraperEndpoint = (import.meta as any).env?.VITE_SCRAPER_API_URL || 'http://localhost:4000/api/scrape';
+      const scraperEndpoint = (targetChannel.id === 'airbnb' || targetChannel.id === 'goibibo')
+        ? 'http://localhost:4000/api/scrape'
+        : ((import.meta as any).env?.VITE_SCRAPER_API_URL || 'http://localhost:4000/api/scrape');
       const res = await fetch(scraperEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

@@ -175,10 +175,12 @@ async function injectAllRoomsToAirbnb(options = {}) {
     }
 
     console.log("\n🎉 ALL AIRBNB LISTINGS SUCCESSFULLY VERIFIED AND 2-WAY SYNCED!");
+    const savedCookies = fs.existsSync(AIRBNB_COOKIES_PATH) ? JSON.parse(fs.readFileSync(AIRBNB_COOKIES_PATH, 'utf8')) : [];
     return {
       success: true,
       message: 'All Airbnb listings verified and 2-Way iCal Synced with Leadzo!',
-      results: syncResults
+      results: syncResults,
+      cookies: savedCookies
     };
 
   } catch (err) {
