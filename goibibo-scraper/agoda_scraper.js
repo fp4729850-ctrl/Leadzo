@@ -232,55 +232,30 @@ async function scrapeAgoda(options = {}) {
             });
             await new Promise(r => setTimeout(r, 1000));
 
-            // 2. Click King Villa specifically from the table row
+            // 2. Click King Villa specifically from the CardStyled container
             const clicked = await page.evaluate(() => {
-                const allElements = Array.from(document.querySelectorAll('*'));
-                const idEl = allElements.find(el => el.children.length === 0 && (el.textContent || '').includes('50628060'));
-                if (idEl) {
-                    let parent = idEl;
-                    for (let i = 0; i < 6 && parent; i++) {
-                        parent = parent.parentElement;
-                        if (!parent) break;
-                        const link = parent.querySelector('a') || parent.querySelector('button') || parent.querySelector('[role="button"]');
-                        if (link && typeof link.click === 'function') {
-                            link.click();
-                            return true;
-                        }
-                    }
-                    if (idEl.parentElement && typeof idEl.parentElement.click === 'function') {
-                        idEl.parentElement.click();
-                        return true;
-                    }
-                }
-                
-                // Fallback: Click top "All properties" dropdown and select King Villa
-                const topDropdown = Array.from(document.querySelectorAll('button, div, span')).find(el => (el.textContent || '').includes('All properties'));
-                if (topDropdown && typeof topDropdown.click === 'function') {
-                    topDropdown.click();
+                const cards = Array.from(document.querySelectorAll('[class*="Cardstyled"], div[role="row"], tr, div'));
+                const villaCard = cards.find(c => (c.innerText || '').includes('50628060') && (c.innerText || '').includes('King Villa'));
+                if (villaCard && typeof villaCard.click === 'function') {
+                    villaCard.click();
+                    return true;
                 }
                 return false;
             });
 
             if (clicked) {
-                console.log("👉 [AI Bot] Clicked King Villa row! Waiting for property extranet navigation...");
-                await new Promise(r => setTimeout(r, 4000));
-            } else {
-                // If top dropdown was opened, select King Villa option
-                await page.evaluate(() => {
-                    const villaOpt = Array.from(document.querySelectorAll('li, div, a, span')).find(e => (e.textContent || '').includes('King Villa') && (e.textContent || '').includes('50628060'));
-                    if (villaOpt && typeof villaOpt.click === 'function') villaOpt.click();
-                });
-                await new Promise(r => setTimeout(r, 3000));
+                console.log("👉 [AI Bot] Clicked King Villa Card! Waiting for property extranet navigation...");
+                await new Promise(r => setTimeout(r, 5000));
             }
             await dismissPopups();
         }
 
         // Step 2: Navigate into King Villa's Calendar
-        console.log("📅 [AI Bot] Navigating to King Villa Calendar & Availability...");
+        console.log("📅 [AI Bot] Navigating to King Villa Calendar (/app/ari/calendar/50628060)...");
         try {
-            await page.goto('https://ycs.agoda.com/en-us/calendar?propertyId=50628060', { waitUntil: 'domcontentloaded', timeout: 25000 });
+            await page.goto('https://portal.agoda.com/mldc/en-us/app/ari/calendar/50628060', { waitUntil: 'domcontentloaded', timeout: 25000 });
         } catch (navErr) {
-            console.log("Direct calendar URL notice, falling back to menu clicks:", navErr.message);
+            console.log("Direct calendar URL notice:", navErr.message);
         }
         await new Promise(r => setTimeout(r, 4000));
         await dismissPopups();
