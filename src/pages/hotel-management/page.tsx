@@ -711,10 +711,16 @@ export default function HotelLeadManagerPage() {
         : (qFood?.aiNoResponseHindi || "Property me in-house chef available nahi hai, lekin aap Swiggy/Zomato se order kar sakte hain.");
     } else if (q.includes("check in") || q.includes("checkin") || q.includes("checkout") || q.includes("check out") || q.includes("timing") || q.includes("samay")) {
       responseText = "Hamara standard Check-in time dopahar 12:00 PM hai aur standard Check-out time subah 11:00 AM hai. Early check-in room availability par depend karta hai.";
-    } else if (q.includes("price") || q.includes("rate") || q.includes("cost") || q.includes("kitna") || q.includes("room") || q.includes("available") || q.includes("booking") || q.includes("villa")) {
-      responseText = "King Villa me Deluxe Rooms ka price per night ₹4,000 hai aur Entire 5-Bedroom Villa ka price ₹20,000 hai. Isme Free Breakfast & High-speed Wi-Fi included hai. Kya main aapke WhatsApp par instant booking link bhej doon?";
+    } else if (q.includes("price") || q.includes("rate") || q.includes("cost") || q.includes("kitna") || q.includes("room") || q.includes("available") || q.includes("booking") || q.includes("villa") || q.includes("charge")) {
+      if (q.includes("room 1") || q.includes("super deluxe") || q.includes("first")) {
+        responseText = "Room 1 (Super Deluxe) ka price per night ₹2,500 hai. Isme Free Breakfast, AC, private attached washroom aur High-speed Wi-Fi included hai. Kya main aapke WhatsApp par instant booking aur Razorpay payment link bhej doon?";
+      } else if (q.includes("room 2") || q.includes("room 3") || q.includes("room 4") || q.includes("small deluxe") || q.includes("deluxe")) {
+        responseText = "Small Deluxe Rooms (Room 2, 3 & 4) ka price per night sirf ₹1,800 hai jisme AC, attached washroom aur Wi-Fi included hai. Kya main aapke WhatsApp par instant booking link bhej doon?";
+      } else {
+        responseText = "King Villa me Room 1 (Super Deluxe) ₹2,500 per night hai aur Rooms 2, 3, 4 (Small Deluxe) sirf ₹1,800 per night hain. Isme Free Breakfast & High-speed Wi-Fi included hai. Kya main aapke WhatsApp par direct booking link bhej doon?";
+      }
     } else {
-      responseText = "Namaste! King Villa Resort & Suites me Deluxe Rooms ₹4,000 per night se available hain. Swimming pool, free Wi-Fi, aur 24-hour free cancellation included hai. Kya main aapki booking lock kar doon?";
+      responseText = "Namaste! King Villa Resort & Suites me Rooms ₹1,800 se ₹2,500 per night me available hain. Swimming pool, free Wi-Fi, aur 24-hour free cancellation included hai. Kya main aapki booking lock kar doon?";
     }
 
     setTimeout(() => {
@@ -859,8 +865,8 @@ export default function HotelLeadManagerPage() {
   const [previewQueryIndex, setPreviewQueryIndex] = useState(0);
   const sampleQueries = [
     {
-      guest: "Namaste, kya Sept 15 ko Deluxe Room available hai aur price kya hai?",
-      ai: "Namaste! Haan, Sept 15 ke liye Deluxe Room available hai. Price per night ₹4,000 hai jisme Free Breakfast & High-speed Wi-Fi included hai. Kya main aapke WhatsApp par instant booking link bhej doon?"
+      guest: "Namaste, kya Sept 15 ko Room 1 aur Room 2 available hain aur unka price kya hai?",
+      ai: "Namaste! Haan, Sept 15 ke liye Room 1 (Super Deluxe) ₹2,500/night aur Room 2 (Small Deluxe) ₹1,800/night me available hai. Free Breakfast & High-speed Wi-Fi included hai. Kya main aapke WhatsApp par instant booking aur Razorpay payment link bhej doon?"
     },
     {
       guest: "Kya villa me swimming pool hai aur use karne ke timings kya hain?",
@@ -1142,13 +1148,13 @@ export default function HotelLeadManagerPage() {
         supabase.from('hotel_bookings').select('*')
       ]);
 
-      // 1. Ensure King Villa's 5 real units exist
+      // 1. Ensure King Villa's 5 real units exist with updated pricing (Room 1: ₹2500, Rooms 2-4: ₹1800)
       const kingVillaUnitDefs = [
-        { number: "Room 1", type: "King Villa - Bedroom 1", price_per_night: 4000, ical: `https://stbqeiapgdaklktrlrjm.supabase.co/functions/v1/leadzo_master_ical?user_id=${user.id}&room_id=39688b67-ea6d-4526-bdae-d68edc1720d3` },
-        { number: "Room 2", type: "King Villa - Bedroom 2", price_per_night: 4000, ical: `https://stbqeiapgdaklktrlrjm.supabase.co/functions/v1/leadzo_master_ical?user_id=${user.id}&room_id=9820ca74-f16f-49cf-9b65-9c62cba167a9` },
-        { number: "Room 3", type: "King Villa - Bedroom 3", price_per_night: 4000, ical: `https://stbqeiapgdaklktrlrjm.supabase.co/functions/v1/leadzo_master_ical?user_id=${user.id}&room_id=92666322-e804-44ef-b966-ac5e302bc22e` },
-        { number: "Room 4", type: "King Villa - Bedroom 4", price_per_night: 4000, ical: `https://stbqeiapgdaklktrlrjm.supabase.co/functions/v1/leadzo_master_ical?user_id=${user.id}&room_id=438bd6c2-335d-4c09-80d1-428419e34d5c` },
-        { number: "Entire Villa", type: "Entire King Villa", price_per_night: 20000, ical: `https://stbqeiapgdaklktrlrjm.supabase.co/functions/v1/leadzo_master_ical?user_id=${user.id}` }
+        { number: "Room 1", type: "1 Super Delux Room No 1", price_per_night: 2500, ical: `https://stbqeiapgdaklktrlrjm.supabase.co/functions/v1/leadzo_master_ical?user_id=${user.id}&room_id=39688b67-ea6d-4526-bdae-d68edc1720d3` },
+        { number: "Room 2", type: "1 Small Delux No. 02", price_per_night: 1800, ical: `https://stbqeiapgdaklktrlrjm.supabase.co/functions/v1/leadzo_master_ical?user_id=${user.id}&room_id=9820ca74-f16f-49cf-9b65-9c62cba167a9` },
+        { number: "Room 3", type: "1 Small Delux No. 03", price_per_night: 1800, ical: `https://stbqeiapgdaklktrlrjm.supabase.co/functions/v1/leadzo_master_ical?user_id=${user.id}&room_id=92666322-e804-44ef-b966-ac5e302bc22e` },
+        { number: "Room 4", type: "1 Small Delux No. 04", price_per_night: 1800, ical: `https://stbqeiapgdaklktrlrjm.supabase.co/functions/v1/leadzo_master_ical?user_id=${user.id}&room_id=438bd6c2-335d-4c09-80d1-428419e34d5c` },
+        { number: "Entire Villa", type: "Entire King Villa (5-Bedroom)", price_per_night: 7900, ical: `https://stbqeiapgdaklktrlrjm.supabase.co/functions/v1/leadzo_master_ical?user_id=${user.id}` }
       ];
 
       const hasOldRooms = roomsRes.data?.some((r: any) => r.number === "101" || r.number === "102");
@@ -1167,6 +1173,16 @@ export default function HotelLeadManagerPage() {
         await supabase.from('hotel_rooms').insert(insertPayload);
         const refreshedRooms = await supabase.from('hotel_rooms').select('*');
         if (refreshedRooms.data) roomsRes.data = refreshedRooms.data;
+      } else {
+        // Sync prices if they changed to ensure Room 1: 2500 and Rooms 2-4: 1800
+        for (const u of kingVillaUnitDefs) {
+          const match = roomsRes.data.find((r: any) => r.number === u.number);
+          if (match && match.price_per_night !== u.price_per_night) {
+            await supabase.from('hotel_rooms').update({ price_per_night: u.price_per_night, type: u.type }).eq('id', match.id);
+            match.price_per_night = u.price_per_night;
+            match.type = u.type;
+          }
+        }
       }
 
       const activeRooms = roomsRes.data || [];
