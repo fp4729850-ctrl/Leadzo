@@ -7,7 +7,8 @@ import {
   Sparkles, Copy, Check, ExternalLink, Bot, BedDouble, Hotel, CalendarCheck, ShieldAlert,
   Settings, Key, Layers, X, Wand2, Rocket, MapPin, Target, ArrowRight, Camera,
   TrendingUp, DollarSign, Percent, Users, ArrowUpRight, MessageCircle, CheckCircle, Database, DownloadCloud,
-  Eye, EyeOff, Mic, MicOff, PhoneCall, PhoneOff, Volume2, Trash2, PlusCircle, FileText, Sliders, Tag, Clock, Utensils, Waves, Dog, HelpCircle
+  Eye, EyeOff, Mic, MicOff, PhoneCall, PhoneOff, Volume2, Trash2, PlusCircle, FileText, Sliders, Tag, Clock, Utensils, Waves, Dog, HelpCircle,
+  Snowflake, Bath, Wifi, Car, Wine, UtensilsCrossed, FileCheck, CheckSquare, ListFilter
 } from "lucide-react";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, Legend } from "recharts";
 import { Button } from "@/components/ui/button.tsx";
@@ -88,44 +89,187 @@ export interface HotelPolicyItem {
   description: string;
 }
 
-const DEFAULT_HOTEL_POLICIES: HotelPolicyItem[] = [
+export interface VillaAmenityQuestion {
+  id: string;
+  category: "Amenities" | "Food & Dining" | "Pets & Smoking" | "Rules & ID" | "Cancellation";
+  title: string;
+  subtitle: string;
+  iconName: string;
+  enabled: boolean;
+  yesDescription: string;
+  noDescription: string;
+  aiYesResponseHindi: string;
+  aiNoResponseHindi: string;
+}
+
+export const DEFAULT_VILLA_QUESTIONS: VillaAmenityQuestion[] = [
   {
-    id: "p1",
-    category: "ID & Check-in",
-    title: "Government ID Mandatory",
-    description: "Valid physical Govt ID (Aadhar / Passport / Driving License) required for all adult guests at check-in."
+    id: "q_pool",
+    category: "Amenities",
+    title: "Swimming Pool",
+    subtitle: "In-house swimming pool & timings for guests",
+    iconName: "Waves",
+    enabled: true,
+    yesDescription: "In-house swimming pool available (7:00 AM – 9:00 PM free access)",
+    noDescription: "No swimming pool at property",
+    aiYesResponseHindi: "Haan ji! Hamare paas premium in-house swimming pool hai jo subah 7:00 AM se raat 9:00 PM tak guests ke liye free access ke saath open rehta hai.",
+    aiNoResponseHindi: "Nahi ji, filhal property par swimming pool available nahi hai."
   },
   {
-    id: "p2",
-    category: "ID & Check-in",
-    title: "Check-in & Check-out Timings",
-    description: "Standard Check-in: 12:00 PM | Standard Check-out: 11:00 AM. Early check-in subject to room availability."
+    id: "q_food",
+    category: "Food & Dining",
+    title: "Food & In-House Dining",
+    subtitle: "Breakfast & fresh meals prepared at villa lawn",
+    iconName: "Utensils",
+    enabled: true,
+    yesDescription: "Complimentary breakfast & chef dining available on lawn",
+    noDescription: "Self-cooking & food delivery (Swiggy / Zomato) allowed only",
+    aiYesResponseHindi: "Ji haan! Villa me daily complimentary breakfast aur fresh dining lawn me available hai.",
+    aiNoResponseHindi: "Property me in-house chef available nahi hai, lekin aap Swiggy/Zomato se order kar sakte hain ya kitchen use kar sakte hain."
   },
   {
-    id: "p3",
+    id: "q_smoking",
+    category: "Pets & Smoking",
+    title: "Smoking Allowed",
+    subtitle: "Smoking policy inside bedrooms vs outdoor lawn",
+    iconName: "ShieldAlert",
+    enabled: false,
+    yesDescription: "Smoking permitted in designated outdoor lawn / balcony zones only",
+    noDescription: "100% strictly non-smoking property (penalty applies for indoor smoking)",
+    aiYesResponseHindi: "Deluxe rooms ke andar smoking prohibited hai, lekin outdoor lawn aur balcony me dedicated smoking zone available hai.",
+    aiNoResponseHindi: "Ye 100% strictly non-smoking villa hai, property me smoking bilkul allowed nahi hai."
+  },
+  {
+    id: "q_alcohol",
+    category: "Rules & ID",
+    title: "Drinks / Alcohol Allowed",
+    subtitle: "Consuming beverages responsibly in private villa",
+    iconName: "Wine",
+    enabled: true,
+    yesDescription: "Alcohol consumption permitted responsibly inside the private villa",
+    noDescription: "Strictly dry / non-alcoholic property",
+    aiYesResponseHindi: "Haan ji, aap private villa ke andar responsibly drinks carry aur consume kar sakte hain.",
+    aiNoResponseHindi: "Nahi ji, ye strictly non-alcoholic property hai, drinks allowed nahi hain."
+  },
+  {
+    id: "q_ac",
+    category: "Amenities",
+    title: "Air Conditioning (AC)",
+    subtitle: "AC in all deluxe bedrooms and living lounge",
+    iconName: "Snowflake",
+    enabled: true,
+    yesDescription: "Fully air-conditioned bedrooms & common living lounge",
+    noDescription: "Ceiling fans & natural hill breeze only (Non-AC)",
+    aiYesResponseHindi: "Ji haan! Sabhi deluxe bedrooms aur living lounge fully air-conditioned hain.",
+    aiNoResponseHindi: "Property me ceiling fans aur natural ventilation available hai, AC nahi hai."
+  },
+  {
+    id: "q_kitchen",
+    category: "Amenities",
+    title: "Private Kitchen Access",
+    subtitle: "Modular kitchen (Fridge, Gas, Microwave) for guests",
+    iconName: "UtensilsCrossed",
+    enabled: true,
+    yesDescription: "Fully equipped modular kitchen (Gas, Fridge, Microwave & Utensils) accessible for guests",
+    noDescription: "Kitchen is for staff only / No self-cooking allowed",
+    aiYesResponseHindi: "Haan ji! Guests ke liye fully equipped kitchen available hai jisme gas stove, fridge aur microwave freely use kar sakte hain.",
+    aiNoResponseHindi: "Kitchen access guests ke liye available nahi hai."
+  },
+  {
+    id: "q_bathroom",
+    category: "Amenities",
+    title: "Attached En-Suite Bathrooms",
+    subtitle: "Private attached washrooms with 24/7 hot water geyser",
+    iconName: "Bath",
+    enabled: true,
+    yesDescription: "All rooms have private attached bathrooms with 24/7 hot geyser water",
+    noDescription: "Common / Shared washrooms available",
+    aiYesResponseHindi: "Haan ji, sabhi bedrooms ke saath private attached bathroom aur 24/7 hot water geyser available hai.",
+    aiNoResponseHindi: "Common shared washroom facility available hai."
+  },
+  {
+    id: "q_wifi",
+    category: "Amenities",
+    title: "High-Speed Wi-Fi",
+    subtitle: "Optical fiber internet suitable for Work-From-Home",
+    iconName: "Wifi",
+    enabled: true,
+    yesDescription: "High-speed 100+ Mbps optical fiber Wi-Fi throughout the villa",
+    noDescription: "No Wi-Fi available at property",
+    aiYesResponseHindi: "Ji haan! Villa me 100+ Mbps high-speed optical fiber Wi-Fi available hai, work-from-home ke liye bilkul perfect hai.",
+    aiNoResponseHindi: "Filhal property me Wi-Fi internet available nahi hai."
+  },
+  {
+    id: "q_parking",
+    category: "Amenities",
+    title: "Free Secure Parking",
+    subtitle: "Gated on-site vehicle parking space",
+    iconName: "Car",
+    enabled: true,
+    yesDescription: "Free secure private parking space inside villa compound (Up to 4 cars)",
+    noDescription: "Street / Public paid parking only",
+    aiYesResponseHindi: "Haan ji! Villa compound ke andar secure private parking available hai jisme 4 cars tak easily park ho sakti hain.",
+    aiNoResponseHindi: "Property ke bahar street parking available hai."
+  },
+  {
+    id: "q_pets",
+    category: "Pets & Smoking",
+    title: "Pet Friendly",
+    subtitle: "Bringing dogs / cats / companion animals",
+    iconName: "Dog",
+    enabled: true,
+    yesDescription: "Pet friendly villa (Pets allowed with prior notification)",
+    noDescription: "Strictly no pets allowed",
+    aiYesResponseHindi: "Haan ji, hamara villa pet-friendly hai! Aap apne pets ko advance notification ke saath la sakte hain.",
+    aiNoResponseHindi: "Sorry ji, property par pets strictly allowed nahi hain."
+  },
+  {
+    id: "q_id",
+    category: "Rules & ID",
+    title: "Govt ID Mandatory at Check-in",
+    subtitle: "Physical ID verification for adult guests",
+    iconName: "FileCheck",
+    enabled: true,
+    yesDescription: "Physical Government ID (Aadhar / Passport / DL) required for all adults at check-in",
+    noDescription: "Digital check-in / No physical ID mandatory",
+    aiYesResponseHindi: "Haan ji, guidelines ke mutabiq sabhi adult guests ke paas valid physical Govt ID (Aadhar / Passport / DL) hona compulsory hai.",
+    aiNoResponseHindi: "Digital check-in available hai, physical ID submission mandatory nahi hai."
+  },
+  {
+    id: "q_cancel",
     category: "Cancellation",
     title: "24-Hour Free Cancellation",
-    description: "100% full refund if cancelled up to 24 hours prior to check-in. Non-refundable within 24 hours."
-  },
-  {
-    id: "p4",
-    category: "Amenities",
-    title: "Complimentary Amenities",
-    description: "Free High-Speed Wi-Fi, 24/7 Hot Water, In-house Swimming Pool (7 AM - 9 PM), Free Secure Parking."
-  },
-  {
-    id: "p5",
-    category: "Pets & Smoking",
-    title: "Smoking & Pet Guidelines",
-    description: "Strictly non-smoking inside deluxe rooms (dedicated outdoor smoking zone). Pets allowed with prior intimation."
-  },
-  {
-    id: "p6",
-    category: "Food & Dining",
-    title: "Breakfast & Dining",
-    description: "Complimentary buffet breakfast served daily from 8:00 AM to 10:30 AM in the villa dining lawn."
+    subtitle: "100% refund policy on prior cancellation",
+    iconName: "Clock",
+    enabled: true,
+    yesDescription: "100% full refund if cancelled up to 24 hours prior to check-in",
+    noDescription: "Strict non-refundable cancellation policy",
+    aiYesResponseHindi: "Ji haan, check-in se 24 ghante pehle cancel karne par 100% full refund milta hai.",
+    aiNoResponseHindi: "Hamari booking strictly non-refundable hai, cancellation par refund nahi milega."
   }
 ];
+
+export const buildPoliciesFromQuestions = (questions: VillaAmenityQuestion[], existingPolicies: HotelPolicyItem[] = []): HotelPolicyItem[] => {
+  const mappedQuestions: HotelPolicyItem[] = questions.map(q => {
+    let cat: HotelPolicyItem['category'] = "Amenities";
+    if (q.category === "Food & Dining") cat = "Food & Dining";
+    else if (q.category === "Pets & Smoking") cat = "Pets & Smoking";
+    else if (q.category === "Cancellation") cat = "Cancellation";
+    else if (q.category === "Rules & ID") cat = "ID & Check-in";
+
+    return {
+      id: q.id,
+      category: cat,
+      title: q.title,
+      description: q.enabled ? q.yesDescription : q.noDescription
+    };
+  });
+
+  const customOnly = existingPolicies.filter(p => !p.id.startsWith('q_'));
+  return [...mappedQuestions, ...customOnly];
+};
+
+const DEFAULT_HOTEL_POLICIES: HotelPolicyItem[] = buildPoliciesFromQuestions(DEFAULT_VILLA_QUESTIONS);
 
 export default function HotelLeadManagerPage() {
   const [copiedRoomIcal, setCopiedRoomIcal] = useState<string | null>(null);
@@ -206,19 +350,47 @@ export default function HotelLeadManagerPage() {
     }
   };
 
-  // 📋 Dynamic Hotel Amenities & Policies State
+  // 📋 Dynamic Hotel Amenities & Policies State (Villa Checklist + Custom Rules)
+  const [villaQuestions, setVillaQuestions] = useState<VillaAmenityQuestion[]>(() => {
+    const saved = localStorage.getItem('leadzo_villa_questions');
+    if (saved) {
+      try { return JSON.parse(saved); } catch(e) {}
+    }
+    return DEFAULT_VILLA_QUESTIONS;
+  });
+
   const [hotelPolicies, setHotelPolicies] = useState<HotelPolicyItem[]>(() => {
     const saved = localStorage.getItem('leadzo_hotel_policies');
     if (saved) {
       try { return JSON.parse(saved); } catch(e) {}
     }
-    return DEFAULT_HOTEL_POLICIES;
+    return buildPoliciesFromQuestions(DEFAULT_VILLA_QUESTIONS);
   });
 
   const [isAddPolicyModalOpen, setIsAddPolicyModalOpen] = useState(false);
+  const [policyModalTab, setPolicyModalTab] = useState<"checklist" | "custom">("checklist");
   const [newPolicyCategory, setNewPolicyCategory] = useState<HotelPolicyItem['category']>("Custom");
   const [newPolicyTitle, setNewPolicyTitle] = useState("");
   const [newPolicyDescription, setNewPolicyDescription] = useState("");
+
+  const toggleVillaQuestion = (id: string, enabled: boolean) => {
+    const updated = villaQuestions.map(q => q.id === id ? { ...q, enabled } : q);
+    setVillaQuestions(updated);
+    localStorage.setItem('leadzo_villa_questions', JSON.stringify(updated));
+
+    const updatedPolicies = buildPoliciesFromQuestions(updated, hotelPolicies);
+    setHotelPolicies(updatedPolicies);
+    localStorage.setItem('leadzo_hotel_policies', JSON.stringify(updatedPolicies));
+
+    const target = updated.find(q => q.id === id);
+    if (target) {
+      if (enabled) {
+        toast.success(`🟢 ${target.title}: SET TO YES (Active in AI Voice Brain)`);
+      } else {
+        toast.info(`🔴 ${target.title}: SET TO NO / RESTRICTED (Updated in AI Voice Brain)`);
+      }
+    }
+  };
 
   const handleAddPolicy = () => {
     if (!newPolicyTitle.trim() || !newPolicyDescription.trim()) {
@@ -226,7 +398,7 @@ export default function HotelLeadManagerPage() {
       return;
     }
     const newPolicy: HotelPolicyItem = {
-      id: `pol-${Date.now()}`,
+      id: `pol-custom-${Date.now()}`,
       category: newPolicyCategory,
       title: newPolicyTitle.trim(),
       description: newPolicyDescription.trim()
@@ -241,10 +413,14 @@ export default function HotelLeadManagerPage() {
   };
 
   const handleDeletePolicy = (id: string) => {
+    if (id.startsWith('q_')) {
+      toggleVillaQuestion(id, false);
+      return;
+    }
     const updated = hotelPolicies.filter(p => p.id !== id);
     setHotelPolicies(updated);
     localStorage.setItem('leadzo_hotel_policies', JSON.stringify(updated));
-    toast.info("Policy removed from AI memory.");
+    toast.info("Custom rule removed from AI memory.");
   };
 
   // 📞 Dual-Engine Live AI Voice Receptionist State (Web Speech + Native Audio + Vapi)
@@ -317,20 +493,71 @@ export default function HotelLeadManagerPage() {
     const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     setVoiceMessages(prev => [...prev, { sender: 'user', text: rawQuery, time: timeStr }]);
 
+    const qPool = villaQuestions.find(v => v.id === "q_pool");
+    const qFood = villaQuestions.find(v => v.id === "q_food");
+    const qSmoke = villaQuestions.find(v => v.id === "q_smoking");
+    const qAlcohol = villaQuestions.find(v => v.id === "q_alcohol");
+    const qAc = villaQuestions.find(v => v.id === "q_ac");
+    const qKitchen = villaQuestions.find(v => v.id === "q_kitchen");
+    const qBath = villaQuestions.find(v => v.id === "q_bathroom");
+    const qWifi = villaQuestions.find(v => v.id === "q_wifi");
+    const qParking = villaQuestions.find(v => v.id === "q_parking");
+    const qPets = villaQuestions.find(v => v.id === "q_pets");
+    const qId = villaQuestions.find(v => v.id === "q_id");
+    const qCancel = villaQuestions.find(v => v.id === "q_cancel");
+
     let responseText = "";
 
     if (q.includes("pool") || q.includes("swimming") || q.includes("swim") || q.includes("talab")) {
-      responseText = "Haan ji! Hamare paas premium in-house swimming pool hai jo subah 7:00 AM se raat 9:00 PM tak guests ke liye free access ke saath open rehta hai.";
+      responseText = qPool?.enabled 
+        ? (qPool.aiYesResponseHindi || "Haan ji! Hamare paas premium in-house swimming pool hai jo subah 7:00 AM se raat 9:00 PM tak guests ke liye open rehta hai.")
+        : (qPool?.aiNoResponseHindi || "Nahi ji, filhal property par swimming pool available nahi hai.");
     } else if (q.includes("cancel") || q.includes("refund") || q.includes("radd")) {
-      responseText = "Hamari cancellation policy ke mutabiq, check-in se 24 ghante pehle cancel karne par 100% full refund milta hai. 24 ghante ke andar non-refundable rehta hai.";
+      responseText = qCancel?.enabled
+        ? (qCancel.aiYesResponseHindi || "Hamari cancellation policy ke mutabiq, check-in se 24 ghante pehle cancel karne par 100% full refund milta hai.")
+        : (qCancel?.aiNoResponseHindi || "Hamari booking strictly non-refundable policy ke tehat aati hai.");
     } else if (q.includes("id") || q.includes("proof") || q.includes("aadhar") || q.includes("document") || q.includes("passport")) {
-      responseText = "Ji haan, hotel rules ke according sabhi adult guests ke paas valid physical Government ID proof (Aadhar / Passport / Driving License) hona mandatory hai.";
+      responseText = qId?.enabled
+        ? (qId.aiYesResponseHindi || "Ji haan, hotel rules ke according sabhi adult guests ke paas valid physical Government ID proof hona mandatory hai.")
+        : (qId?.aiNoResponseHindi || "Digital check-in available hai, physical ID submission mandatory nahi hai.");
+    } else if (q.includes("wifi") || q.includes("wi-fi") || q.includes("internet") || q.includes("speed")) {
+      responseText = qWifi?.enabled
+        ? (qWifi.aiYesResponseHindi || "Ji haan! Villa me 100+ Mbps high-speed optical fiber Wi-Fi available hai, WFH ke liye perfect hai.")
+        : (qWifi?.aiNoResponseHindi || "Filhal property me Wi-Fi internet available nahi hai.");
+    } else if (q.includes("ac") || q.includes("air condition") || q.includes("cooler") || q.includes("hawa")) {
+      responseText = qAc?.enabled
+        ? (qAc.aiYesResponseHindi || "Ji haan! Sabhi deluxe bedrooms aur living lounge fully air-conditioned hain.")
+        : (qAc?.aiNoResponseHindi || "Property me ceiling fans aur natural ventilation available hai, AC nahi hai.");
+    } else if (q.includes("kitchen") || q.includes("rasoi") || q.includes("cook") || q.includes("cooking") || q.includes("fridge") || q.includes("microwave")) {
+      responseText = qKitchen?.enabled
+        ? (qKitchen.aiYesResponseHindi || "Haan ji! Guests ke liye fully equipped kitchen available hai jisme gas stove, fridge aur microwave use kar sakte hain.")
+        : (qKitchen?.aiNoResponseHindi || "Kitchen access guests ke liye available nahi hai.");
+    } else if (q.includes("bathroom") || q.includes("washroom") || q.includes("geyser") || q.includes("hot water") || q.includes("garm pani")) {
+      responseText = qBath?.enabled
+        ? (qBath.aiYesResponseHindi || "Haan ji, sabhi bedrooms ke saath private attached bathroom aur 24/7 hot water geyser available hai.")
+        : (qBath?.aiNoResponseHindi || "Common shared washroom facility available hai.");
+    } else if (q.includes("parking") || q.includes("car") || q.includes("gadi") || q.includes("vehicle")) {
+      responseText = qParking?.enabled
+        ? (qParking.aiYesResponseHindi || "Haan ji! Villa compound ke andar secure private parking available hai jisme 4 cars tak easily park ho sakti hain.")
+        : (qParking?.aiNoResponseHindi || "Property ke bahar street parking available hai.");
+    } else if (q.includes("alcohol") || q.includes("drink") || q.includes("sharab") || q.includes("beer") || q.includes("wine")) {
+      responseText = qAlcohol?.enabled
+        ? (qAlcohol.aiYesResponseHindi || "Haan ji, aap private villa ke andar responsibly drinks carry aur consume kar sakte hain.")
+        : (qAlcohol?.aiNoResponseHindi || "Nahi ji, ye strictly non-alcoholic property hai, drinks allowed nahi hain.");
+    } else if (q.includes("smoke") || q.includes("smoking") || q.includes("cigarette") || q.includes("bidi")) {
+      responseText = qSmoke?.enabled
+        ? (qSmoke.aiYesResponseHindi || "Deluxe rooms ke andar smoking prohibited hai, lekin outdoor lawn aur balcony me dedicated smoking zone available hai.")
+        : (qSmoke?.aiNoResponseHindi || "Ye 100% strictly non-smoking villa hai, property me smoking bilkul allowed nahi hai.");
+    } else if (q.includes("pet") || q.includes("dog") || q.includes("kutta") || q.includes("cat") || q.includes("billi")) {
+      responseText = qPets?.enabled
+        ? (qPets.aiYesResponseHindi || "Haan ji, hamara villa pet-friendly hai! Aap apne pets ko advance notification ke saath la sakte hain.")
+        : (qPets?.aiNoResponseHindi || "Sorry ji, property par pets strictly allowed nahi hain.");
+    } else if (q.includes("food") || q.includes("breakfast") || q.includes("khana") || q.includes("nashta") || q.includes("dinner") || q.includes("lunch")) {
+      responseText = qFood?.enabled
+        ? (qFood.aiYesResponseHindi || "Hamare villa me daily complimentary buffet breakfast subah 8:00 AM se 10:30 AM tak garden lawn me serve kiya jata hai.")
+        : (qFood?.aiNoResponseHindi || "Property me in-house chef available nahi hai, lekin aap Swiggy/Zomato se order kar sakte hain.");
     } else if (q.includes("check in") || q.includes("checkin") || q.includes("checkout") || q.includes("check out") || q.includes("timing") || q.includes("samay")) {
       responseText = "Hamara standard Check-in time dopahar 12:00 PM hai aur standard Check-out time subah 11:00 AM hai. Early check-in room availability par depend karta hai.";
-    } else if (q.includes("pet") || q.includes("dog") || q.includes("cat") || q.includes("smoke") || q.includes("smoking")) {
-      responseText = "Deluxe rooms ke andar smoking strictly prohibited hai. Outdoor dedicated smoking zone available hai, aur pets allowed hain with prior notification.";
-    } else if (q.includes("food") || q.includes("breakfast") || q.includes("khana") || q.includes("nashta") || q.includes("dinner")) {
-      responseText = "Hamare villa me daily complimentary buffet breakfast subah 8:00 AM se 10:30 AM tak garden lawn me serve kiya jata hai.";
     } else if (q.includes("price") || q.includes("rate") || q.includes("cost") || q.includes("kitna") || q.includes("room") || q.includes("available") || q.includes("booking") || q.includes("villa")) {
       responseText = "King Villa me Deluxe Rooms ka price per night ₹4,000 hai aur Entire 5-Bedroom Villa ka price ₹20,000 hai. Isme Free Breakfast & High-speed Wi-Fi included hai. Kya main aapke WhatsApp par instant booking link bhej doon?";
     } else {
@@ -483,16 +710,32 @@ export default function HotelLeadManagerPage() {
       ai: "Namaste! Haan, Sept 15 ke liye Deluxe Room available hai. Price per night ₹4,000 hai jisme Free Breakfast & High-speed Wi-Fi included hai. Kya main aapke WhatsApp par instant booking link bhej doon?"
     },
     {
-      guest: "Kya hotel me swimming pool hai aur timings kya hain?",
-      ai: "Haan ji! Hamare paas premium in-house swimming pool hai jo subah 7:00 AM se raat 9:00 PM tak guests ke liye free access ke saath open rehta hai."
+      guest: "Kya villa me swimming pool hai aur use karne ke timings kya hain?",
+      ai: villaQuestions.find(v => v.id === "q_pool")?.enabled 
+        ? "Haan ji! Hamare paas premium in-house swimming pool hai jo subah 7:00 AM se raat 9:00 PM tak guests ke liye free access ke saath open rehta hai."
+        : "Nahi ji, filhal property par swimming pool available nahi hai."
+    },
+    {
+      guest: "Kya hum apna khana khud bana sakte hain ya kitchen available hai?",
+      ai: villaQuestions.find(v => v.id === "q_kitchen")?.enabled
+        ? "Haan ji! Guests ke liye fully equipped modular kitchen (Gas, Fridge & Microwave) freely accessible hai."
+        : "Kitchen access guests ke liye available nahi hai, aap food delivery order kar sakte hain."
     },
     {
       guest: "Cancellation policy kya hai agar humein booking cancel karni pade?",
-      ai: "Hamari policy ke according, check-in se 24 ghante pehle cancel karne par 100% full refund milta hai. 24 ghante ke andar cancellation non-refundable hota hai."
+      ai: villaQuestions.find(v => v.id === "q_cancel")?.enabled
+        ? "Hamari policy ke according, check-in se 24 ghante pehle cancel karne par 100% full refund milta hai. 24 ghante ke andar cancellation non-refundable hota hai."
+        : "Hamari booking strictly non-refundable policy ke tehat aati hai."
+    },
+    {
+      guest: "Kya hum pets ko saath la sakte hain aur alcohol allowed hai?",
+      ai: `${villaQuestions.find(v => v.id === "q_pets")?.enabled ? "Haan ji, villa pet-friendly hai with prior intimation." : "Pets property par allowed nahi hain."} ${villaQuestions.find(v => v.id === "q_alcohol")?.enabled ? "Alcohol private villa me responsibly allowed hai." : "Property strictly dry / non-alcoholic hai."}`
     },
     {
       guest: "Check-in ke time par kya ID proof compulsory hai?",
-      ai: "Haan ji, hotel guidelines ke mutabiq sabhi adult guests ke paas valid physical Government ID proof (Aadhar / Passport / Driving License) hona mandatory hai."
+      ai: villaQuestions.find(v => v.id === "q_id")?.enabled
+        ? "Haan ji, hotel guidelines ke mutabiq sabhi adult guests ke paas valid physical Government ID proof (Aadhar / Passport / Driving License) hona mandatory hai."
+        : "Digital check-in available hai, physical ID submission mandatory nahi hai."
     }
   ];
 
@@ -3706,9 +3949,9 @@ export default function HotelLeadManagerPage() {
           {/* Hotel Policies & Live Preview Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             
-            {/* Card 1: Hotel Amenities & Policies Configuration (with [+] Add Policy Button) */}
-            <Card className="border-border shadow-sm">
-              <CardHeader className="p-4 border-b border-border flex flex-row items-center justify-between">
+            {/* Card 1: Hotel Amenities & Policies Configuration */}
+            <Card className="border-border shadow-sm flex flex-col justify-between">
+              <CardHeader className="p-4 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <CardTitle className="text-base font-semibold flex items-center gap-2">
                     <FileText className="size-4 text-emerald-400" /> Hotel Amenities & Operating Policies
@@ -3717,13 +3960,23 @@ export default function HotelLeadManagerPage() {
                     Trained directly into Vapi AI Voice Manager to answer guest inquiries accurately on phone calls
                   </CardDescription>
                 </div>
-                <Button 
-                  onClick={() => setIsAddPolicyModalOpen(true)}
-                  size="sm"
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer h-7 text-xs gap-1"
-                >
-                  <Plus size={13} /> Add Policy
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button 
+                    onClick={() => { setPolicyModalTab("checklist"); setIsAddPolicyModalOpen(true); }}
+                    size="sm"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer h-7 text-xs gap-1 shadow-sm font-medium"
+                  >
+                    <Sparkles size={12} className="text-amber-300" /> 1-Click Checklist
+                  </Button>
+                  <Button 
+                    onClick={() => { setPolicyModalTab("custom"); setIsAddPolicyModalOpen(true); }}
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs cursor-pointer gap-1"
+                  >
+                    <Plus size={12} /> Custom
+                  </Button>
+                </div>
               </CardHeader>
 
               <CardContent className="p-4 space-y-4">
@@ -3739,6 +3992,39 @@ export default function HotelLeadManagerPage() {
                   </div>
                 </div>
 
+                {/* 1-Click Quick Villa Checklist Status Strip */}
+                <div className="p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/20 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <Sparkles size={13} className="text-emerald-400" />
+                      <span className="text-xs font-semibold text-emerald-300">⚡ 1-Click Villa Checklist</span>
+                    </div>
+                    <Badge variant="outline" className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30 text-[10px] h-5">
+                      {villaQuestions.filter(q => q.enabled).length} / {villaQuestions.length} Enabled
+                    </Badge>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                    {villaQuestions.map((q) => (
+                      <button
+                        key={q.id}
+                        type="button"
+                        onClick={() => toggleVillaQuestion(q.id, !q.enabled)}
+                        className={cn(
+                          "flex items-center justify-between px-2 py-1 rounded text-[11px] border transition-all text-left cursor-pointer",
+                          q.enabled 
+                            ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20" 
+                            : "bg-rose-500/10 border-rose-500/30 text-rose-300 hover:bg-rose-500/20 opacity-75"
+                        )}
+                      >
+                        <span className="truncate pr-1">{q.title}</span>
+                        <span className="font-bold text-[9px] uppercase px-1 py-0.5 rounded bg-background/50">
+                          {q.enabled ? "YES" : "NO"}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 {/* Active Dynamic Policies List */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
@@ -3748,7 +4034,7 @@ export default function HotelLeadManagerPage() {
                     <span className="text-[10px] text-muted-foreground">Used in Vapi AI Voice Brain</span>
                   </div>
 
-                  <div className="space-y-2 max-h-[260px] overflow-y-auto pr-1">
+                  <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
                     {hotelPolicies.map((pol) => (
                       <div 
                         key={pol.id} 
@@ -3793,7 +4079,7 @@ export default function HotelLeadManagerPage() {
                 </div>
 
                 <Button 
-                  onClick={() => toast.success("AI Receptionist & Vapi Voice Brain trained successfully with updated policies!")} 
+                  onClick={() => toast.success("AI Receptionist & Vapi Voice Brain trained successfully with updated villa policies!")} 
                   className="w-full bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer gap-2"
                 >
                   <Sparkles size={14} /> Train AI Receptionist with Active Policies
@@ -3867,72 +4153,201 @@ export default function HotelLeadManagerPage() {
           </div>
         </TabsContent>
 
-        {/* Modal 1: Add Custom Policy Dialog */}
+        {/* Modal 1: Villa Amenities Checklist & Add Policy Dialog */}
         <Dialog open={isAddPolicyModalOpen} onOpenChange={setIsAddPolicyModalOpen}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
+          <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-hidden flex flex-col p-0">
+            <DialogHeader className="p-5 pb-3 border-b border-border bg-card/50">
               <DialogTitle className="text-base font-semibold flex items-center gap-2">
-                <PlusCircle className="size-5 text-emerald-400" /> Add Hotel Policy / Amenity Rule
+                <Sliders className="size-5 text-emerald-400" /> Villa Amenities & Policies Configuration
               </DialogTitle>
               <DialogDescription className="text-xs">
-                This rule will be permanently saved into your AI Voice Manager memory to answer customer queries.
+                Configure amenity rules & policies. The AI Voice Manager uses these answers to respond to guest inquiries accurately.
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-3 pt-2">
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Policy Category</Label>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {(["ID & Check-in", "Cancellation", "Amenities", "Pets & Smoking", "Food & Dining", "Custom"] as const).map((cat) => (
-                    <Button
-                      key={cat}
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setNewPolicyCategory(cat)}
-                      className={cn(
-                        "h-7 text-[10px] cursor-pointer",
-                        newPolicyCategory === cat 
-                          ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40" 
-                          : "text-muted-foreground hover:bg-muted/20"
-                      )}
-                    >
-                      {cat}
+            <Tabs value={policyModalTab} onValueChange={(val: any) => setPolicyModalTab(val)} className="flex-1 flex flex-col overflow-hidden">
+              <div className="px-5 pt-3 border-b border-border bg-muted/20">
+                <TabsList className="grid grid-cols-2 w-full max-w-md h-9">
+                  <TabsTrigger value="checklist" className="text-xs gap-1.5">
+                    <Sparkles size={13} className="text-emerald-400" />
+                    ⚡ 1-Click Villa Checklist
+                    <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 ml-1">
+                      {villaQuestions.filter(q => q.enabled).length}/{villaQuestions.length}
+                    </Badge>
+                  </TabsTrigger>
+                  <TabsTrigger value="custom" className="text-xs gap-1.5">
+                    <PlusCircle size={13} className="text-blue-400" />
+                    ➕ Add Custom Rule
+                  </TabsTrigger>
+                </TabsList>
+              </div>
+
+              {/* Tab 1: 1-Click Villa Amenities Checklist */}
+              <TabsContent value="checklist" className="flex-1 p-5 overflow-y-auto space-y-4 m-0">
+                <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between gap-3">
+                  <div className="space-y-0.5">
+                    <p className="text-xs font-semibold text-emerald-300 flex items-center gap-1.5">
+                      <CheckSquare size={13} /> Interactive Yes / No Checklist
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      Toggle any amenity or policy ON (YES) or OFF (NO). AI Voice Assistant immediately adopts the updated response.
+                    </p>
+                  </div>
+                  <Badge className="bg-emerald-600 text-white text-[10px] h-6 px-2 shrink-0">
+                    Real-Time Sync
+                  </Badge>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {villaQuestions.map((q) => {
+                    const isYes = q.enabled;
+                    return (
+                      <div 
+                        key={q.id} 
+                        className={cn(
+                          "p-3.5 rounded-xl border transition-all space-y-2.5",
+                          isYes 
+                            ? "bg-card/90 border-emerald-500/30 shadow-sm shadow-emerald-500/5" 
+                            : "bg-card/40 border-border opacity-80"
+                        )}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2.5">
+                            <div className={cn(
+                              "p-2 rounded-lg border",
+                              isYes 
+                                ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" 
+                                : "bg-muted text-muted-foreground border-border"
+                            )}>
+                              {q.iconName === "Waves" && <Waves size={16} />}
+                              {q.iconName === "Utensils" && <Utensils size={16} />}
+                              {q.iconName === "ShieldAlert" && <ShieldAlert size={16} />}
+                              {q.iconName === "Wine" && <Wine size={16} />}
+                              {q.iconName === "Snowflake" && <Snowflake size={16} />}
+                              {q.iconName === "UtensilsCrossed" && <UtensilsCrossed size={16} />}
+                              {q.iconName === "Bath" && <Bath size={16} />}
+                              {q.iconName === "Wifi" && <Wifi size={16} />}
+                              {q.iconName === "Car" && <Car size={16} />}
+                              {q.iconName === "Dog" && <Dog size={16} />}
+                              {q.iconName === "FileCheck" && <FileCheck size={16} />}
+                              {q.iconName === "Clock" && <Clock size={16} />}
+                            </div>
+                            <div>
+                              <h4 className="text-xs font-semibold text-slate-200">{q.title}</h4>
+                              <p className="text-[10px] text-muted-foreground">{q.subtitle}</p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            <Badge variant="outline" className={cn(
+                              "text-[10px] font-bold px-2 py-0.5",
+                              isYes 
+                                ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40" 
+                                : "bg-rose-500/20 text-rose-300 border-rose-500/40"
+                            )}>
+                              {isYes ? "YES" : "NO"}
+                            </Badge>
+                            <Switch 
+                              checked={isYes} 
+                              onCheckedChange={(val) => toggleVillaQuestion(q.id, val)}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Active Rule Preview Callout */}
+                        <div className={cn(
+                          "p-2 rounded-lg text-[11px] leading-relaxed border",
+                          isYes 
+                            ? "bg-emerald-500/5 text-emerald-200/90 border-emerald-500/20" 
+                            : "bg-rose-500/5 text-rose-200/80 border-rose-500/20"
+                        )}>
+                          <span className="font-semibold">{isYes ? "Active Rule (YES):" : "Restricted (NO):"}</span>{" "}
+                          {isYes ? q.yesDescription : q.noDescription}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </TabsContent>
+
+              {/* Tab 2: Add Custom Rule */}
+              <TabsContent value="custom" className="flex-1 p-5 overflow-y-auto space-y-4 m-0">
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Policy Category</Label>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {(["ID & Check-in", "Cancellation", "Amenities", "Pets & Smoking", "Food & Dining", "Custom"] as const).map((cat) => (
+                      <Button
+                        key={cat}
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setNewPolicyCategory(cat)}
+                        className={cn(
+                          "h-8 text-xs cursor-pointer",
+                          newPolicyCategory === cat 
+                            ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40" 
+                            : "text-muted-foreground hover:bg-muted/20"
+                        )}
+                      >
+                        {cat}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Policy Title</Label>
+                  <Input 
+                    placeholder="e.g. Early Check-in Fee / Security Deposit / Jacuzzi Charges" 
+                    value={newPolicyTitle} 
+                    onChange={(e) => setNewPolicyTitle(e.target.value)} 
+                    className="text-xs"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Policy Description & Rules</Label>
+                  <Textarea 
+                    rows={4} 
+                    placeholder="e.g. Early check-in before 12 PM is charged at ₹500/hr and subject to room availability." 
+                    value={newPolicyDescription} 
+                    onChange={(e) => setNewPolicyDescription(e.target.value)} 
+                    className="text-xs resize-none"
+                  />
+                </div>
+
+                <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-xs text-blue-200 space-y-1">
+                  <p className="font-semibold flex items-center gap-1.5 text-blue-300">
+                    <Sparkles size={12} /> AI Voice Memory Integration
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Custom rules are permanently retained in your Vapi voice brain and instantly answered by your AI Receptionist during live calls.
+                  </p>
+                </div>
+              </TabsContent>
+
+              {/* Modal Footer */}
+              <div className="p-4 border-t border-border bg-card/60 flex items-center justify-between">
+                <span className="text-[11px] text-muted-foreground">
+                  {policyModalTab === "checklist" ? "All 12 rules automatically sync to AI Voice Manager" : "Custom rules appear alongside villa checklist"}
+                </span>
+                <div className="flex gap-2">
+                  <Button variant="ghost" size="sm" onClick={() => setIsAddPolicyModalOpen(false)} className="text-xs cursor-pointer">
+                    Close
+                  </Button>
+                  {policyModalTab === "custom" && (
+                    <Button size="sm" onClick={handleAddPolicy} className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs cursor-pointer gap-1.5">
+                      <Check size={13} /> Save Custom Rule
                     </Button>
-                  ))}
+                  )}
+                  {policyModalTab === "checklist" && (
+                    <Button size="sm" onClick={() => setIsAddPolicyModalOpen(false)} className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs cursor-pointer gap-1.5">
+                      <Check size={13} /> Done & Trained
+                    </Button>
+                  )}
                 </div>
               </div>
-
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Policy Title</Label>
-                <Input 
-                  placeholder="e.g. Early Check-in Fee / Swimming Pool Timings" 
-                  value={newPolicyTitle} 
-                  onChange={(e) => setNewPolicyTitle(e.target.value)} 
-                  className="text-xs"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Policy Description & Rules</Label>
-                <Textarea 
-                  rows={3} 
-                  placeholder="e.g. Early check-in before 12 PM is charged at ₹500/hr and subject to room availability." 
-                  value={newPolicyDescription} 
-                  onChange={(e) => setNewPolicyDescription(e.target.value)} 
-                  className="text-xs resize-none"
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-3">
-              <Button variant="ghost" size="sm" onClick={() => setIsAddPolicyModalOpen(false)} className="text-xs cursor-pointer">
-                Cancel
-              </Button>
-              <Button size="sm" onClick={handleAddPolicy} className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs cursor-pointer gap-1.5">
-                <Check size={13} /> Save to AI Memory
-              </Button>
-            </div>
+            </Tabs>
           </DialogContent>
         </Dialog>
 
