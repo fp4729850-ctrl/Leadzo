@@ -1,18 +1,20 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
+import Vapi from "@vapi-ai/web";
 import { 
   Building2, Calendar, RefreshCw, CheckCircle2, ShieldCheck, 
   Link as LinkIcon, Plus, User, Phone, Globe, Lock, AlertTriangle, 
   Sparkles, Copy, Check, ExternalLink, Bot, BedDouble, Hotel, CalendarCheck, ShieldAlert,
   Settings, Key, Layers, X, Wand2, Rocket, MapPin, Target, ArrowRight, Camera,
   TrendingUp, DollarSign, Percent, Users, ArrowUpRight, MessageCircle, CheckCircle, Database, DownloadCloud,
-  Eye, EyeOff
+  Eye, EyeOff, Mic, MicOff, PhoneCall, PhoneOff, Volume2, Trash2, PlusCircle, FileText, Sliders, Tag, Clock, Utensils, Waves, Dog, HelpCircle
 } from "lucide-react";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, Legend } from "recharts";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Label } from "@/components/ui/label.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
+import { Switch } from "@/components/ui/switch.tsx";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card.tsx";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs.tsx";
 import { Textarea } from "@/components/ui/textarea.tsx";
@@ -79,6 +81,52 @@ export const LIVE_KING_VILLA_OTA_BOOKINGS = [
   { guest_name: "LUHAR FAIZAN", check_in: "Nov 13", check_out: "Nov 14", room_label: "Room 3", room_info: "1 Small Delux No. 03", booking_id: "NH76047515607434", phone: "9876543210", amount: 1415.88 }
 ];
 
+export interface HotelPolicyItem {
+  id: string;
+  category: "ID & Check-in" | "Cancellation" | "Pets & Smoking" | "Amenities" | "Food & Dining" | "Custom";
+  title: string;
+  description: string;
+}
+
+const DEFAULT_HOTEL_POLICIES: HotelPolicyItem[] = [
+  {
+    id: "p1",
+    category: "ID & Check-in",
+    title: "Government ID Mandatory",
+    description: "Valid physical Govt ID (Aadhar / Passport / Driving License) required for all adult guests at check-in."
+  },
+  {
+    id: "p2",
+    category: "ID & Check-in",
+    title: "Check-in & Check-out Timings",
+    description: "Standard Check-in: 12:00 PM | Standard Check-out: 11:00 AM. Early check-in subject to room availability."
+  },
+  {
+    id: "p3",
+    category: "Cancellation",
+    title: "24-Hour Free Cancellation",
+    description: "100% full refund if cancelled up to 24 hours prior to check-in. Non-refundable within 24 hours."
+  },
+  {
+    id: "p4",
+    category: "Amenities",
+    title: "Complimentary Amenities",
+    description: "Free High-Speed Wi-Fi, 24/7 Hot Water, In-house Swimming Pool (7 AM - 9 PM), Free Secure Parking."
+  },
+  {
+    id: "p5",
+    category: "Pets & Smoking",
+    title: "Smoking & Pet Guidelines",
+    description: "Strictly non-smoking inside deluxe rooms (dedicated outdoor smoking zone). Pets allowed with prior intimation."
+  },
+  {
+    id: "p6",
+    category: "Food & Dining",
+    title: "Breakfast & Dining",
+    description: "Complimentary buffet breakfast served daily from 8:00 AM to 10:30 AM in the villa dining lawn."
+  }
+];
+
 export default function HotelLeadManagerPage() {
   const [copiedRoomIcal, setCopiedRoomIcal] = useState<string | null>(null);
   const [copiedMasterIcal, setCopiedMasterIcal] = useState<string | null>(null);
@@ -141,6 +189,185 @@ export default function HotelLeadManagerPage() {
   const [otaOtpChannelName, setOtaOtpChannelName] = useState('');
   const [otaOtpValue, setOtaOtpValue] = useState('');
   const [isSubmittingOtaOtp, setIsSubmittingOtaOtp] = useState(false);
+
+  // 🎙️ Auto-Calling & AI Voice Receptionist State (Vapi AI)
+  const [isAiCallGuardEnabled, setIsAiCallGuardEnabled] = useState<boolean>(() => {
+    const saved = localStorage.getItem('leadzo_ai_call_guard');
+    return saved !== null ? saved === 'true' : true;
+  });
+
+  const toggleAiCallGuard = (checked: boolean) => {
+    setIsAiCallGuardEnabled(checked);
+    localStorage.setItem('leadzo_ai_call_guard', String(checked));
+    if (checked) {
+      toast.success("🟢 AI Voice Manager Activated! Auto-answering busy lines & new unknown guest calls.");
+    } else {
+      toast.info("🔴 AI Voice Manager Paused. Inbound calls will ring directly to standard phone line.");
+    }
+  };
+
+  // 📋 Dynamic Hotel Amenities & Policies State
+  const [hotelPolicies, setHotelPolicies] = useState<HotelPolicyItem[]>(() => {
+    const saved = localStorage.getItem('leadzo_hotel_policies');
+    if (saved) {
+      try { return JSON.parse(saved); } catch(e) {}
+    }
+    return DEFAULT_HOTEL_POLICIES;
+  });
+
+  const [isAddPolicyModalOpen, setIsAddPolicyModalOpen] = useState(false);
+  const [newPolicyCategory, setNewPolicyCategory] = useState<HotelPolicyItem['category']>("Custom");
+  const [newPolicyTitle, setNewPolicyTitle] = useState("");
+  const [newPolicyDescription, setNewPolicyDescription] = useState("");
+
+  const handleAddPolicy = () => {
+    if (!newPolicyTitle.trim() || !newPolicyDescription.trim()) {
+      toast.error("Please enter both Policy Title and Description.");
+      return;
+    }
+    const newPolicy: HotelPolicyItem = {
+      id: `pol-${Date.now()}`,
+      category: newPolicyCategory,
+      title: newPolicyTitle.trim(),
+      description: newPolicyDescription.trim()
+    };
+    const updated = [...hotelPolicies, newPolicy];
+    setHotelPolicies(updated);
+    localStorage.setItem('leadzo_hotel_policies', JSON.stringify(updated));
+    toast.success(`➕ "${newPolicy.title}" added to AI Voice Manager memory!`);
+    setNewPolicyTitle("");
+    setNewPolicyDescription("");
+    setIsAddPolicyModalOpen(false);
+  };
+
+  const handleDeletePolicy = (id: string) => {
+    const updated = hotelPolicies.filter(p => p.id !== id);
+    setHotelPolicies(updated);
+    localStorage.setItem('leadzo_hotel_policies', JSON.stringify(updated));
+    toast.info("Policy removed from AI memory.");
+  };
+
+  // 📞 Vapi Live Voice Call Test State
+  const [isVapiVoiceModalOpen, setIsVapiVoiceModalOpen] = useState(false);
+  const [vapiCallStatus, setVapiCallStatus] = useState<"idle" | "loading" | "active" | "error">("idle");
+  const [vapiVolume, setVapiVolume] = useState(0);
+  const [isVapiMuted, setIsVapiMuted] = useState(false);
+  const [vapiCallSeconds, setVapiCallSeconds] = useState(0);
+  const vapiClientRef = useRef<any>(null);
+
+  useEffect(() => {
+    let timer: any = null;
+    if (vapiCallStatus === 'active') {
+      timer = setInterval(() => setVapiCallSeconds(prev => prev + 1), 1000);
+    } else {
+      setVapiCallSeconds(0);
+    }
+    return () => { if (timer) clearInterval(timer); };
+  }, [vapiCallStatus]);
+
+  const startVapiVoiceTest = async () => {
+    setIsVapiVoiceModalOpen(true);
+    setVapiCallStatus("loading");
+
+    try {
+      const VAPI_KEY = (import.meta as any).env?.VITE_VAPI_PUBLIC_KEY || "30cfacb0-68ad-49ec-82e5-3b0637432f0b";
+      const vapi = new Vapi(VAPI_KEY);
+      vapiClientRef.current = vapi;
+
+      vapi.on("call-start", () => {
+        setVapiCallStatus("active");
+        toast.success("🎙️ Connected to Leadzo AI Voice Receptionist! Speak now.");
+      });
+
+      vapi.on("call-end", () => {
+        setVapiCallStatus("idle");
+        toast.info("Call ended.");
+      });
+
+      vapi.on("volume-level", (vol: number) => setVapiVolume(vol));
+
+      vapi.on("error", (e: any) => {
+        console.error("Vapi Error:", e);
+        setVapiCallStatus("error");
+      });
+
+      const policiesPrompt = hotelPolicies.map(p => `- [${p.category}] ${p.title}: ${p.description}`).join("\n");
+
+      const systemPrompt = `You are the Official AI Voice Receptionist & Hotel Manager for King Villa Resort & Suites.
+You are on a live voice call with a guest or prospective customer.
+Speak naturally, politely, and warmly in Hindi and English (Hinglish/Indian English).
+
+KEY HOTEL DETAILS:
+- Hotel: King Villa Resort & Suites
+- Room 1 (Super Delux Room No 1): ₹4,000 / night
+- Room 2 (Small Delux No. 02): ₹4,000 / night
+- Room 3 (Small Delux No. 03): ₹4,000 / night
+- Room 4 (Small Delux No. 04): ₹4,000 / night
+- Entire Villa (5 Bedrooms): ₹20,000 / night
+
+ACTIVE HOTEL POLICIES & AMENITIES:
+${policiesPrompt}
+
+DIRECT BOOKING:
+- WhatsApp Direct Booking Link: https://leadzoai.com/book/hotel-grand-palace
+
+INSTRUCTIONS:
+1. Greet the caller warmly: "Namaste! Welcome to King Villa Resort & Suites. Main AI Hotel Manager hoon. Kya main aapki room booking ya hotel amenities me sahayata kar sakta hoon?"
+2. When guests ask about availability or pricing, check the room rates and confirm availability.
+3. Answer all questions about check-in timings, ID requirements, cancellations, swimming pool, food, pets, and rules strictly based on the ACTIVE HOTEL POLICIES above.
+4. Offer to send an instant direct booking link on their WhatsApp with special direct booking discount.
+5. Keep answers concise, conversational, and helpful for phone calls.`;
+
+      const ASSISTANT_ID = (import.meta as any).env?.VITE_VAPI_MANAGER_ASSISTANT_ID || "c72d5615-bd69-4776-bd5d-d3ded56e1687";
+
+      await vapi.start(ASSISTANT_ID, {
+        firstMessage: "Namaste! Welcome to King Villa Resort & Suites. Main AI Hotel Manager hoon, kya main aapki room booking ya hotel amenities me madad kar sakta hoon?",
+        model: {
+          provider: "openai",
+          model: "gpt-4-turbo",
+          messages: [
+            {
+              role: "system",
+              content: systemPrompt
+            }
+          ]
+        }
+      } as any);
+    } catch (err: any) {
+      console.error("Failed to start Vapi call:", err);
+      setVapiCallStatus("error");
+      toast.error("Could not start Vapi call: " + err.message);
+    }
+  };
+
+  const endVapiVoiceTest = () => {
+    if (vapiClientRef.current) {
+      try { vapiClientRef.current.stop(); } catch(e) {}
+    }
+    setVapiCallStatus("idle");
+    setIsVapiVoiceModalOpen(false);
+  };
+
+  // Preview Script Query Cycler
+  const [previewQueryIndex, setPreviewQueryIndex] = useState(0);
+  const sampleQueries = [
+    {
+      guest: "Namaste, kya Sept 15 ko Deluxe Room available hai aur price kya hai?",
+      ai: "Namaste! Haan, Sept 15 ke liye Deluxe Room available hai. Price per night ₹4,000 hai jisme Free Breakfast & High-speed Wi-Fi included hai. Kya main aapke WhatsApp par instant booking link bhej doon?"
+    },
+    {
+      guest: "Kya hotel me swimming pool hai aur timings kya hain?",
+      ai: "Haan ji! Hamare paas premium in-house swimming pool hai jo subah 7:00 AM se raat 9:00 PM tak guests ke liye free access ke saath open rehta hai."
+    },
+    {
+      guest: "Cancellation policy kya hai agar humein booking cancel karni pade?",
+      ai: "Hamari policy ke according, check-in se 24 ghante pehle cancel karne par 100% full refund milta hai. 24 ghante ke andar cancellation non-refundable hota hai."
+    },
+    {
+      guest: "Check-in ke time par kya ID proof compulsory hai?",
+      ai: "Haan ji, hotel guidelines ke mutabiq sabhi adult guests ke paas valid physical Government ID proof (Aadhar / Passport / Driving License) hona mandatory hai."
+    }
+  ];
 
   // Chrome Extension Modal State
   const [isExtensionModalOpen, setIsExtensionModalOpen] = useState(false);
@@ -3189,34 +3416,69 @@ export default function HotelLeadManagerPage() {
         <TabsContent value="receptionist" className="mt-4 space-y-4">
 
           {/* Inbound Phone & Call Forwarding Setup Card */}
-          <Card className="border-amber-500/30 bg-amber-500/5">
+          <Card className="border-amber-500/30 bg-amber-500/5 shadow-md">
             <CardHeader className="p-4 border-b border-amber-500/20">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <Phone className="size-5 text-amber-400" />
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400">
+                    <PhoneCall className="size-5" />
+                  </div>
                   <div>
-                    <CardTitle className="text-base font-semibold text-amber-200">Inbound Phone Call & AI Forwarding Setup</CardTitle>
-                    <CardDescription className="text-xs text-amber-300/70">Connect your personal mobile number so AI answers when you are busy or get unknown caller leads</CardDescription>
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-base font-semibold text-amber-200">
+                        Inbound Phone Call & AI Voice Manager (Powered by Vapi AI)
+                      </CardTitle>
+                    </div>
+                    <CardDescription className="text-xs text-amber-300/70">
+                      Auto-answers incoming guest calls, checks live room availability, enforces hotel policies, and closes deals
+                    </CardDescription>
                   </div>
                 </div>
-                <Badge variant="outline" className="bg-emerald-500/20 text-emerald-300 border-emerald-500/40 w-fit">
-                  🟢 AI Call Guard Active
-                </Badge>
+
+                <div className="flex items-center gap-3">
+                  {/* Master Auto-Calling ON/OFF Switch */}
+                  <div className="flex items-center gap-2 bg-background/80 px-3 py-1.5 rounded-lg border border-border">
+                    <span className="text-xs font-medium text-muted-foreground">Auto-Calling:</span>
+                    <Switch 
+                      checked={isAiCallGuardEnabled} 
+                      onCheckedChange={toggleAiCallGuard}
+                      className="data-[state=checked]:bg-emerald-600"
+                    />
+                    <Badge variant="outline" className={cn(
+                      "text-[10px] font-semibold",
+                      isAiCallGuardEnabled 
+                        ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40" 
+                        : "bg-red-500/20 text-red-300 border-red-500/40"
+                    )}>
+                      {isAiCallGuardEnabled ? "🟢 ACTIVE (ON)" : "🔴 PAUSED (OFF)"}
+                    </Badge>
+                  </div>
+
+                  {/* Test Live Vapi Voice Call Button */}
+                  <Button 
+                    onClick={startVapiVoiceTest}
+                    className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white cursor-pointer h-8 px-3 text-xs gap-1.5 shadow-sm"
+                  >
+                    <Mic className="size-3.5" />
+                    Test AI Voice Call (Vapi)
+                  </Button>
+                </div>
               </div>
             </CardHeader>
+
             <CardContent className="p-4 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <Label className="text-xs">Your Personal / Hotel Mobile Number</Label>
-                  <Input defaultValue="+91 98765 43210" className="text-xs font-mono bg-background" />
-                  <p className="text-[10px] text-muted-foreground">Calls to this number will be auto-handled by Leadzo AI</p>
+                  <Label className="text-xs font-medium">Your Personal / Hotel Mobile Number</Label>
+                  <Input defaultValue="+91 9726846668" className="text-xs font-mono bg-background" />
+                  <p className="text-[10px] text-muted-foreground">Calls to this number will be auto-handled by Leadzo AI Voice Manager</p>
                 </div>
 
                 <div className="space-y-1">
-                  <Label className="text-xs text-indigo-300">Leadzo AI Virtual Inbound Number</Label>
+                  <Label className="text-xs text-indigo-300 font-medium">Leadzo AI Virtual Inbound Number</Label>
                   <div className="flex gap-2 items-center">
                     <div className="relative flex-1">
-                      <Input readOnly value={activeNumber || "No Virtual Number"} className="text-xs font-mono bg-indigo-500/10 border-indigo-500/30 text-indigo-200 font-bold pr-8" />
+                      <Input readOnly value={activeNumber || "+1 928 963 5202"} className="text-xs font-mono bg-indigo-500/10 border-indigo-500/30 text-indigo-200 font-bold pr-8" />
                       {activeNumber && (
                         <Button 
                           size="icon" 
@@ -3240,15 +3502,15 @@ export default function HotelLeadManagerPage() {
                       </Button>
                     ) : (
                       <Button 
-                        onClick={() => toast.success(`${activeNumber} has been successfully activated for AI Call Guard!`)}
+                        onClick={() => toast.success(`${activeNumber} is active for AI Call Guard!`)}
                         variant="outline"
                         className="shrink-0 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/30 cursor-pointer h-9 px-3 text-xs font-semibold"
                       >
-                        Activate Your Number
+                        Active
                       </Button>
                     )}
                   </div>
-                  <p className="text-[10px] text-indigo-300/70">Target AI Number for Call Forwarding</p>
+                  <p className="text-[10px] text-indigo-300/70">Target AI Number for Instant Call Forwarding</p>
                 </div>
               </div>
 
@@ -3260,16 +3522,18 @@ export default function HotelLeadManagerPage() {
                     <span className="font-semibold text-xs text-amber-300 flex items-center gap-1.5">
                       <ShieldCheck size={13} /> Rule 1: Busy / Unanswered Forwarding
                     </span>
-                    <Badge variant="secondary" className="text-[9px]">Active</Badge>
+                    <Badge variant="secondary" className="text-[9px]">
+                      {isAiCallGuardEnabled ? "Active" : "Paused"}
+                    </Badge>
                   </div>
                   <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    Aap busy honge ya call nahi uthayenge (after 15s), toh call automatic AI Receptionist ko transfer ho jayegi!
+                    Aap busy honge ya call nahi uthayenge (after 15s), toh call automatic AI Receptionist ko transfer ho jayegi aur customer se deal karega!
                   </p>
                   <div className="pt-1 flex items-center justify-between">
                     <span className="font-mono text-[11px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                      Dial: *61*{activeNumber ? activeNumber.replace(/\s+/g, '') : '+911140845918'}#
+                      Dial: *61*{activeNumber ? activeNumber.replace(/\s+/g, '') : '+19289635202'}#
                     </span>
-                    <Button size="sm" variant="ghost" onClick={() => { navigator.clipboard.writeText(`*61*${activeNumber ? activeNumber.replace(/\s+/g, '') : '+911140845918'}#`); toast.success("USSD Code Copied!"); }} className="h-6 text-[10px] cursor-pointer">
+                    <Button size="sm" variant="ghost" onClick={() => { navigator.clipboard.writeText(`*61*${activeNumber ? activeNumber.replace(/\s+/g, '') : '+19289635202'}#`); toast.success("USSD Code Copied!"); }} className="h-6 text-[10px] cursor-pointer">
                       Copy Code
                     </Button>
                   </div>
@@ -3281,16 +3545,18 @@ export default function HotelLeadManagerPage() {
                     <span className="font-semibold text-xs text-indigo-300 flex items-center gap-1.5">
                       <User size={13} /> Rule 2: Unknown / Unsaved Callers (New Leads)
                     </span>
-                    <Badge variant="secondary" className="text-[9px]">Active</Badge>
+                    <Badge variant="secondary" className="text-[9px]">
+                      {isAiCallGuardEnabled ? "Active" : "Paused"}
+                    </Badge>
                   </div>
                   <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    Naye guests aur unknown numbers se aane waale calls direct AI Manager uthayega aur room booking deal final karega!
+                    Naye guests aur unknown numbers se aane waale calls direct AI Manager uthayega, availability & policy batayega aur room booking deal final karega!
                   </p>
                   <div className="pt-1 flex items-center justify-between">
                     <span className="font-mono text-[11px] text-indigo-300 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
-                      Dial: *21*{activeNumber ? activeNumber.replace(/\s+/g, '') : '+911140845918'}#
+                      Dial: *21*{activeNumber ? activeNumber.replace(/\s+/g, '') : '+19289635202'}#
                     </span>
-                    <Button size="sm" variant="ghost" onClick={() => { navigator.clipboard.writeText(`*21*${activeNumber ? activeNumber.replace(/\s+/g, '') : '+911140845918'}#`); toast.success("USSD Code Copied!"); }} className="h-6 text-[10px] cursor-pointer">
+                    <Button size="sm" variant="ghost" onClick={() => { navigator.clipboard.writeText(`*21*${activeNumber ? activeNumber.replace(/\s+/g, '') : '+19289635202'}#`); toast.success("USSD Code Copied!"); }} className="h-6 text-[10px] cursor-pointer">
                       Copy Code
                     </Button>
                   </div>
@@ -3301,73 +3567,364 @@ export default function HotelLeadManagerPage() {
               <div className="pt-2 flex flex-wrap items-center justify-between gap-2 border-t border-amber-500/20">
                 <span className="text-xs text-muted-foreground">1-Click Mobile Setup:</span>
                 <div className="flex gap-2">
-                  <Button size="sm" variant="outline" onClick={() => toast.info(`Jio Forwarding Code: *61*${activeNumber ? activeNumber.replace(/\s+/g, '') : '+911140845918'}#`)} className="h-7 text-[11px] cursor-pointer">Jio</Button>
-                  <Button size="sm" variant="outline" onClick={() => toast.info(`Airtel Forwarding Code: *61*${activeNumber ? activeNumber.replace(/\s+/g, '') : '+911140845918'}#`)} className="h-7 text-[11px] cursor-pointer">Airtel</Button>
-                  <Button size="sm" variant="outline" onClick={() => toast.info(`Vi Forwarding Code: *61*${activeNumber ? activeNumber.replace(/\s+/g, '') : '+911140845918'}#`)} className="h-7 text-[11px] cursor-pointer">Vi</Button>
-                  <Button size="sm" variant="outline" onClick={() => toast.info(`BSNL Forwarding Code: *61*${activeNumber ? activeNumber.replace(/\s+/g, '') : '+911140845918'}#`)} className="h-7 text-[11px] cursor-pointer">BSNL</Button>
+                  <Button size="sm" variant="outline" onClick={() => toast.info(`Jio Forwarding Code: *61*${activeNumber ? activeNumber.replace(/\s+/g, '') : '+19289635202'}#`)} className="h-7 text-[11px] cursor-pointer">Jio</Button>
+                  <Button size="sm" variant="outline" onClick={() => toast.info(`Airtel Forwarding Code: *61*${activeNumber ? activeNumber.replace(/\s+/g, '') : '+19289635202'}#`)} className="h-7 text-[11px] cursor-pointer">Airtel</Button>
+                  <Button size="sm" variant="outline" onClick={() => toast.info(`Vi Forwarding Code: *61*${activeNumber ? activeNumber.replace(/\s+/g, '') : '+19289635202'}#`)} className="h-7 text-[11px] cursor-pointer">Vi</Button>
+                  <Button size="sm" variant="outline" onClick={() => toast.info(`BSNL Forwarding Code: *61*${activeNumber ? activeNumber.replace(/\s+/g, '') : '+19289635202'}#`)} className="h-7 text-[11px] cursor-pointer">BSNL</Button>
                 </div>
               </div>
             </CardContent>
           </Card>
 
+          {/* Hotel Policies & Live Preview Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <Card className="border-border">
-              <CardHeader className="p-4 border-b border-border">
-                <CardTitle className="text-base font-semibold">AI Hotel Receptionist Configuration</CardTitle>
-                <CardDescription className="text-xs">Train AI to answer guest calls, check room rates & send WhatsApp links</CardDescription>
+            
+            {/* Card 1: Hotel Amenities & Policies Configuration (with [+] Add Policy Button) */}
+            <Card className="border-border shadow-sm">
+              <CardHeader className="p-4 border-b border-border flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-base font-semibold flex items-center gap-2">
+                    <FileText className="size-4 text-emerald-400" /> Hotel Amenities & Operating Policies
+                  </CardTitle>
+                  <CardDescription className="text-xs mt-0.5">
+                    Trained directly into Vapi AI Voice Manager to answer guest inquiries accurately on phone calls
+                  </CardDescription>
+                </div>
+                <Button 
+                  onClick={() => setIsAddPolicyModalOpen(true)}
+                  size="sm"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer h-7 text-xs gap-1"
+                >
+                  <Plus size={13} /> Add Policy
+                </Button>
               </CardHeader>
+
               <CardContent className="p-4 space-y-4">
+                {/* Timings */}
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <Label className="text-xs">Standard Check-In Time</Label>
-                    <Input defaultValue="12:00 PM" className="text-xs" />
+                    <Label className="text-xs flex items-center gap-1"><Clock size={11} className="text-muted-foreground" /> Standard Check-In Time</Label>
+                    <Input defaultValue="12:00 PM" className="text-xs bg-background" />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">Standard Check-Out Time</Label>
-                    <Input defaultValue="11:00 AM" className="text-xs" />
+                    <Label className="text-xs flex items-center gap-1"><Clock size={11} className="text-muted-foreground" /> Standard Check-Out Time</Label>
+                    <Input defaultValue="11:00 AM" className="text-xs bg-background" />
                   </div>
                 </div>
 
-                <div className="space-y-1">
-                  <Label className="text-xs">Hotel Amenities & Policies</Label>
-                  <Textarea 
-                    rows={4} 
-                    defaultValue="Free Wi-Fi, 24/7 Hot Water, Swimming Pool, In-house Restaurant, Parking Available. Cancellation policy: Free cancellation 24 hours prior to check-in."
-                    className="text-xs resize-none"
-                  />
+                {/* Active Dynamic Policies List */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-semibold text-slate-200">
+                      Active Policies & Rules ({hotelPolicies.length})
+                    </Label>
+                    <span className="text-[10px] text-muted-foreground">Used in Vapi AI Voice Brain</span>
+                  </div>
+
+                  <div className="space-y-2 max-h-[260px] overflow-y-auto pr-1">
+                    {hotelPolicies.map((pol) => (
+                      <div 
+                        key={pol.id} 
+                        className="p-2.5 rounded-lg border border-border bg-card/60 hover:bg-card transition-colors flex items-start justify-between gap-2 group"
+                      >
+                        <div className="space-y-1 flex-1">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className={cn(
+                              "text-[9px] px-1.5 py-0 h-4 font-normal",
+                              pol.category === "ID & Check-in" && "bg-blue-500/10 text-blue-400 border-blue-500/30",
+                              pol.category === "Cancellation" && "bg-amber-500/10 text-amber-400 border-amber-500/30",
+                              pol.category === "Amenities" && "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
+                              pol.category === "Pets & Smoking" && "bg-rose-500/10 text-rose-400 border-rose-500/30",
+                              pol.category === "Food & Dining" && "bg-purple-500/10 text-purple-400 border-purple-500/30",
+                              pol.category === "Custom" && "bg-slate-500/10 text-slate-400 border-slate-500/30",
+                            )}>
+                              {pol.category}
+                            </Badge>
+                            <span className="text-xs font-semibold text-slate-200">{pol.title}</span>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground leading-relaxed">{pol.description}</p>
+                        </div>
+                        <Button 
+                          onClick={() => handleDeletePolicy(pol.id)}
+                          size="icon" 
+                          variant="ghost" 
+                          className="h-6 w-6 text-muted-foreground hover:text-red-400 hover:bg-red-500/10 opacity-60 group-hover:opacity-100 transition-opacity"
+                        >
+                          <Trash2 size={12} />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
-                <div className="space-y-1">
-                  <Label className="text-xs">WhatsApp Direct Booking Link (Sent by AI)</Label>
-                  <Input defaultValue="https://leadzoai.com/book/hotel-grand-palace" className="text-xs font-mono" />
+                {/* WhatsApp Direct Link */}
+                <div className="space-y-1 pt-1">
+                  <Label className="text-xs flex items-center gap-1.5 font-medium text-emerald-300">
+                    <MessageCircle size={12} /> WhatsApp Direct Booking Link (Sent by AI Caller)
+                  </Label>
+                  <Input defaultValue="https://leadzoai.com/book/hotel-grand-palace" className="text-xs font-mono bg-background" />
                 </div>
 
-                <Button onClick={() => toast.success("AI Receptionist Trained Successfully!")} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer gap-2">
-                  <Sparkles size={14} /> Train AI Receptionist
+                <Button 
+                  onClick={() => toast.success("AI Receptionist & Vapi Voice Brain trained successfully with updated policies!")} 
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer gap-2"
+                >
+                  <Sparkles size={14} /> Train AI Receptionist with Active Policies
                 </Button>
               </CardContent>
             </Card>
 
-            <Card className="border-border bg-card/40">
-              <CardHeader className="p-4 border-b border-border">
-                <CardTitle className="text-base font-semibold flex items-center gap-2">
-                  <Bot className="size-4 text-emerald-400" /> AI Receptionist Live Preview Script
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4 space-y-3 text-xs leading-relaxed">
-                <div className="p-3 rounded-lg bg-muted/40 border border-border">
-                  <p className="font-semibold text-emerald-400 mb-1">Guest Query (Phone / WhatsApp):</p>
-                  <p className="text-muted-foreground font-mono">"Namaste, kya Sept 08 se Sept 10 tak Deluxe Room 101 available hai?"</p>
-                </div>
+            {/* Card 2: AI Receptionist Live Preview Script & Simulation */}
+            <Card className="border-border bg-card/40 shadow-sm flex flex-col justify-between">
+              <div>
+                <CardHeader className="p-4 border-b border-border flex flex-row items-center justify-between">
+                  <CardTitle className="text-base font-semibold flex items-center gap-2">
+                    <Bot className="size-4 text-emerald-400" /> AI Receptionist Live Preview Script
+                  </CardTitle>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setPreviewQueryIndex((prev) => (prev + 1) % sampleQueries.length)}
+                    className="h-7 text-xs cursor-pointer text-indigo-300 border-indigo-500/30 hover:bg-indigo-500/10 gap-1"
+                  >
+                    <RefreshCw size={11} /> Next Sample Question
+                  </Button>
+                </CardHeader>
 
-                <div className="p-3 rounded-lg bg-indigo-500/10 border border-indigo-500/20">
-                  <p className="font-semibold text-indigo-300 mb-1">AI Receptionist Auto Response:</p>
-                  <p className="text-slate-200">"Namaste! Haan, Sept 08 se Sept 10 tak Deluxe Room 101 available hai. Price per night ₹3,500 hai. Kya main aapke WhatsApp par instant direct booking link bhej doon?"</p>
-                </div>
-              </CardContent>
+                <CardContent className="p-4 space-y-3 text-xs leading-relaxed">
+                  <div className="p-3 rounded-lg bg-muted/40 border border-border space-y-1">
+                    <div className="flex items-center justify-between">
+                      <p className="font-semibold text-emerald-400 flex items-center gap-1.5">
+                        <User size={12} /> Guest Query (Incoming Voice Call / WhatsApp):
+                      </p>
+                      <Badge variant="secondary" className="text-[9px]">Sample #{previewQueryIndex + 1}</Badge>
+                    </div>
+                    <p className="text-slate-300 font-mono text-[11px]">
+                      "{sampleQueries[previewQueryIndex].guest}"
+                    </p>
+                  </div>
+
+                  <div className="p-3 rounded-lg bg-indigo-500/10 border border-indigo-500/20 space-y-1">
+                    <p className="font-semibold text-indigo-300 flex items-center gap-1.5">
+                      <Bot size={13} /> AI Voice Manager Auto Response:
+                    </p>
+                    <p className="text-slate-200 text-[11px] leading-relaxed">
+                      "{sampleQueries[previewQueryIndex].ai}"
+                    </p>
+                  </div>
+
+                  <div className="p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/20 space-y-1.5">
+                    <p className="font-semibold text-emerald-300 text-[11px] flex items-center gap-1.5">
+                      <Sparkles size={12} /> Real-Time Knowledge Features:
+                    </p>
+                    <ul className="text-[10px] text-muted-foreground space-y-1 list-disc list-inside">
+                      <li>Reads live King Villa calendar & availability matrix before confirming rooms.</li>
+                      <li>Strictly adheres to customized cancellation, ID proof, pool & pet guidelines.</li>
+                      <li>Instantly texts WhatsApp direct booking link to caller's phone number.</li>
+                    </ul>
+                  </div>
+                </CardContent>
+              </div>
+
+              <div className="p-4 pt-0">
+                <Button 
+                  onClick={startVapiVoiceTest}
+                  variant="outline"
+                  className="w-full border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 cursor-pointer gap-2 text-xs font-semibold py-2"
+                >
+                  <PhoneCall size={14} className="animate-pulse" />
+                  Simulate Live Voice Call with Vapi AI Receptionist
+                </Button>
+              </div>
             </Card>
           </div>
         </TabsContent>
+
+        {/* Modal 1: Add Custom Policy Dialog */}
+        <Dialog open={isAddPolicyModalOpen} onOpenChange={setIsAddPolicyModalOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-base font-semibold flex items-center gap-2">
+                <PlusCircle className="size-5 text-emerald-400" /> Add Hotel Policy / Amenity Rule
+              </DialogTitle>
+              <DialogDescription className="text-xs">
+                This rule will be permanently saved into your AI Voice Manager memory to answer customer queries.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-3 pt-2">
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">Policy Category</Label>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {(["ID & Check-in", "Cancellation", "Amenities", "Pets & Smoking", "Food & Dining", "Custom"] as const).map((cat) => (
+                    <Button
+                      key={cat}
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setNewPolicyCategory(cat)}
+                      className={cn(
+                        "h-7 text-[10px] cursor-pointer",
+                        newPolicyCategory === cat 
+                          ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40" 
+                          : "text-muted-foreground hover:bg-muted/20"
+                      )}
+                    >
+                      {cat}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">Policy Title</Label>
+                <Input 
+                  placeholder="e.g. Early Check-in Fee / Swimming Pool Timings" 
+                  value={newPolicyTitle} 
+                  onChange={(e) => setNewPolicyTitle(e.target.value)} 
+                  className="text-xs"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">Policy Description & Rules</Label>
+                <Textarea 
+                  rows={3} 
+                  placeholder="e.g. Early check-in before 12 PM is charged at ₹500/hr and subject to room availability." 
+                  value={newPolicyDescription} 
+                  onChange={(e) => setNewPolicyDescription(e.target.value)} 
+                  className="text-xs resize-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-3">
+              <Button variant="ghost" size="sm" onClick={() => setIsAddPolicyModalOpen(false)} className="text-xs cursor-pointer">
+                Cancel
+              </Button>
+              <Button size="sm" onClick={handleAddPolicy} className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs cursor-pointer gap-1.5">
+                <Check size={13} /> Save to AI Memory
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Modal 2: Live Vapi Voice Call Test Modal */}
+        <Dialog open={isVapiVoiceModalOpen} onOpenChange={(open) => { if (!open) endVapiVoiceTest(); }}>
+          <DialogContent className="sm:max-w-md bg-slate-950 border-slate-800 text-white">
+            <DialogHeader>
+              <div className="flex items-center justify-between pr-4">
+                <DialogTitle className="text-base font-semibold flex items-center gap-2 text-white">
+                  <Bot className="size-5 text-emerald-400 animate-pulse" />
+                  Leadzo AI Hotel Receptionist (Live Call)
+                </DialogTitle>
+                <Badge variant="outline" className={cn(
+                  "text-[10px]",
+                  vapiCallStatus === "active" && "bg-emerald-500/20 text-emerald-300 border-emerald-500/40",
+                  vapiCallStatus === "loading" && "bg-amber-500/20 text-amber-300 border-amber-500/40",
+                  vapiCallStatus === "error" && "bg-red-500/20 text-red-300 border-red-500/40"
+                )}>
+                  {vapiCallStatus === "active" && `LIVE (${Math.floor(vapiCallSeconds / 60).toString().padStart(2, '0')}:${(vapiCallSeconds % 60).toString().padStart(2, '0')})`}
+                  {vapiCallStatus === "loading" && "CONNECTING..."}
+                  {vapiCallStatus === "error" && "ERROR"}
+                  {vapiCallStatus === "idle" && "IDLE"}
+                </Badge>
+              </div>
+              <DialogDescription className="text-xs text-slate-400">
+                Speaking live with Vapi AI Voice Manager. Microphone audio is active.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="py-6 flex flex-col items-center justify-center space-y-4">
+              {/* Pulsing Voice Sphere */}
+              <div className="relative flex items-center justify-center">
+                <div className={cn(
+                  "w-28 h-28 rounded-full flex items-center justify-center transition-all duration-300",
+                  vapiCallStatus === "active" 
+                    ? "bg-gradient-to-br from-emerald-500/30 to-teal-500/30 border-2 border-emerald-400 shadow-[0_0_30px_rgba(16,185,129,0.3)]"
+                    : "bg-slate-800/60 border border-slate-700"
+                )}>
+                  <div className={cn(
+                    "w-20 h-20 rounded-full flex items-center justify-center transition-all duration-200",
+                    vapiCallStatus === "active" ? "bg-emerald-500/40" : "bg-slate-700"
+                  )}>
+                    <Bot className={cn(
+                      "size-10",
+                      vapiCallStatus === "active" ? "text-emerald-300" : "text-slate-400"
+                    )} />
+                  </div>
+                </div>
+
+                {vapiCallStatus === "active" && (
+                  <div 
+                    className="absolute inset-0 rounded-full border border-emerald-400/40 animate-ping pointer-events-none"
+                    style={{ animationDuration: '2s' }}
+                  />
+                )}
+              </div>
+
+              {/* Status Message */}
+              <div className="text-center space-y-1">
+                <p className="text-sm font-semibold text-slate-200">
+                  {vapiCallStatus === "active" && "🎙️ AI Receptionist is Listening..."}
+                  {vapiCallStatus === "loading" && "Initializing Vapi Voice Stream..."}
+                  {vapiCallStatus === "error" && "Connection error. Please verify audio permissions."}
+                  {vapiCallStatus === "idle" && "Call Finished."}
+                </p>
+                <p className="text-[11px] text-slate-400 max-w-xs">
+                  Ask about room bookings, pricing, check-in rules, cancellation, or swimming pool timings!
+                </p>
+              </div>
+
+              {/* Volume Meter */}
+              {vapiCallStatus === "active" && (
+                <div className="w-full max-w-xs space-y-1">
+                  <div className="flex justify-between text-[10px] text-slate-400">
+                    <span>Voice Level</span>
+                    <span>{Math.round(vapiVolume * 100)}%</span>
+                  </div>
+                  <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-emerald-400 transition-all duration-75"
+                      style={{ width: `${Math.min(100, Math.max(5, vapiVolume * 100))}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Controls */}
+            <div className="flex items-center justify-center gap-3 pt-2 border-t border-slate-800">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  if (vapiClientRef.current) {
+                    const newMute = !isVapiMuted;
+                    vapiClientRef.current.setMuted(newMute);
+                    setIsVapiMuted(newMute);
+                    toast.info(newMute ? "Microphone Muted" : "Microphone Active");
+                  }
+                }}
+                className={cn(
+                  "border-slate-700 cursor-pointer h-9 text-xs gap-1.5",
+                  isVapiMuted ? "bg-amber-500/20 text-amber-300 border-amber-500/40" : "text-slate-300"
+                )}
+              >
+                {isVapiMuted ? <MicOff size={14} /> : <Mic size={14} />}
+                {isVapiMuted ? "Unmute Mic" : "Mute Mic"}
+              </Button>
+
+              <Button
+                size="sm"
+                onClick={endVapiVoiceTest}
+                className="bg-red-600 hover:bg-red-700 text-white cursor-pointer h-9 px-4 text-xs gap-1.5 font-semibold"
+              >
+                <PhoneOff size={14} /> End Call
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* Tab 4: All Reservations & Lead History */}
         <TabsContent value="reservations" className="mt-4 space-y-4">
