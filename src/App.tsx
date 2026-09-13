@@ -39,6 +39,7 @@ import TermsPage from "./pages/legal/terms.tsx";
 import RefundsPage from "./pages/legal/refunds.tsx";
 import AiBrainPage from "./pages/ai-brain/page.tsx";
 import VirtualOfficePage from "./pages/virtual-office/page.tsx";
+import GuestBookingPage from "./pages/book/page.tsx";
 
 import { useServiceWorker } from "@/hooks/use-service-worker.ts";
 
@@ -62,6 +63,7 @@ export default function App() {
           <Route path="/blog" element={<BlogListingPage />} />
           <Route path="/blog/:slug" element={<BlogArticlePage />} />
           <Route path="/pricing" element={<PricingPage />} />
+          <Route path="/book/:slug" element={<GuestBookingPage />} />
           <Route element={<AppLayout />}>
             <Route path="/ai-brain" element={<AiBrainPage />} />
             <Route path="/virtual-office" element={<VirtualOfficePage />} />
