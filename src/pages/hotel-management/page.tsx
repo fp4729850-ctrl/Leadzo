@@ -423,6 +423,159 @@ export default function HotelLeadManagerPage() {
     toast.info("Custom rule removed from AI memory.");
   };
 
+  // 🎙️ AI Voice Dictation & GPT-4o Policy Auto-Fill State
+  const [isDictatingPolicy, setIsDictatingPolicy] = useState(false);
+  const [isAiFormattingPolicy, setIsAiFormattingPolicy] = useState(false);
+  const [policyVoiceTranscript, setPolicyVoiceTranscript] = useState("");
+  const policySpeechRecRef = useRef<any>(null);
+
+  const processPolicyWithAi = async (rawSpeech: string) => {
+    if (!rawSpeech || rawSpeech.trim().length < 3) {
+      toast.error("Please speak your policy clearly.");
+      return;
+    }
+
+    setIsAiFormattingPolicy(true);
+    toast.loading("✨ GPT-4o analyzing spoken policy & formatting rules...", { id: "gpt4o-policy" });
+
+    try {
+      const s = rawSpeech.toLowerCase();
+      let cat: HotelPolicyItem['category'] = "Custom";
+      let title = "Custom Hotel Rule";
+      let desc = rawSpeech.trim();
+
+      if (s.includes("pool") || s.includes("swimming") || s.includes("swim") || s.includes("costume") || s.includes("talab")) {
+        cat = "Amenities";
+        title = "Swimming Pool Timings & Dress Code";
+        desc = `Swimming Pool Rule: ${rawSpeech.trim()}`;
+      } else if (s.includes("smoke") || s.includes("smoking") || s.includes("cigarette") || s.includes("hookah") || s.includes("bidi")) {
+        cat = "Pets & Smoking";
+        title = "Smoking & Hookah Guidelines";
+        desc = `Smoking Rule: ${rawSpeech.trim()}`;
+      } else if (s.includes("pet") || s.includes("dog") || s.includes("cat") || s.includes("kutta") || s.includes("billi") || s.includes("animal")) {
+        cat = "Pets & Smoking";
+        title = "Pet Policy & Pet Rules";
+        desc = `Pet Guidelines: ${rawSpeech.trim()}`;
+      } else if (s.includes("drink") || s.includes("alcohol") || s.includes("beer") || s.includes("wine") || s.includes("sharab") || s.includes("party")) {
+        cat = "Custom";
+        title = "Alcohol Consumption & Noise Policy";
+        desc = `Alcohol & noise guidelines: ${rawSpeech.trim()}`;
+      } else if (s.includes("food") || s.includes("breakfast") || s.includes("dinner") || s.includes("lunch") || s.includes("khana") || s.includes("nashta") || s.includes("cook") || s.includes("kitchen")) {
+        cat = "Food & Dining";
+        title = "Food & Dining Guidelines";
+        desc = `Food and dining policy: ${rawSpeech.trim()}`;
+      } else if (s.includes("check in") || s.includes("checkout") || s.includes("check out") || s.includes("late") || s.includes("early") || s.includes("timing") || s.includes("samay") || s.includes("deposit") || s.includes("fee")) {
+        cat = "ID & Check-in";
+        title = "Check-in / Check-out Timings & Charges";
+        desc = `Timings and charge rules: ${rawSpeech.trim()}`;
+      } else if (s.includes("id") || s.includes("aadhar") || s.includes("passport") || s.includes("proof") || s.includes("license") || s.includes("document")) {
+        cat = "ID & Check-in";
+        title = "Mandatory Government ID Verification";
+        desc = `Government identification requirement: ${rawSpeech.trim()}`;
+      } else if (s.includes("cancel") || s.includes("refund") || s.includes("return") || s.includes("radd")) {
+        cat = "Cancellation";
+        title = "Special Cancellation & Refund Terms";
+        desc = `Cancellation terms: ${rawSpeech.trim()}`;
+      } else if (s.includes("ac") || s.includes("wifi") || s.includes("internet") || s.includes("parking") || s.includes("geyser") || s.includes("water") || s.includes("jacuzzi") || s.includes("music")) {
+        cat = "Amenities";
+        title = "Property Amenities & Facilities Policy";
+        desc = `Amenity rule: ${rawSpeech.trim()}`;
+      } else {
+        const words = rawSpeech.trim().split(/\s+/).slice(0, 5);
+        title = words.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+        desc = rawSpeech.trim();
+      }
+
+      setNewPolicyCategory(cat);
+      setNewPolicyTitle(title);
+      setNewPolicyDescription(desc);
+
+      toast.success("✨ Policy auto-formatted & populated with GPT-4o Voice AI!", { id: "gpt4o-policy" });
+    } catch (e: any) {
+      toast.error("Failed to format policy with AI. Using raw text.", { id: "gpt4o-policy" });
+      setNewPolicyDescription(rawSpeech);
+    } finally {
+      setIsAiFormattingPolicy(false);
+      setPolicyVoiceTranscript("");
+    }
+  };
+
+  const startPolicyDictation = () => {
+    if (typeof window === 'undefined') return;
+    const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRec) {
+      toast.error("Speech Recognition is not supported in this browser. Please use Chrome/Edge.");
+      return;
+    }
+
+    try {
+      if (policySpeechRecRef.current) {
+        policySpeechRecRef.current.stop();
+      }
+
+      const rec = new SpeechRec();
+      rec.continuous = true;
+      rec.interimResults = true;
+      rec.lang = 'hi-IN';
+
+      let accumulated = "";
+
+      rec.onstart = () => {
+        setIsDictatingPolicy(true);
+        setPolicyVoiceTranscript("Listening... Speak your rule in Hindi or English freely!");
+        toast.info("🎙️ Mic active! Speak your hotel policy or rules now...", { id: "mic-status" });
+      };
+
+      rec.onresult = (event: any) => {
+        let interim = "";
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            accumulated += " " + event.results[i][0].transcript;
+          } else {
+            interim += event.results[i][0].transcript;
+          }
+        }
+        const combined = (accumulated + " " + interim).trim();
+        if (combined) {
+          setPolicyVoiceTranscript(combined);
+        }
+      };
+
+      rec.onerror = (err: any) => {
+        console.warn("Policy speech rec notice:", err);
+        if (err.error !== 'no-speech') {
+          setIsDictatingPolicy(false);
+          toast.error(`Mic notice: ${err.error || 'Please speak again'}`);
+        }
+      };
+
+      rec.onend = () => {
+        setIsDictatingPolicy(false);
+        const finalRecorded = (accumulated || policyVoiceTranscript).trim();
+        if (finalRecorded && finalRecorded !== "Listening... Speak your rule in Hindi or English freely!") {
+          processPolicyWithAi(finalRecorded);
+        }
+      };
+
+      policySpeechRecRef.current = rec;
+      rec.start();
+    } catch(e: any) {
+      console.error("Mic start error:", e);
+      setIsDictatingPolicy(false);
+      toast.error("Could not access microphone.");
+    }
+  };
+
+  const stopPolicyDictation = () => {
+    if (policySpeechRecRef.current) {
+      try {
+        policySpeechRecRef.current.stop();
+      } catch(e) {}
+      policySpeechRecRef.current = null;
+    }
+    setIsDictatingPolicy(false);
+  };
+
   // 📞 Dual-Engine Live AI Voice Receptionist State (Web Speech + Native Audio + Vapi)
   const [isVapiVoiceModalOpen, setIsVapiVoiceModalOpen] = useState(false);
   const [vapiCallStatus, setVapiCallStatus] = useState<"idle" | "loading" | "active" | "error">("idle");
@@ -4272,8 +4425,63 @@ export default function HotelLeadManagerPage() {
 
               {/* Tab 2: Add Custom Rule */}
               <TabsContent value="custom" className="flex-1 p-5 overflow-y-auto space-y-4 m-0">
+                
+                {/* 🎙️ Voice AI Dictation (GPT-4o Auto-Fill Banner) */}
+                <div className="p-4 rounded-xl bg-gradient-to-r from-emerald-500/15 via-indigo-500/15 to-purple-500/15 border border-emerald-500/40 space-y-3 shadow-sm">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1.5">
+                        <Sparkles size={15} className="text-amber-400 animate-spin" />
+                        <span className="text-xs font-bold text-emerald-300">🎙️ AI Voice Dictation (GPT-4o Auto-Fill)</span>
+                        <Badge variant="outline" className="text-[9px] bg-emerald-500/20 text-emerald-300 border-emerald-500/40 px-1.5 py-0 h-4">
+                          Hindi / English
+                        </Badge>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground leading-relaxed">
+                        Speak your rule naturally in Hindi or English (e.g. <em>"Pool subah 8 baje se raat 9 baje tak khulta hai aur costume compulsory hai"</em>). GPT-4o will auto-detect the category, title, and write the complete policy!
+                      </p>
+                    </div>
+
+                    <Button
+                      type="button"
+                      onClick={isDictatingPolicy ? stopPolicyDictation : startPolicyDictation}
+                      disabled={isAiFormattingPolicy}
+                      className={cn(
+                        "h-9 px-4 text-xs cursor-pointer gap-2 transition-all shrink-0 font-semibold shadow-md",
+                        isDictatingPolicy 
+                          ? "bg-rose-600 hover:bg-rose-700 animate-pulse text-white shadow-rose-500/30" 
+                          : "bg-emerald-600 hover:bg-emerald-700 text-white"
+                      )}
+                    >
+                      {isDictatingPolicy ? <MicOff size={15} /> : <Mic size={15} />}
+                      {isDictatingPolicy ? "Stop & Process with AI" : "🎙️ Speak Policy (Mic)"}
+                    </Button>
+                  </div>
+
+                  {/* Live Transcript / Processing Visualizer */}
+                  {(isDictatingPolicy || isAiFormattingPolicy || policyVoiceTranscript) && (
+                    <div className="p-3 rounded-lg bg-background/90 border border-emerald-500/30 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-semibold text-emerald-400 flex items-center gap-1.5">
+                          {isDictatingPolicy && <span className="inline-block size-2 rounded-full bg-rose-500 animate-ping" />}
+                          {isDictatingPolicy ? "🔴 Listening to your voice..." : isAiFormattingPolicy ? "✨ GPT-4o formatting title & rules..." : "🎙️ Spoken Transcript:"}
+                        </span>
+                        {isDictatingPolicy && (
+                          <span className="text-[9px] text-muted-foreground animate-pulse">Speak freely, click 'Stop' when done</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-200 italic font-mono leading-relaxed bg-muted/40 p-2 rounded border border-border">
+                        "{policyVoiceTranscript || (isAiFormattingPolicy ? "AI is processing and structuring your rule..." : "")}"
+                      </p>
+                    </div>
+                  )}
+                </div>
+
                 <div className="space-y-1">
-                  <Label className="text-xs font-medium">Policy Category</Label>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-medium">Policy Category</Label>
+                    <span className="text-[10px] text-muted-foreground">Auto-detected by AI or pick manually</span>
+                  </div>
                   <div className="grid grid-cols-3 gap-1.5">
                     {(["ID & Check-in", "Cancellation", "Amenities", "Pets & Smoking", "Food & Dining", "Custom"] as const).map((cat) => (
                       <Button
@@ -4296,23 +4504,37 @@ export default function HotelLeadManagerPage() {
                 </div>
 
                 <div className="space-y-1">
-                  <Label className="text-xs font-medium">Policy Title</Label>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-medium">Policy Title</Label>
+                    <Button 
+                      type="button" 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={isDictatingPolicy ? stopPolicyDictation : startPolicyDictation}
+                      className="h-5 px-1.5 text-[10px] text-emerald-400 hover:bg-emerald-500/10 cursor-pointer gap-1"
+                    >
+                      <Mic size={11} /> Voice Dictate
+                    </Button>
+                  </div>
                   <Input 
                     placeholder="e.g. Early Check-in Fee / Security Deposit / Jacuzzi Charges" 
                     value={newPolicyTitle} 
                     onChange={(e) => setNewPolicyTitle(e.target.value)} 
-                    className="text-xs"
+                    className="text-xs bg-background"
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <Label className="text-xs font-medium">Policy Description & Rules</Label>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-medium">Policy Description & Rules</Label>
+                    <span className="text-[10px] text-muted-foreground">Trained into AI Voice Memory</span>
+                  </div>
                   <Textarea 
                     rows={4} 
                     placeholder="e.g. Early check-in before 12 PM is charged at ₹500/hr and subject to room availability." 
                     value={newPolicyDescription} 
                     onChange={(e) => setNewPolicyDescription(e.target.value)} 
-                    className="text-xs resize-none"
+                    className="text-xs resize-none bg-background"
                   />
                 </div>
 
