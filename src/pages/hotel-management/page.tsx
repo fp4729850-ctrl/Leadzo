@@ -878,6 +878,59 @@ export default function HotelLeadManagerPage() {
     }
   };
 
+  // 👑 Owner/Manager Voice Command & Caller Whitelist State
+  const [isSimulatingOwnerCommand, setIsSimulatingOwnerCommand] = useState(false);
+
+  const handleSimulateOwnerVoiceBlock = () => {
+    setIsSimulatingOwnerCommand(true);
+    toast.loading("📞 Incoming VIP Owner Call from +91 9726846660...", { id: "owner-cmd" });
+
+    setTimeout(() => {
+      toast.loading("🤖 AI Voice: 'Namaste Sir! King Villa AI Assistant here. Room 2 ko 18-20 Sept block karna hai? Bilkul kar raha hoon...'", { id: "owner-cmd" });
+    }, 1500);
+
+    setTimeout(() => {
+      // 1. Create blocked booking in local bookings state & DB
+      const newBlockedBooking: Booking = {
+        id: `voice-block-${Date.now()}`,
+        roomNumber: "Room 2",
+        guestName: "Rajesh Sharma (Offline Guest)",
+        phone: "+91 98201 99881",
+        source: "Owner Voice Command",
+        checkIn: "Sept 18",
+        checkOut: "Sept 20",
+        amount: 3600,
+        status: "blocked"
+      };
+
+      setBookings(prev => [newBlockedBooking, ...prev]);
+
+      // 2. Add to guest conversation history
+      const ownerCallTranscript: GuestConversation = {
+        id: `conv-owner-${Date.now()}`,
+        guestName: "Hotel Owner (+91 9726846660)",
+        phone: hotelPersonalPhone,
+        channel: "voice_call",
+        status: "booking_confirmed",
+        roomInterest: "Room 2 (Deluxe Room)",
+        quotedPrice: 3600,
+        duration: "0m 42s",
+        lastMessage: "Room 2 blocked successfully for Sept 18-20 via Owner Voice Command.",
+        lastUpdated: "Just now",
+        messages: [
+          { sender: 'ai', text: "Namaste Boss! King Villa AI Assistant here. Aaj ke check-ins check karne hain ya koi offline room block karna hai?", time: "Just now" },
+          { sender: 'guest', text: "Haan, Room 2 ko 18 Sept se 20 Sept tak Rajesh Sharma ke liye block kar do. Offline advance mil gaya hai.", time: "Just now" },
+          { sender: 'ai', text: "Done Sir! Room 2 ko 18 se 20 Sept tak Rajesh Sharma ji ke liye block kar diya gaya hai aur Goibibo, Airbnb, Agoda par dates band kar di gayi hain taaki koi double booking na ho!", time: "Just now" }
+        ]
+      };
+
+      setGuestConversations(prev => [ownerCallTranscript, ...prev]);
+      setIsSimulatingOwnerCommand(false);
+
+      toast.success("🛡️ Room 2 BLOCKED via Owner Voice Command! Matrix updated & OTA dates locked in 1 second.", { id: "owner-cmd", duration: 7000 });
+    }, 3500);
+  };
+
   // 📸 Hotel Photos & Google Maps Location State (for Auto WhatsApp Dispatch)
   const [hotelLocationUrl, setHotelLocationUrl] = useState(() => {
     return localStorage.getItem("leadzo_hotel_location_url") || "https://maps.app.goo.gl/kingvilla-goa";
@@ -4823,6 +4876,72 @@ export default function HotelLeadManagerPage() {
                   >
                     <Copy size={11} /> Copy
                   </Button>
+                </div>
+              </div>
+
+              {/* 👑 VIP Hotel Owner / Senior Manager Whitelist Voice Control */}
+              <div className="p-4 rounded-xl bg-gradient-to-r from-amber-950/30 via-slate-900 to-amber-950/20 border border-amber-500/40 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="size-8 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
+                      <Crown size={16} />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-amber-300">
+                          👑 Hotel Owner / Manager Whitelist Calling (Voice Room Block)
+                        </span>
+                        <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 text-[9px]">
+                          Whitelisted Numbers
+                        </Badge>
+                      </div>
+                      <p className="text-[10px] text-slate-400">
+                        When YOU call the AI Inbound Number from {hotelPersonalPhone} {managerEscalationPhone ? `or ${managerEscalationPhone}` : ''}, AI switches to Boss Mode!
+                      </p>
+                    </div>
+                  </div>
+
+                  <Button
+                    onClick={handleSimulateOwnerVoiceBlock}
+                    disabled={isSimulatingOwnerCommand}
+                    size="sm"
+                    className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs gap-1.5 shadow-md shadow-amber-500/20 cursor-pointer shrink-0"
+                  >
+                    <Mic size={13} className={cn(isSimulatingOwnerCommand && "animate-pulse text-red-600")} />
+                    {isSimulatingOwnerCommand ? "Processing Voice Block..." : "🧪 Test Owner Voice Room Block"}
+                  </Button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1 text-[11px]">
+                  <div className="p-2 rounded-lg bg-slate-950/80 border border-slate-800 flex items-start gap-2">
+                    <CheckCircle2 size={14} className="text-emerald-400 shrink-0 mt-0.5" />
+                    <div>
+                      <strong className="text-slate-200">🗣️ Block Room by Voice:</strong>
+                      <p className="text-slate-400 text-[10px] mt-0.5">
+                        Speak: <em>"Room 2 ko 18 se 20 Sept tak Rajesh Sharma ke liye block kar do."</em>
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="p-2 rounded-lg bg-slate-950/80 border border-slate-800 flex items-start gap-2">
+                    <CheckCircle2 size={14} className="text-indigo-400 shrink-0 mt-0.5" />
+                    <div>
+                      <strong className="text-slate-200">📊 Live Occupancy Report:</strong>
+                      <p className="text-slate-400 text-[10px] mt-0.5">
+                        Speak: <em>"Aaj kitne check-ins hain aur kitne rooms khali hain?"</em>
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="p-2 rounded-lg bg-slate-950/80 border border-slate-800 flex items-start gap-2">
+                    <CheckCircle2 size={14} className="text-amber-400 shrink-0 mt-0.5" />
+                    <div>
+                      <strong className="text-slate-200">⚡ 1-Sec OTA Lock:</strong>
+                      <p className="text-slate-400 text-[10px] mt-0.5">
+                        Instant auto-sync locks dates across Goibibo, Airbnb, Agoda & Booking.com!
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
 
