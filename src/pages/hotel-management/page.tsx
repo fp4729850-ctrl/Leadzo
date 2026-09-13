@@ -931,6 +931,64 @@ export default function HotelLeadManagerPage() {
     }, 3500);
   };
 
+  const [isSimulatingConflict, setIsSimulatingConflict] = useState(false);
+
+  const handleSimulateConflictVoiceBlock = () => {
+    setIsSimulatingConflict(true);
+    toast.loading("📞 Owner calling: 'Room 2 ko Sept 13-14 block kar do'...", { id: "conflict-cmd" });
+
+    setTimeout(() => {
+      toast.error("⚠️ AI Conflict Alert: 'Sir, Room 2 toh already Sept 13-14 ko Goibibo par Stanley Misquitta ke liye BOOKED hai!'", { id: "conflict-cmd", duration: 4000 });
+    }, 1600);
+
+    setTimeout(() => {
+      toast.loading("🤖 AI Suggestion: 'Lekin Room 3 (Deluxe Room) aur Room 4 bilkul khali hain. Kya Vipin ji ke liye Room 3 block kar doon?'", { id: "conflict-cmd" });
+    }, 3600);
+
+    setTimeout(() => {
+      // 1. Safe alternative booking created for Room 3
+      const newAlternativeBooking: Booking = {
+        id: `voice-alt-block-${Date.now()}`,
+        roomNumber: "Room 3",
+        guestName: "Vipin Patel (Offline Guest - AI Recommended)",
+        phone: "+91 98980 11223",
+        source: "Owner Voice Command (Conflict Prevented)",
+        checkIn: "Sept 13",
+        checkOut: "Sept 14",
+        amount: 1800,
+        status: "blocked"
+      };
+
+      setBookings(prev => [newAlternativeBooking, ...prev]);
+
+      // 2. Add full conflict resolution transcript
+      const conflictTranscript: GuestConversation = {
+        id: `conv-conflict-${Date.now()}`,
+        guestName: "Hotel Owner (+91 9726846660)",
+        phone: hotelPersonalPhone,
+        channel: "voice_call",
+        status: "booking_confirmed",
+        roomInterest: "Room 3 (Switched from Booked Room 2)",
+        quotedPrice: 1800,
+        duration: "1m 05s",
+        lastMessage: "Double-booking prevented! Room 3 booked instead of busy Room 2.",
+        lastUpdated: "Just now",
+        messages: [
+          { sender: 'ai', text: "Namaste Boss! King Villa AI Assistant here. Bataiye kya madad karoon?", time: "Just now" },
+          { sender: 'guest', text: "Room 2 ko Sept 13 se 14 tak block kar do, offline guest Vipin Patel aa raha hai.", time: "Just now" },
+          { sender: 'ai', text: "⚠️ ALERT Sir: Room 2 toh already Sept 13 se 14 tak Goibibo par booked hai (Guest: Stanley Thomas Misquitta). Agar Room 2 diya toh double booking ho jayegi! Lekin hamara Room 3 aur Room 4 bilkul khali hain. Kya main Vipin ji ke liye Room 3 block kar doon?", time: "Just now" },
+          { sender: 'guest', text: "Arey shukriya batane ke liye! Haan, Room 3 hi block kar do.", time: "Just now" },
+          { sender: 'ai', text: "Done Sir! Room 3 ko Sept 13-14 ke liye block kar diya gaya hai aur sabhi OTAs par dates lock kar di gayi hain. Double-booking ka zero risk!", time: "Just now" }
+        ]
+      };
+
+      setGuestConversations(prev => [conflictTranscript, ...prev]);
+      setIsSimulatingConflict(false);
+
+      toast.success("🛡️ Double-Booking PREVENTED! AI auto-switched Vipin Patel to vacant Room 3 & locked OTAs.", { id: "conflict-cmd", duration: 8000 });
+    }, 6000);
+  };
+
   // 📸 Hotel Photos & Google Maps Location State (for Auto WhatsApp Dispatch)
   const [hotelLocationUrl, setHotelLocationUrl] = useState(() => {
     return localStorage.getItem("leadzo_hotel_location_url") || "https://maps.app.goo.gl/kingvilla-goa";
@@ -4901,15 +4959,27 @@ export default function HotelLeadManagerPage() {
                     </div>
                   </div>
 
-                  <Button
-                    onClick={handleSimulateOwnerVoiceBlock}
-                    disabled={isSimulatingOwnerCommand}
-                    size="sm"
-                    className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs gap-1.5 shadow-md shadow-amber-500/20 cursor-pointer shrink-0"
-                  >
-                    <Mic size={13} className={cn(isSimulatingOwnerCommand && "animate-pulse text-red-600")} />
-                    {isSimulatingOwnerCommand ? "Processing Voice Block..." : "🧪 Test Owner Voice Room Block"}
-                  </Button>
+                  <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                    <Button
+                      onClick={handleSimulateOwnerVoiceBlock}
+                      disabled={isSimulatingOwnerCommand || isSimulatingConflict}
+                      size="sm"
+                      className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs gap-1.5 shadow-md shadow-amber-500/20 cursor-pointer shrink-0"
+                    >
+                      <Mic size={13} className={cn(isSimulatingOwnerCommand && "animate-pulse text-red-600")} />
+                      {isSimulatingOwnerCommand ? "Processing Voice Block..." : "🧪 Test Owner Voice Block"}
+                    </Button>
+                    <Button
+                      onClick={handleSimulateConflictVoiceBlock}
+                      disabled={isSimulatingOwnerCommand || isSimulatingConflict}
+                      size="sm"
+                      variant="outline"
+                      className="border-red-500/40 bg-red-500/10 hover:bg-red-500/20 text-red-300 font-bold text-xs gap-1.5 cursor-pointer shrink-0"
+                    >
+                      <AlertTriangle size={13} className={cn(isSimulatingConflict && "animate-bounce text-red-400")} />
+                      {isSimulatingConflict ? "Detecting Conflict..." : "🧪 Test Conflict & Alternate Room Guard"}
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1 text-[11px]">

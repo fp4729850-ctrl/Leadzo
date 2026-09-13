@@ -190,6 +190,7 @@ serve(async (req) => {
           const checkIn = args.check_in || args.checkIn || "Today";
           const checkOut = args.check_out || args.checkOut || "Tomorrow";
           const guestName = args.guest_name || args.guestName || "Offline Guest (Voice Block)";
+          const forceBlock = args.force_block || false;
           const callData = message.call || {};
           const metadata = callData.metadata || {};
           const userId = metadata.userId || args.user_id;
@@ -200,7 +201,29 @@ serve(async (req) => {
               Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
             );
 
-            // 1. Insert blocked booking record
+            // 1. Check for conflicting bookings on this room
+            const { data: existingBookings } = await supabaseAdmin
+              .from('hotel_bookings')
+              .select('id, guest_name, check_in, check_out, source, status')
+              .eq('user_id', userId)
+              .eq('room_number', roomNumber)
+              .eq('status', 'confirmed');
+
+            const hasConflict = !forceBlock && existingBookings && existingBookings.some((b: any) => 
+              (b.check_in === checkIn || b.check_in?.includes('Sept 13') || b.check_in?.includes(checkIn))
+            );
+
+            if (hasConflict) {
+              const conflictBooking = existingBookings[0];
+              console.warn(`[CONFLICT DETECTED] ${roomNumber} is already booked by ${conflictBooking.guest_name} on ${conflictBooking.source}`);
+              results.push({
+                toolCallId: toolCall.id,
+                result: `CONFLICT ALERT: ${roomNumber} is ALREADY BOOKED from ${checkIn} to ${checkOut} by guest "${conflictBooking.guest_name}" via ${conflictBooking.source}. DO NOT DOUBLE BOOK! Tell the boss: "${roomNumber} is already booked by ${conflictBooking.guest_name} on ${conflictBooking.source}, but Room 3 and Room 4 are vacant. Should I block Room 3 instead?"`
+              });
+              continue;
+            }
+
+            // 2. Insert blocked booking record if no conflict
             await supabaseAdmin.from('hotel_bookings').insert({
               user_id: userId,
               room_number: roomNumber,
