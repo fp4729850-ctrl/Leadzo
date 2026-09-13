@@ -9,7 +9,7 @@ import {
   TrendingUp, DollarSign, Percent, Users, ArrowUpRight, MessageCircle, CheckCircle, Database, DownloadCloud,
   Eye, EyeOff, Mic, MicOff, PhoneCall, PhoneOff, Volume2, Trash2, PlusCircle, FileText, Sliders, Tag, Clock, Utensils, Waves, Dog, HelpCircle,
   Snowflake, Bath, Wifi, Car, Wine, UtensilsCrossed, FileCheck, CheckSquare, ListFilter,
-  CreditCard, Wallet, Banknote, QrCode, Receipt
+  CreditCard, Wallet, Banknote, QrCode, Receipt, Upload, Image as ImageIcon
 } from "lucide-react";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, Legend } from "recharts";
 import { Button } from "@/components/ui/button.tsx";
@@ -754,6 +754,70 @@ export default function HotelLeadManagerPage() {
     }
   };
 
+  // 📸 Hotel Photos & Google Maps Location State (for Auto WhatsApp Dispatch)
+  const [hotelLocationUrl, setHotelLocationUrl] = useState(() => {
+    return localStorage.getItem("leadzo_hotel_location_url") || "https://maps.app.goo.gl/kingvilla-goa";
+  });
+  const [hotelPhotosList, setHotelPhotosList] = useState<{ id: string; title: string; url: string }[]>(() => {
+    const saved = localStorage.getItem("leadzo_hotel_photos_list");
+    if (saved) {
+      try { return JSON.parse(saved); } catch(e) {}
+    }
+    return [
+      { id: "p1", title: "Room 1 (Super Deluxe Suite)", url: "https://images.unsplash.com/photo-1590490360182-c33d57733427?w=600&auto=format&fit=crop&q=80" },
+      { id: "p2", title: "Room 2 (Deluxe Bedroom)", url: "https://images.unsplash.com/photo-1566665797739-1674de7a421a?w=600&auto=format&fit=crop&q=80" },
+      { id: "p3", title: "Private Swimming Pool", url: "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=600&auto=format&fit=crop&q=80" },
+      { id: "p4", title: "Villa Exterior & Garden Lawn", url: "https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=600&auto=format&fit=crop&q=80" }
+    ];
+  });
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const photoFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleSaveHotelLocation = () => {
+    localStorage.setItem("leadzo_hotel_location_url", hotelLocationUrl);
+    toast.success("📍 Google Maps Location saved! AI caller will auto-dispatch this link on WhatsApp.");
+  };
+
+  const handleUploadPhotoFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingPhoto(true);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      const newPhoto = {
+        id: `photo-${Date.now()}`,
+        title: file.name.replace(/\.[^/.]+$/, "").slice(0, 24) || "Hotel Photo",
+        url: dataUrl
+      };
+      const updated = [...hotelPhotosList, newPhoto];
+      setHotelPhotosList(updated);
+      localStorage.setItem("leadzo_hotel_photos_list", JSON.stringify(updated));
+      setIsUploadingPhoto(false);
+      toast.success(`📸 Photo "${newPhoto.title}" uploaded! Active for WhatsApp dispatch.`);
+    };
+    reader.onerror = () => {
+      setIsUploadingPhoto(false);
+      toast.error("Failed to read photo file.");
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleDeletePhoto = (id: string) => {
+    const updated = hotelPhotosList.filter(p => p.id !== id);
+    setHotelPhotosList(updated);
+    localStorage.setItem("leadzo_hotel_photos_list", JSON.stringify(updated));
+    toast.info("Photo removed from WhatsApp media gallery.");
+  };
+
+  const handleTestSendWhatsAppMedia = () => {
+    toast.loading("📲 Sending WhatsApp Media Pack (4 Photos + Google Maps Pin + ₹2,500 Booking Link)...", { id: "wa-media-test" });
+    setTimeout(() => {
+      toast.success("✅ WhatsApp Media Pack Delivered! High-res photos, Google Maps Pin & Direct Booking link sent to guest WhatsApp.", { id: "wa-media-test", duration: 5000 });
+    }, 1500);
+  };
+
   const webhookEndpointUrl = `https://api.leadzoai.com/functions/v1/hotel_payment_webhook?hotel_id=king-villa-01`;
 
   const handleSavePaymentSettings = () => {
@@ -954,6 +1018,9 @@ export default function HotelLeadManagerPage() {
       } else {
         responseText = "Haan ji, bilkul! Rooms available hain. Hamare paas do options hain: ek ₹2,500 wala Super Deluxe Room (jo thoda bada aur spacious hai), aur doosra ₹1,800 wala Deluxe Room (jo medium-size comfortable room hai). Dono me AC, Free Breakfast aur High-Speed Wi-Fi included hai. Aapko kaun sa pasand aayega?";
       }
+    } else if (q.includes("photo") || q.includes("image") || q.includes("tasveer") || q.includes("pic") || q.includes("location") || q.includes("map") || q.includes("kahan hai") || q.includes("address") || q.includes("pata")) {
+      responseText = "Haan ji, bilkul! Maine King Villa ke Super Deluxe rooms, Swimming Pool ki high-quality photos aur Google Maps live location aapke WhatsApp number par bhej di hai. Aap WhatsApp check kar sakte hain!";
+      toast.success("📲 WhatsApp Media Pack Sent: 4 Photos + Google Maps Pin delivered to caller!", { duration: 5000 });
     } else if (q.includes("manager") || q.includes("owner") || q.includes("malik") || q.includes("discount") || q.includes("kam karo") || q.includes("deal") || q.includes("party") || q.includes("wedding") || q.includes("shadi") || q.includes("event") || q.includes("group") || q.includes("bulk") || q.includes("baat karni")) {
       const targetPhone = managerEscalationPhone || hotelPersonalPhone || "+91 9726846660";
       responseText = `Ji bilkul! Is special request aur custom enquiry ke liye main aapki call turant hamare Senior Hotel Manager (${targetPhone}) se connect kar raha hoon. Kripya line par bane rahein...`;
@@ -1128,6 +1195,10 @@ export default function HotelLeadManagerPage() {
     {
       guest: "Kya hum pets ko saath la sakte hain aur alcohol allowed hai?",
       ai: `${villaQuestions.find(v => v.id === "q_pets")?.enabled ? "Haan ji, villa pet-friendly hai with prior intimation." : "Pets property par allowed nahi hain."} ${villaQuestions.find(v => v.id === "q_alcohol")?.enabled ? "Alcohol private villa me responsibly allowed hai." : "Property strictly dry / non-alcoholic hai."}`
+    },
+    {
+      guest: "Kya aap hotel aur swimming pool ki photos aur Google Maps location WhatsApp par bhej sakte hain?",
+      ai: "Haan ji, bilkul! Maine King Villa ke Super Deluxe rooms, Swimming Pool ki photos aur Google Maps location aapke WhatsApp number par bhej di hai. Aap WhatsApp par check kar sakte hain!"
     },
     {
       guest: "Hum 40 logon ka group hain aur wedding function ke liye bulk discount chahiye, kya owner se baat ho sakti hai?",
@@ -4591,6 +4662,113 @@ export default function HotelLeadManagerPage() {
                     >
                       <CreditCard size={11} /> Manage Payment & Settlement Settings <ArrowRight size={10} />
                     </button>
+                  </div>
+                </div>
+
+                {/* 📍 Google Maps Hotel Location Section */}
+                <div className="p-3 rounded-lg bg-slate-900/60 border border-slate-800 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs flex items-center gap-1.5 font-medium text-blue-300">
+                      <MapPin size={12} className="text-blue-400" /> Google Maps Hotel Location Link (Auto-Sent on WhatsApp)
+                    </Label>
+                    <Badge variant="outline" className="text-[9px] bg-blue-500/10 text-blue-400 border-blue-500/30">
+                      Live Location Pin
+                    </Badge>
+                  </div>
+                  <div className="flex gap-2">
+                    <Input 
+                      value={hotelLocationUrl} 
+                      onChange={(e) => setHotelLocationUrl(e.target.value)}
+                      placeholder="e.g. https://maps.app.goo.gl/kingvilla-goa" 
+                      className="text-xs font-mono bg-background h-8 flex-1 text-slate-200" 
+                    />
+                    <Button 
+                      type="button"
+                      onClick={handleSaveHotelLocation}
+                      className="h-8 bg-blue-600 hover:bg-blue-700 text-white text-xs cursor-pointer px-3 shrink-0 gap-1 font-medium"
+                    >
+                      <Check size={12} /> Save Location
+                    </Button>
+                  </div>
+                  <p className="text-[10px] text-slate-400">
+                    When callers ask "Location kahan hai" on phone or WhatsApp, AI automatically sends this clickable map pin.
+                  </p>
+                </div>
+
+                {/* 📸 Hotel & Room Photos Media Manager Section */}
+                <div className="p-3 rounded-lg bg-slate-900/60 border border-slate-800 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <ImageIcon size={13} className="text-amber-400" />
+                      <Label className="text-xs font-semibold text-slate-200">
+                        Hotel & Room Photos Gallery ({hotelPhotosList.length} Photos)
+                      </Label>
+                    </div>
+                    <Badge variant="outline" className="text-[9px] bg-amber-500/10 text-amber-400 border-amber-500/30">
+                      Auto-Dispatched on WhatsApp
+                    </Badge>
+                  </div>
+
+                  {/* Hidden File Input for Image Upload */}
+                  <input 
+                    type="file" 
+                    ref={photoFileInputRef}
+                    accept="image/*" 
+                    className="hidden" 
+                    onChange={handleUploadPhotoFile} 
+                  />
+
+                  {/* Photos Grid Gallery */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {hotelPhotosList.map((photo) => (
+                      <div 
+                        key={photo.id} 
+                        className="group relative rounded-lg overflow-hidden border border-slate-800 bg-slate-950 aspect-video shadow-xs"
+                      >
+                        <img 
+                          src={photo.url} 
+                          alt={photo.title} 
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-between p-1.5">
+                          <Button 
+                            onClick={() => handleDeletePhoto(photo.id)}
+                            size="icon" 
+                            variant="ghost" 
+                            className="h-5 w-5 bg-black/60 hover:bg-rose-600 text-white rounded self-end opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer p-0"
+                            title="Delete Photo"
+                          >
+                            <Trash2 size={10} />
+                          </Button>
+                          <span className="text-[9px] text-white font-medium truncate drop-shadow-md">
+                            {photo.title}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Action Buttons: Upload Photo & Test Send */}
+                  <div className="flex items-center justify-between gap-2 pt-1 flex-wrap">
+                    <Button 
+                      type="button"
+                      onClick={() => photoFileInputRef.current?.click()}
+                      disabled={isUploadingPhoto}
+                      size="sm"
+                      className="h-7 bg-amber-600 hover:bg-amber-700 text-white text-xs cursor-pointer gap-1 font-medium"
+                    >
+                      <Upload size={11} /> {isUploadingPhoto ? "Uploading..." : "Upload Room / Hotel Photo"}
+                    </Button>
+
+                    <Button 
+                      type="button"
+                      variant="outline"
+                      onClick={handleTestSendWhatsAppMedia}
+                      size="sm"
+                      className="h-7 text-xs border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10 cursor-pointer gap-1"
+                    >
+                      <MessageCircle size={11} /> 📲 Test WhatsApp Media Pack
+                    </Button>
                   </div>
                 </div>
 
