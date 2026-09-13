@@ -1471,11 +1471,11 @@ export default function HotelLeadManagerPage() {
       responseText = "Hamara standard Check-in time dopahar 12:00 PM hai aur standard Check-out time subah 11:00 AM hai. Early check-in room availability par depend karta hai.";
     } else if (q.includes("price") || q.includes("rate") || q.includes("cost") || q.includes("kitna") || q.includes("room") || q.includes("available") || q.includes("booking") || q.includes("villa") || q.includes("charge") || q.includes("kamra")) {
       if (q.includes("room 1") || q.includes("super deluxe") || q.includes("2500") || q.includes("bada")) {
-        responseText = "Room 1 hamara Super Deluxe room hai jo thoda bada aur spacious hai king bed ke sath. Iska price ₹2,500/night hai jisme Free Breakfast, AC, private attached washroom aur Wi-Fi included hai. Kya main aapke WhatsApp par direct payment link bhej doon?";
+        responseText = "Room 1 hamara Super Deluxe room hai jo thoda bada aur spacious hai king bed ke sath. Iska price ₹2,500/night hai. Booking lock karne ke liye sirf 30% advance token (₹750) pay karna hoga, baki ₹1,750 aap check-in ke time de sakte hain. Kya main aapke WhatsApp par 30% advance token link bhej doon?";
       } else if (q.includes("room 2") || q.includes("room 3") || q.includes("room 4") || q.includes("1800") || q.includes("deluxe") || q.includes("medium")) {
-        responseText = "Room 2, 3 aur 4 hamare Standard Deluxe rooms hain jo medium-size comfortable rooms hain. Inka price ₹1,800/night hai jisme Free Breakfast, AC, private washroom aur Wi-Fi included hai. Kya main aapke WhatsApp par payment link bhej doon?";
+        responseText = "Room 2, 3 aur 4 hamare Standard Deluxe rooms hain jo medium-size comfortable rooms hain (₹1,800/night). Booking confirm karne ke liye sirf 30% advance token (₹540) pay karna hoga, baki ₹1,260 aap hotel check-in par de sakte hain. Kya main aapke WhatsApp par 30% token link bhej doon?";
       } else {
-        responseText = "Haan ji, bilkul! Rooms available hain. Hamare paas do options hain: ek ₹2,500 wala Super Deluxe Room (jo thoda bada aur spacious hai), aur doosra ₹1,800 wala Deluxe Room (jo medium-size comfortable room hai). Dono me AC, Free Breakfast aur High-Speed Wi-Fi included hai. Aapko kaun sa pasand aayega?";
+        responseText = "Haan ji, bilkul! Rooms available hain: ₹2,500 wala Super Deluxe Room (₹750 advance token) aur ₹1,800 wala Deluxe Room (₹540 advance token). Dono me AC, Free Breakfast aur Swimming Pool access included hai. Aapko kaun sa pasand aayega?";
       }
     } else if (q.includes("photo") || q.includes("image") || q.includes("tasveer") || q.includes("pic") || q.includes("location") || q.includes("map") || q.includes("kahan hai") || q.includes("address") || q.includes("pata")) {
       responseText = "Haan ji, bilkul! Maine King Villa ke Super Deluxe rooms, Swimming Pool ki high-quality photos aur Google Maps live location aapke WhatsApp number par bhej di hai. Aap WhatsApp check kar sakte hain!";
@@ -1485,7 +1485,7 @@ export default function HotelLeadManagerPage() {
       responseText = `Ji bilkul! Is special request aur custom enquiry ke liye main aapki call turant hamare Senior Hotel Manager (${targetPhone}) se connect kar raha hoon. Kripya line par bane rahein...`;
       toast.info(`📞 Live Call Escalation: Forwarding call to Hotel Manager (${targetPhone})...`, { duration: 5000 });
     } else {
-      responseText = "Namaste! King Villa Resort & Suites me Rooms available hain (₹2,500 bada room / ₹1,800 medium room). Swimming pool, free Wi-Fi, aur 24-hour free cancellation included hai. Kya main aapke WhatsApp par payment link bhej doon?";
+      responseText = "Namaste! King Villa Resort & Suites me Rooms available hain (₹2,500 bada room / ₹1,800 medium room). Booking confirm karne ke liye sirf 30% advance token (₹540 / ₹750) lagta hai. Kya main aapke WhatsApp par 30% advance token link bhej doon?";
     }
 
     setTimeout(() => {

@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { 
   Hotel, BedDouble, Calendar, Users, MapPin, CheckCircle2, ShieldCheck, 
   Sparkles, Star, Wifi, Waves, Utensils, Snowflake, Bath, Car, ArrowRight, 
-  CreditCard, Smartphone, Check, Lock, ChevronRight, Phone, MessageCircle, AlertCircle
+  CreditCard, Smartphone, Check, Lock, ChevronRight, Phone, MessageCircle, AlertCircle, Percent
 } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
@@ -123,7 +123,15 @@ export default function GuestBookingPage() {
 
   // Selected Room Details
   const selectedRoom = ROOM_CATALOG[roomParam.toLowerCase()] || ROOM_CATALOG["room-1"];
-  const finalPrice = amountParam ? parseInt(amountParam, 10) : selectedRoom.pricePerNight;
+  const fullFare = amountParam ? parseInt(amountParam, 10) : selectedRoom.pricePerNight;
+
+  // 30% Advance Token vs 100% Full Payment
+  const advanceTokenAmount = Math.round(fullFare * 0.30); // e.g. ₹540 for ₹1800, ₹750 for ₹2500
+  const balanceDueAtHotel = fullFare - advanceTokenAmount; // e.g. ₹1260 for ₹1800, ₹1750 for ₹2500
+
+  // Payment Option State (Default to 30% Advance Token Deposit)
+  const [paymentOption, setPaymentOption] = useState<"advance_30" | "full_100">("advance_30");
+  const currentPayAmount = paymentOption === "advance_30" ? advanceTokenAmount : fullFare;
 
   // Form State
   const [guestName, setGuestName] = useState(guestNameParam || "Rahul Sharma");
@@ -160,10 +168,12 @@ export default function GuestBookingPage() {
     if ((window as any).Razorpay) {
       const options = {
         key: "rzp_test_placeholder", // Demo/Live Key
-        amount: finalPrice * 100, // paise
+        amount: currentPayAmount * 100, // paise
         currency: "INR",
         name: "King Villa Resort & Suites",
-        description: `Direct Reservation: ${selectedRoom.name} (${checkInDate} to ${checkOutDate})`,
+        description: paymentOption === "advance_30"
+          ? `30% Advance Token Deposit for ${selectedRoom.name}`
+          : `Full Direct Reservation for ${selectedRoom.name}`,
         image: "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=100&auto=format&fit=crop&q=80",
         handler: function (response: any) {
           completeBookingSuccess(bookingId);
@@ -201,9 +211,9 @@ export default function GuestBookingPage() {
   };
 
   const simulateInstantSuccess = (bookingId: string) => {
-    toast.loading(`⚡ Connecting to UPI Gateway for ₹${finalPrice.toLocaleString()}...`, { id: "pay-proc" });
+    toast.loading(`⚡ Connecting to UPI Gateway for ₹${currentPayAmount.toLocaleString()}...`, { id: "pay-proc" });
     setTimeout(() => {
-      toast.loading("🔒 Verifying transaction with King Villa Central Server...", { id: "pay-proc" });
+      toast.loading("🔒 Verifying 30% Token Deposit with King Villa Central Server...", { id: "pay-proc" });
     }, 1200);
 
     setTimeout(() => {
@@ -215,7 +225,7 @@ export default function GuestBookingPage() {
     setConfirmedBookingId(bookingId);
     setBookingConfirmed(true);
     setIsProcessingPayment(false);
-    toast.success(`🎉 Payment of ₹${finalPrice.toLocaleString()} Successful! Booking #${bookingId} Confirmed!`, { id: "pay-proc", duration: 8000 });
+    toast.success(`🎉 ${paymentOption === 'advance_30' ? '30% Advance Token' : 'Payment'} of ₹${currentPayAmount.toLocaleString()} Successful! Booking #${bookingId} Confirmed!`, { id: "pay-proc", duration: 8000 });
 
     // Save to database
     try {
@@ -225,8 +235,8 @@ export default function GuestBookingPage() {
         phone: guestPhone,
         check_in: checkInDate,
         check_out: checkOutDate,
-        amount: finalPrice,
-        source: "Direct Razorpay Booking",
+        amount: currentPayAmount,
+        source: paymentOption === 'advance_30' ? "30% Advance Token Deposit" : "100% Direct Razorpay Booking",
         status: "confirmed"
       });
     } catch (e) {
@@ -269,7 +279,7 @@ export default function GuestBookingPage() {
           </div>
 
           <Badge className="bg-emerald-500/15 text-emerald-300 border-emerald-500/30 text-[10px] hidden sm:flex items-center gap-1">
-            <ShieldCheck size={12} /> Instant Direct Confirmation
+            <ShieldCheck size={12} /> 30% Token Deposit Active 🛡️
           </Badge>
         </div>
       </header>
@@ -373,7 +383,7 @@ export default function GuestBookingPage() {
                 </div>
               </div>
 
-              {/* Right Column: Guest Details & Razorpay Payment Card (5 cols) */}
+              {/* Right Column: 30% Token Choice & Razorpay Payment Card (5 cols) */}
               <div className="md:col-span-5 space-y-4">
                 <Card className="bg-slate-900/80 border-slate-800 text-white shadow-2xl relative overflow-hidden">
                   <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-500" />
@@ -407,8 +417,62 @@ export default function GuestBookingPage() {
                       </div>
                     </div>
 
+                    {/* 🌟 30% Advance Token vs 100% Full Payment Selector */}
+                    <div className="space-y-2">
+                      <Label className="text-xs text-amber-300 font-semibold flex items-center gap-1.5">
+                        <Percent size={13} className="text-amber-400" /> Choose Booking Payment Option:
+                      </Label>
+
+                      <div className="grid grid-cols-1 gap-2">
+                        {/* Option 1: 30% Advance Token (Recommended) */}
+                        <div 
+                          onClick={() => setPaymentOption("advance_30")}
+                          className={cn(
+                            "p-3 rounded-xl border-2 transition-all cursor-pointer flex items-center justify-between",
+                            paymentOption === "advance_30" 
+                              ? "border-amber-500 bg-amber-500/10 shadow-md shadow-amber-500/10 ring-1 ring-amber-500/30" 
+                              : "border-slate-800 bg-slate-950/60 hover:border-slate-700 opacity-75"
+                          )}
+                        >
+                          <div className="space-y-0.5">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-bold text-white">30% Advance Token Deposit</span>
+                              <Badge className="bg-amber-500 text-slate-950 text-[9px] font-extrabold px-1.5 py-0">RECOMMENDED</Badge>
+                            </div>
+                            <p className="text-[10px] text-slate-300">
+                              Pay <strong>₹{advanceTokenAmount.toLocaleString()}</strong> now to lock room. Remaining <strong>₹{balanceDueAtHotel.toLocaleString()}</strong> at check-in!
+                            </p>
+                          </div>
+                          <div className="text-right pl-2">
+                            <span className="text-lg font-black font-mono text-amber-400">₹{advanceTokenAmount.toLocaleString()}</span>
+                            <p className="text-[9px] text-slate-400">Pay Now</p>
+                          </div>
+                        </div>
+
+                        {/* Option 2: 100% Full Payment */}
+                        <div 
+                          onClick={() => setPaymentOption("full_100")}
+                          className={cn(
+                            "p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between",
+                            paymentOption === "full_100" 
+                              ? "border-emerald-500 bg-emerald-500/10 shadow-md shadow-emerald-500/10" 
+                              : "border-slate-800 bg-slate-950/60 hover:border-slate-700 opacity-60"
+                          )}
+                        >
+                          <div>
+                            <span className="text-xs font-semibold text-white">100% Full Prepayment</span>
+                            <p className="text-[10px] text-slate-400">Pay entire room fare online with zero dues at check-in</p>
+                          </div>
+                          <div className="text-right pl-2">
+                            <span className="text-sm font-bold font-mono text-white">₹{fullFare.toLocaleString()}</span>
+                            <p className="text-[9px] text-slate-400">Pay Full</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
                     {/* Guest Inputs */}
-                    <div className="space-y-3">
+                    <div className="space-y-3 pt-1">
                       <div>
                         <Label className="text-xs text-slate-300 font-medium">Guest Full Name</Label>
                         <Input 
@@ -436,26 +500,37 @@ export default function GuestBookingPage() {
                     {/* Price Breakdown */}
                     <div className="p-3 rounded-lg bg-slate-950 border border-slate-800 space-y-2">
                       <div className="flex items-center justify-between text-xs text-slate-400">
-                        <span>1 Night × {selectedRoom.name}</span>
-                        <span className="text-white font-mono font-semibold">₹{finalPrice.toLocaleString()}</span>
+                        <span>Total Room Fare (1 Night)</span>
+                        <span className="text-white font-mono font-semibold">₹{fullFare.toLocaleString()}</span>
                       </div>
-                      <div className="flex items-center justify-between text-xs text-slate-400">
-                        <span>Taxes & GST (18%)</span>
-                        <span className="text-emerald-400 font-mono font-semibold">Included (₹0 Extra)</span>
-                      </div>
-                      <div className="flex items-center justify-between text-xs text-slate-400">
-                        <span>OTA Convenience Fee</span>
-                        <span className="text-emerald-400 line-through">₹450</span>
-                        <span className="text-emerald-400 font-bold">₹0 Free</span>
-                      </div>
+                      
+                      {paymentOption === "advance_30" ? (
+                        <>
+                          <div className="flex items-center justify-between text-xs text-amber-300 font-semibold bg-amber-500/10 p-1.5 rounded border border-amber-500/20">
+                            <span>30% Advance Token (Pay Now)</span>
+                            <span className="font-mono">₹{advanceTokenAmount.toLocaleString()}</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[11px] text-slate-400">
+                            <span>Balance Due at Hotel Front Desk</span>
+                            <span className="text-slate-200 font-mono">₹{balanceDueAtHotel.toLocaleString()}</span>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="flex items-center justify-between text-xs text-emerald-400 font-semibold">
+                          <span>Full Payment (Zero Dues at Hotel)</span>
+                          <span className="font-mono">₹{fullFare.toLocaleString()}</span>
+                        </div>
+                      )}
 
                       <div className="pt-2 border-t border-slate-800 flex items-baseline justify-between">
                         <div>
-                          <p className="text-xs text-slate-300 font-bold">Total Amount to Pay</p>
+                          <p className="text-xs text-slate-300 font-bold">
+                            {paymentOption === "advance_30" ? "Token Amount to Pay Now" : "Total Amount to Pay"}
+                          </p>
                           <p className="text-[10px] text-slate-500">100% Secure via Razorpay / UPI</p>
                         </div>
                         <p className="text-2xl font-black font-mono text-amber-400">
-                          ₹{finalPrice.toLocaleString()}
+                          ₹{currentPayAmount.toLocaleString()}
                         </p>
                       </div>
                     </div>
@@ -467,7 +542,7 @@ export default function GuestBookingPage() {
                       className="w-full h-11 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 font-black text-sm shadow-lg shadow-amber-500/20 gap-2 cursor-pointer transition-all"
                     >
                       <CreditCard size={16} className="fill-slate-950" />
-                      {isProcessingPayment ? "Connecting to Razorpay..." : `Pay ₹${finalPrice.toLocaleString()} via UPI / Card`}
+                      {isProcessingPayment ? "Connecting to Razorpay..." : `Pay ₹${currentPayAmount.toLocaleString()} (${paymentOption === 'advance_30' ? '30% Token' : 'Full Fare'})`}
                     </Button>
 
                     <div className="flex items-center justify-center gap-3 text-[10px] text-slate-400 pt-1">
@@ -526,8 +601,10 @@ export default function GuestBookingPage() {
                         <p className="text-sm font-mono font-bold text-amber-400">#{confirmedBookingId}</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-[10px] text-slate-400 uppercase font-medium">Amount Paid</p>
-                        <p className="text-sm font-mono font-bold text-emerald-400">₹{finalPrice.toLocaleString()} (Paid)</p>
+                        <p className="text-[10px] text-slate-400 uppercase font-medium">Deposit Paid</p>
+                        <p className="text-sm font-mono font-bold text-emerald-400">
+                          ₹{currentPayAmount.toLocaleString()} {paymentOption === 'advance_30' ? '(30% Token)' : '(Full)'}
+                        </p>
                       </div>
                     </div>
 
@@ -541,7 +618,17 @@ export default function GuestBookingPage() {
                         <span className="font-mono text-white">{checkInDate} &rarr; {checkOutDate}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-slate-400">WhatsApp Number:</span>
+                        <span className="text-slate-400">Total Room Fare:</span>
+                        <span className="font-mono text-white">₹{fullFare.toLocaleString()}</span>
+                      </div>
+                      {paymentOption === "advance_30" && (
+                        <div className="flex justify-between text-amber-300 font-semibold bg-amber-500/10 p-1.5 rounded">
+                          <span>Balance Due at Check-In:</span>
+                          <span className="font-mono">₹{balanceDueAtHotel.toLocaleString()}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">WhatsApp Contact:</span>
                         <span className="font-mono text-emerald-300">{guestPhone}</span>
                       </div>
                     </div>
@@ -558,7 +645,7 @@ export default function GuestBookingPage() {
                   {/* Action Buttons */}
                   <div className="space-y-2 pt-2">
                     <Button 
-                      onClick={() => window.open(`https://wa.me/919726846660?text=Namaste! Mera booking ID %23${confirmedBookingId} confirm ho gaya hai (${selectedRoom.name}).`, "_blank")}
+                      onClick={() => window.open(`https://wa.me/919726846660?text=Namaste! Mera booking ID %23${confirmedBookingId} confirm ho gaya hai (${selectedRoom.name}). 30% Token Deposit paid.`, "_blank")}
                       className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs gap-2 cursor-pointer"
                     >
                       <MessageCircle size={14} /> Open Confirmation in WhatsApp
