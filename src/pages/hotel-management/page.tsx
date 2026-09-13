@@ -9,7 +9,8 @@ import {
   TrendingUp, DollarSign, Percent, Users, ArrowUpRight, MessageCircle, CheckCircle, Database, DownloadCloud,
   Eye, EyeOff, Mic, MicOff, PhoneCall, PhoneOff, Volume2, Trash2, PlusCircle, FileText, Sliders, Tag, Clock, Utensils, Waves, Dog, HelpCircle,
   Snowflake, Bath, Wifi, Car, Wine, UtensilsCrossed, FileCheck, CheckSquare, ListFilter,
-  CreditCard, Wallet, Banknote, QrCode, Receipt, Upload, Image as ImageIcon
+  CreditCard, Wallet, Banknote, QrCode, Receipt, Upload, Image as ImageIcon,
+  Search, Send, MessageSquare, PhoneIncoming
 } from "lucide-react";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, Legend } from "recharts";
 import { Button } from "@/components/ui/button.tsx";
@@ -816,6 +817,178 @@ export default function HotelLeadManagerPage() {
     setTimeout(() => {
       toast.success("✅ WhatsApp Media Pack Delivered! High-res photos, Google Maps Pin & Direct Booking link sent to guest WhatsApp.", { id: "wa-media-test", duration: 5000 });
     }, 1500);
+  };
+
+  // 💬 AI Guest Conversations & Call Transcripts State
+  interface GuestMessage {
+    sender: 'guest' | 'ai';
+    text: string;
+    time: string;
+    mediaUrls?: string[];
+    locationUrl?: string;
+    paymentLink?: string;
+    paymentAmount?: number;
+  }
+
+  interface GuestConversation {
+    id: string;
+    guestName: string;
+    phone: string;
+    channel: 'whatsapp' | 'voice_call';
+    status: 'booking_confirmed' | 'link_sent' | 'photos_sent' | 'escalated_to_manager' | 'inquiry';
+    roomInterest: string;
+    quotedPrice: number;
+    lastMessage: string;
+    lastUpdated: string;
+    duration?: string;
+    messages: GuestMessage[];
+  }
+
+  const initialGuestConversations: GuestConversation[] = [
+    {
+      id: "conv-1",
+      guestName: "Rahul Sharma",
+      phone: "+91 98201 44521",
+      channel: "whatsapp",
+      status: "link_sent",
+      roomInterest: "Room 1 (Super Deluxe Suite)",
+      quotedPrice: 2500,
+      lastMessage: "Maine ₹2,500 ki Razorpay payment link bhej di hai.",
+      lastUpdated: "10 mins ago",
+      messages: [
+        { sender: 'guest', text: "Hello! Kya Sept 18 ke liye room available hai aur rate kya hai?", time: "11:40 AM" },
+        { sender: 'ai', text: "Namaste Rahul ji! Haan, Sept 18 ke liye hamare paas Room 1 (Super Deluxe Suite) ₹2,500/night aur Room 2 (Deluxe) ₹1,800/night me available hai. Dono me AC, Free Breakfast aur High-Speed Wi-Fi included hai. Aapko kaun sa pasand aayega?", time: "11:40 AM" },
+        { sender: 'guest', text: "Super Deluxe room aur swimming pool ki photos aur Google maps location bhej do please.", time: "11:41 AM" },
+        { 
+          sender: 'ai', 
+          text: "Bilkul ji! Maine King Villa ke Super Deluxe Suite aur Private Pool ki photos aur Google Maps location yahan attach kar di hai:", 
+          time: "11:41 AM",
+          mediaUrls: [
+            "https://images.unsplash.com/photo-1590490360182-c33d57733427?w=600&auto=format&fit=crop&q=80",
+            "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=600&auto=format&fit=crop&q=80"
+          ],
+          locationUrl: "https://maps.app.goo.gl/kingvilla-goa"
+        },
+        { sender: 'guest', text: "Great! Main Super Deluxe room 1 night ke liye confirm kar raha hoon.", time: "11:42 AM" },
+        { 
+          sender: 'ai', 
+          text: "Bahut badhiya! Aapke liye Room 1 (Super Deluxe) lock karne ke liye ₹2,500 ki Razorpay instant booking link niche di gayi hai. Payment hote hi dates Goibibo aur Airbnb par 100% auto-block ho jayengi.", 
+          time: "11:42 AM",
+          paymentLink: "https://leadzoai.com/book/hotel-grand-palace?room=room-1",
+          paymentAmount: 2500
+        }
+      ]
+    },
+    {
+      id: "conv-2",
+      guestName: "Priya Mehta",
+      phone: "+91 97112 88402",
+      channel: "voice_call",
+      status: "booking_confirmed",
+      roomInterest: "Room 2 & 3 (Deluxe Rooms)",
+      quotedPrice: 3600,
+      lastMessage: "Payment verified ₹3,600. Booking Confirmed!",
+      lastUpdated: "35 mins ago",
+      duration: "1 min 48 sec",
+      messages: [
+        { sender: 'guest', text: "Hello, kya 2 deluxe rooms mil jayenge family ke liye?", time: "11:15 AM" },
+        { sender: 'ai', text: "Namaste Priya ji! Haan, Room 2 aur Room 3 (Standard Deluxe) available hain. Per room rate ₹1,800/night hai, total ₹3,600 with free breakfast for all guests.", time: "11:15 AM" },
+        { sender: 'guest', text: "Swimming pool time kya hai aur kya kids allowed hain?", time: "11:16 AM" },
+        { sender: 'ai', text: "Haan ji! Swimming pool subah 7:00 AM se raat 9:00 PM tak open rehta hai aur kids swimming tubes ke sath safely enjoy kar sakte hain.", time: "11:16 AM" },
+        { sender: 'guest', text: "Done! WhatsApp par payment link bhej do.", time: "11:16 AM" },
+        { sender: 'ai', text: "Maine aapke number par ₹3,600 ka link bhej diya hai.", time: "11:17 AM", paymentLink: "https://leadzoai.com/book/hotel-grand-palace?room=room-2,3", paymentAmount: 3600 }
+      ]
+    },
+    {
+      id: "conv-3",
+      guestName: "Vikram Singhania (Corporate Event)",
+      phone: "+91 98450 12398",
+      channel: "voice_call",
+      status: "escalated_to_manager",
+      roomInterest: "Entire Villa (All 4 Rooms + Lawn)",
+      quotedPrice: 15000,
+      lastMessage: "Call live transferred to Senior Hotel Manager (+91 9726846660)",
+      lastUpdated: "1 hour ago",
+      duration: "2 mins 12 sec",
+      messages: [
+        { sender: 'guest', text: "Hum 35 logon ka office group hain, weekend wedding/party ke liye full villa aur discount chahiye.", time: "10:48 AM" },
+        { sender: 'ai', text: "Ji bilkul! 35 logon ki group booking aur special bulk discount ke liye main aapki call turant hamare Senior Hotel Manager (+91 9726846660) se connect kar raha hoon. Kripya line par bane rahein...", time: "10:49 AM" },
+        { sender: 'ai', text: "📞 [SYSTEM ALERT] Call bridged to Senior Hotel Manager (+91 9726846660). WhatsApp VIP notification sent.", time: "10:49 AM" }
+      ]
+    }
+  ];
+
+  const [guestConversations, setGuestConversations] = useState<GuestConversation[]>(() => {
+    const saved = localStorage.getItem("leadzo_guest_conversations");
+    if (saved) {
+      try { return JSON.parse(saved); } catch(e) {}
+    }
+    return initialGuestConversations;
+  });
+
+  const [selectedConversationId, setSelectedConversationId] = useState<string>("conv-1");
+  const [conversationFilter, setConversationFilter] = useState<"all" | "whatsapp" | "voice_call" | "escalated">("all");
+  const [conversationSearchQuery, setConversationSearchQuery] = useState("");
+  const [isSimulatingGuestLead, setIsSimulatingGuestLead] = useState(false);
+  const [manualReplyText, setManualReplyText] = useState("");
+
+  const handleSimulateNewGuestChat = () => {
+    setIsSimulatingGuestLead(true);
+    toast.loading("✨ Simulating Incoming Guest WhatsApp Message...", { id: "sim-lead" });
+
+    setTimeout(() => {
+      const newConv: GuestConversation = {
+        id: `conv-${Date.now()}`,
+        guestName: `Amit Patel (${Math.floor(100 + Math.random() * 900)})`,
+        phone: `+91 98980 ${Math.floor(10000 + Math.random() * 90000)}`,
+        channel: "whatsapp",
+        status: "link_sent",
+        roomInterest: "Room 1 (Super Deluxe)",
+        quotedPrice: 2500,
+        lastMessage: "Maine ₹2,500 ki booking link aur photos bhej di hain.",
+        lastUpdated: "Just now",
+        messages: [
+          { sender: 'guest', text: "Hi, Room 1 ka rate kya hai aur photos share kar do please?", time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) },
+          { 
+            sender: 'ai', 
+            text: "Namaste! Room 1 hamara Super Deluxe room hai jo thoda bada aur spacious hai (₹2,500/night). Free Breakfast, AC, attached washroom aur Wi-Fi included hai. Yahan photos aur location attach kar di hai:", 
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            mediaUrls: [
+              "https://images.unsplash.com/photo-1590490360182-c33d57733427?w=600&auto=format&fit=crop&q=80",
+              "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=600&auto=format&fit=crop&q=80"
+            ],
+            locationUrl: hotelLocationUrl,
+            paymentLink: "https://leadzoai.com/book/hotel-grand-palace?room=room-1",
+            paymentAmount: 2500
+          }
+        ]
+      };
+
+      const updated = [newConv, ...guestConversations];
+      setGuestConversations(updated);
+      setSelectedConversationId(newConv.id);
+      localStorage.setItem("leadzo_guest_conversations", JSON.stringify(updated));
+      setIsSimulatingGuestLead(false);
+      toast.success("🎉 New WhatsApp Lead Handled! AI answered pricing, dispatched photos & generated payment link.", { id: "sim-lead", duration: 5000 });
+    }, 1200);
+  };
+
+  const handleSendManualReply = (convId: string) => {
+    if (!manualReplyText.trim()) return;
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    setGuestConversations(prev => prev.map(c => {
+      if (c.id === convId) {
+        return {
+          ...c,
+          lastMessage: manualReplyText.trim(),
+          lastUpdated: "Just now",
+          messages: [...c.messages, { sender: 'ai', text: manualReplyText.trim(), time: timeStr }]
+        };
+      }
+      return c;
+    }));
+    toast.success("Message sent to guest via WhatsApp!");
+    setManualReplyText("");
   };
 
   const webhookEndpointUrl = `https://api.leadzoai.com/functions/v1/hotel_payment_webhook?hotel_id=king-villa-01`;
@@ -2930,6 +3103,9 @@ export default function HotelLeadManagerPage() {
           <TabsTrigger value="reservations" className="gap-2 text-xs">
             <User size={13} /> All Reservations
           </TabsTrigger>
+          <TabsTrigger value="conversations" className="gap-2 text-xs font-semibold text-indigo-400 data-[state=active]:text-indigo-300">
+            <MessageCircle size={13} /> 💬 AI Guest Chats & Call Logs
+          </TabsTrigger>
           <TabsTrigger value="payments" className="gap-2 text-xs font-medium text-emerald-400 data-[state=active]:text-emerald-300">
             <CreditCard size={13} /> 💳 Payment & Settlement Settings
           </TabsTrigger>
@@ -4772,6 +4948,53 @@ export default function HotelLeadManagerPage() {
                   </div>
                 </div>
 
+                {/* 💬 Live AI Guest Activity & WhatsApp Feed Preview */}
+                <div className="p-3 rounded-lg bg-slate-900/60 border border-slate-800 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <MessageCircle size={13} className="text-indigo-400" />
+                      <Label className="text-xs font-semibold text-slate-200">
+                        Recent AI Guest Conversations (WhatsApp & Voice)
+                      </Label>
+                    </div>
+                    <Badge variant="outline" className="text-[9px] bg-indigo-500/10 text-indigo-400 border-indigo-500/30">
+                      {guestConversations.length} Active Leads
+                    </Badge>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    {guestConversations.slice(0, 2).map((c) => (
+                      <div 
+                        key={c.id} 
+                        onClick={() => { setSelectedConversationId(c.id); setSelectedTab("conversations"); }}
+                        className="p-2 rounded-md bg-slate-950/80 border border-slate-800/80 hover:border-indigo-500/40 hover:bg-slate-900/90 transition-all cursor-pointer flex items-center justify-between text-xs"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className={cn(
+                            "size-2 rounded-full",
+                            c.channel === 'whatsapp' ? "bg-emerald-400" : "bg-blue-400"
+                          )} />
+                          <div>
+                            <span className="font-semibold text-slate-200">{c.guestName}</span>
+                            <p className="text-[10px] text-slate-400 truncate max-w-[200px]">{c.lastMessage}</p>
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-mono text-emerald-300 bg-emerald-500/10 px-1.5 py-0.5 rounded">
+                          ₹{c.quotedPrice.toLocaleString()}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <button 
+                    type="button" 
+                    onClick={() => setSelectedTab("conversations")}
+                    className="text-[11px] text-indigo-400 hover:text-indigo-300 underline font-medium cursor-pointer flex items-center justify-center gap-1 w-full pt-1"
+                  >
+                    View All Guest Chats & Call Transcripts <ArrowRight size={11} />
+                  </button>
+                </div>
+
                 <Button 
                   onClick={() => toast.success("AI Receptionist & Vapi Voice Brain trained successfully with updated villa policies!")} 
                   className="w-full bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer gap-2"
@@ -5598,6 +5821,356 @@ export default function HotelLeadManagerPage() {
                 </div>
               </CardContent>
             </Card>
+          </div>
+        </TabsContent>
+
+        {/* 💬 Tab: AI Guest Chats & Call Logs */}
+        <TabsContent value="conversations" className="mt-4 space-y-6">
+          {/* Header Stats Bar */}
+          <div className="p-4 rounded-xl bg-gradient-to-r from-indigo-950/40 via-slate-900/80 to-emerald-950/40 border border-indigo-500/20 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+                  <MessageSquare size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white flex items-center gap-2">
+                    AI Guest Conversations & Call Logs
+                    <Badge variant="outline" className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30 text-[10px]">
+                      Live 24/7 AI Receptionist
+                    </Badge>
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Read live WhatsApp chat history, voice call transcripts, sent photo galleries, and payment link records generated by AI.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <Button 
+                variant="outline"
+                size="sm"
+                onClick={handleSimulateNewGuestChat}
+                disabled={isSimulatingGuestLead}
+                className="h-8 text-xs border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/10 cursor-pointer gap-1.5"
+              >
+                <Sparkles size={13} className={isSimulatingGuestLead ? "animate-spin" : ""} />
+                {isSimulatingGuestLead ? "Simulating Lead..." : "🧪 Simulate Incoming WhatsApp Lead"}
+              </Button>
+            </div>
+          </div>
+
+          {/* Quick Metrics Bar */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="p-3 rounded-xl bg-slate-900/40 border border-slate-800 space-y-1">
+              <span className="text-[11px] text-slate-400">WhatsApp Inquiries</span>
+              <p className="text-lg font-bold font-mono text-emerald-400">
+                {guestConversations.filter(c => c.channel === 'whatsapp').length} Chats
+              </p>
+            </div>
+            <div className="p-3 rounded-xl bg-slate-900/40 border border-slate-800 space-y-1">
+              <span className="text-[11px] text-slate-400">AI Voice Phone Calls</span>
+              <p className="text-lg font-bold font-mono text-blue-400">
+                {guestConversations.filter(c => c.channel === 'voice_call').length} Calls
+              </p>
+            </div>
+            <div className="p-3 rounded-xl bg-slate-900/40 border border-slate-800 space-y-1">
+              <span className="text-[11px] text-slate-400">Total Deals Quoted</span>
+              <p className="text-lg font-bold font-mono text-amber-300">
+                ₹{guestConversations.reduce((acc, c) => acc + c.quotedPrice, 0).toLocaleString()}
+              </p>
+            </div>
+            <div className="p-3 rounded-xl bg-slate-900/40 border border-slate-800 space-y-1">
+              <span className="text-[11px] text-slate-400">Manager Escalations</span>
+              <p className="text-lg font-bold font-mono text-rose-400">
+                {guestConversations.filter(c => c.status === 'escalated_to_manager').length} Calls
+              </p>
+            </div>
+          </div>
+
+          {/* 2-Column Master-Detail Chat Hub */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-[580px]">
+            {/* Left Column: Conversations List (4 cols) */}
+            <Card className="lg:col-span-4 border-slate-800 bg-slate-950/60 shadow-md flex flex-col">
+              <CardHeader className="p-3.5 border-b border-slate-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-200">Guest Leads ({guestConversations.length})</span>
+                  <div className="flex items-center gap-1">
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      onClick={() => setConversationFilter("all")} 
+                      className={cn("h-6 px-2 text-[10px]", conversationFilter === "all" && "bg-slate-800 text-white font-bold")}
+                    >
+                      All
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      onClick={() => setConversationFilter("whatsapp")} 
+                      className={cn("h-6 px-2 text-[10px]", conversationFilter === "whatsapp" && "bg-emerald-500/20 text-emerald-400 font-bold")}
+                    >
+                      WhatsApp
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      onClick={() => setConversationFilter("voice_call")} 
+                      className={cn("h-6 px-2 text-[10px]", conversationFilter === "voice_call" && "bg-blue-500/20 text-blue-400 font-bold")}
+                    >
+                      Calls
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Search Bar */}
+                <div className="relative">
+                  <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <Input 
+                    placeholder="Search guest or phone..."
+                    value={conversationSearchQuery}
+                    onChange={(e) => setConversationSearchQuery(e.target.value)}
+                    className="h-7 text-xs bg-slate-900 border-slate-800 text-white pl-8"
+                  />
+                </div>
+              </CardHeader>
+
+              <CardContent className="p-2 flex-1 overflow-y-auto max-h-[520px] space-y-1.5">
+                {guestConversations
+                  .filter(c => {
+                    if (conversationFilter !== "all" && c.channel !== conversationFilter) return false;
+                    if (conversationSearchQuery) {
+                      const q = conversationSearchQuery.toLowerCase();
+                      return c.guestName.toLowerCase().includes(q) || c.phone.includes(q) || c.roomInterest.toLowerCase().includes(q);
+                    }
+                    return true;
+                  })
+                  .map((conv) => {
+                    const isSelected = selectedConversationId === conv.id;
+                    return (
+                      <div 
+                        key={conv.id}
+                        onClick={() => setSelectedConversationId(conv.id)}
+                        className={cn(
+                          "p-3 rounded-xl border transition-all cursor-pointer space-y-1.5",
+                          isSelected 
+                            ? "bg-slate-900 border-indigo-500/50 shadow-md ring-1 ring-indigo-500/30" 
+                            : "bg-slate-950/40 border-slate-800/80 hover:bg-slate-900/60 hover:border-slate-700"
+                        )}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className={cn(
+                              "size-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0",
+                              conv.channel === 'whatsapp' ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" : "bg-blue-500/20 text-blue-400 border border-blue-500/30"
+                            )}>
+                              {conv.channel === 'whatsapp' ? <MessageCircle size={13} /> : <PhoneIncoming size={13} />}
+                            </div>
+                            <div>
+                              <p className="text-xs font-semibold text-slate-200 leading-none">{conv.guestName}</p>
+                              <p className="text-[10px] font-mono text-slate-400 mt-0.5">{conv.phone}</p>
+                            </div>
+                          </div>
+                          <span className="text-[10px] text-slate-400">{conv.lastUpdated}</span>
+                        </div>
+
+                        <p className="text-[11px] text-slate-300 truncate leading-snug">{conv.lastMessage}</p>
+
+                        <div className="flex items-center justify-between pt-1 text-[10px]">
+                          <Badge variant="outline" className={cn(
+                            "text-[9px] px-1.5 py-0",
+                            conv.status === 'booking_confirmed' && "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
+                            conv.status === 'link_sent' && "bg-amber-500/10 text-amber-400 border-amber-500/30",
+                            conv.status === 'escalated_to_manager' && "bg-rose-500/10 text-rose-400 border-rose-500/30"
+                          )}>
+                            {conv.status === 'booking_confirmed' && "✓ Confirmed"}
+                            {conv.status === 'link_sent' && "💳 Payment Link Sent"}
+                            {conv.status === 'escalated_to_manager' && "🚨 Escalated to Manager"}
+                            {conv.status === 'photos_sent' && "📸 Photos Sent"}
+                            {conv.status === 'inquiry' && "Inquiry"}
+                          </Badge>
+                          <span className="font-mono font-bold text-emerald-300">₹{conv.quotedPrice.toLocaleString()}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </CardContent>
+            </Card>
+
+            {/* Right Column: Active Conversation Transcript View (8 cols) */}
+            {(() => {
+              const activeConv = guestConversations.find(c => c.id === selectedConversationId) || guestConversations[0];
+              if (!activeConv) return null;
+
+              return (
+                <Card className="lg:col-span-8 border-slate-800 bg-slate-950/60 shadow-md flex flex-col justify-between">
+                  {/* Active Chat Header */}
+                  <CardHeader className="p-4 border-b border-slate-800 flex flex-row items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className={cn(
+                        "size-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0",
+                        activeConv.channel === 'whatsapp' ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" : "bg-blue-500/20 text-blue-400 border border-blue-500/30"
+                      )}>
+                        {activeConv.channel === 'whatsapp' ? <MessageCircle size={18} /> : <Phone size={18} />}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <CardTitle className="text-sm font-bold text-white">{activeConv.guestName}</CardTitle>
+                          <Badge variant="outline" className={cn(
+                            "text-[10px]",
+                            activeConv.channel === 'whatsapp' ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" : "bg-blue-500/10 text-blue-400 border-blue-500/30"
+                          )}>
+                            {activeConv.channel === 'whatsapp' ? "WhatsApp Chat" : `AI Phone Call (${activeConv.duration || '2m'})`}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-slate-400 font-mono flex items-center gap-2 mt-0.5">
+                          <span>{activeConv.phone}</span>
+                          <span>•</span>
+                          <span className="text-amber-300">{activeConv.roomInterest}</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Button 
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          navigator.clipboard.writeText(activeConv.phone);
+                          toast.success(`Copied ${activeConv.phone}!`);
+                        }}
+                        className="h-7 text-xs border-slate-700 text-slate-300 hover:bg-slate-800 cursor-pointer gap-1"
+                      >
+                        <Copy size={11} /> Copy Phone
+                      </Button>
+                      <Button 
+                        size="sm"
+                        onClick={() => {
+                          const cleanPhone = activeConv.phone.replace(/[^0-9]/g, '');
+                          window.open(`https://wa.me/${cleanPhone}`, '_blank');
+                        }}
+                        className="h-7 bg-emerald-600 hover:bg-emerald-700 text-white text-xs cursor-pointer gap-1"
+                      >
+                        <MessageCircle size={12} /> Open WhatsApp
+                      </Button>
+                    </div>
+                  </CardHeader>
+
+                  {/* Message Stream Body */}
+                  <CardContent className="p-4 flex-1 overflow-y-auto max-h-[420px] space-y-3.5 bg-slate-950/40">
+                    {activeConv.messages.map((msg, idx) => (
+                      <div 
+                        key={idx}
+                        className={cn(
+                          "flex flex-col max-w-[85%] space-y-1.5",
+                          msg.sender === 'guest' ? "self-start" : "self-end items-end"
+                        )}
+                      >
+                        <div className="flex items-center gap-1.5 text-[10px] text-slate-400">
+                          <span className="font-semibold">{msg.sender === 'guest' ? activeConv.guestName : 'Leadzo AI Receptionist'}</span>
+                          <span>•</span>
+                          <span>{msg.time}</span>
+                        </div>
+
+                        <div className={cn(
+                          "p-3 rounded-2xl text-xs leading-relaxed shadow-sm space-y-2.5",
+                          msg.sender === 'guest' 
+                            ? "bg-slate-900 border border-slate-800 text-slate-200 rounded-tl-none" 
+                            : "bg-gradient-to-br from-indigo-950/80 to-slate-900 border border-indigo-500/30 text-white rounded-tr-none"
+                        )}>
+                          <p>{msg.text}</p>
+
+                          {/* Media Gallery Attachments (if sent by AI) */}
+                          {msg.mediaUrls && msg.mediaUrls.length > 0 && (
+                            <div className="p-2 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1.5">
+                              <span className="text-[10px] font-semibold text-amber-300 flex items-center gap-1">
+                                <ImageIcon size={11} /> 4 High-Res Room & Pool Photos Dispatched:
+                              </span>
+                              <div className="grid grid-cols-2 gap-1.5">
+                                {msg.mediaUrls.map((url, i) => (
+                                  <img 
+                                    key={i} 
+                                    src={url} 
+                                    alt="Hotel Preview" 
+                                    className="rounded-lg object-cover w-full h-20 border border-slate-800"
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Google Maps Location Card (if sent by AI) */}
+                          {msg.locationUrl && (
+                            <a 
+                              href={msg.locationUrl} 
+                              target="_blank" 
+                              rel="noreferrer"
+                              className="p-2.5 rounded-xl bg-blue-950/40 border border-blue-500/30 hover:border-blue-400 transition-colors flex items-center justify-between gap-2 text-[11px] text-blue-200 group block"
+                            >
+                              <div className="flex items-center gap-2">
+                                <MapPin size={14} className="text-blue-400 shrink-0" />
+                                <div>
+                                  <p className="font-semibold text-blue-300">King Villa & Resort Live Location</p>
+                                  <p className="text-[10px] text-slate-400 font-mono truncate max-w-[220px]">{msg.locationUrl}</p>
+                                </div>
+                              </div>
+                              <ArrowRight size={13} className="text-blue-400 group-hover:translate-x-0.5 transition-transform" />
+                            </a>
+                          )}
+
+                          {/* Razorpay Dynamic Payment Link Card */}
+                          {msg.paymentLink && (
+                            <div className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/30 space-y-2">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[11px] font-bold text-emerald-300 flex items-center gap-1">
+                                  <CreditCard size={12} /> Instant Razorpay Payment Link
+                                </span>
+                                <Badge className="bg-emerald-500 text-slate-950 text-[9px] font-bold">
+                                  ₹{(msg.paymentAmount || activeConv.quotedPrice).toLocaleString()}
+                                </Badge>
+                              </div>
+                              <p className="text-[10px] text-slate-300">
+                                ⚡ Paying via this link instantly triggers 1-sec calendar auto-blocking on Goibibo, Airbnb, and Agoda.
+                              </p>
+                              <Button 
+                                size="sm" 
+                                onClick={() => {
+                                  window.open(msg.paymentLink, '_blank');
+                                }}
+                                className="w-full h-7 bg-emerald-600 hover:bg-emerald-700 text-white text-xs cursor-pointer font-semibold"
+                              >
+                                View Payment Checkout &rarr;
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </CardContent>
+
+                  {/* Manual Takeover / Quick Reply Footer */}
+                  <div className="p-3 border-t border-slate-800 bg-slate-900/80 flex items-center gap-2">
+                    <Input 
+                      placeholder={`Reply to ${activeConv.guestName} on WhatsApp...`}
+                      value={manualReplyText}
+                      onChange={(e) => setManualReplyText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleSendManualReply(activeConv.id);
+                      }}
+                      className="text-xs bg-slate-950 border-slate-800 text-white h-8 flex-1"
+                    />
+                    <Button 
+                      size="sm" 
+                      onClick={() => handleSendManualReply(activeConv.id)}
+                      className="h-8 bg-indigo-600 hover:bg-indigo-700 text-white text-xs cursor-pointer px-3 shrink-0 gap-1 font-semibold"
+                    >
+                      <Send size={12} /> Send Reply
+                    </Button>
+                  </div>
+                </Card>
+              );
+            })()}
           </div>
         </TabsContent>
 
