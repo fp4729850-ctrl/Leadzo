@@ -732,6 +732,28 @@ export default function HotelLeadManagerPage() {
   const [isSimulatingPayment, setIsSimulatingPayment] = useState(false);
   const [simulationStep, setSimulationStep] = useState<number | null>(null);
 
+  // 📞 Phone Numbers & Live Call Forwarding / Escalation State
+  const [hotelPersonalPhone, setHotelPersonalPhone] = useState(() => {
+    return localStorage.getItem("leadzo_hotel_personal_phone") || "+91 9726846660";
+  });
+  const [managerEscalationPhone, setManagerEscalationPhone] = useState(() => {
+    return localStorage.getItem("leadzo_hotel_manager_escalation_phone") || "";
+  });
+  const [isSavingPhoneNumbers, setIsSavingPhoneNumbers] = useState(false);
+
+  const handleSavePhoneNumbers = () => {
+    setIsSavingPhoneNumbers(true);
+    try {
+      localStorage.setItem("leadzo_hotel_personal_phone", hotelPersonalPhone);
+      localStorage.setItem("leadzo_hotel_manager_escalation_phone", managerEscalationPhone);
+      toast.success(`💾 Phone Numbers Saved! Inbound & AI Live Escalation connected to ${managerEscalationPhone || hotelPersonalPhone}`);
+    } catch(e: any) {
+      toast.error("Failed to save phone numbers");
+    } finally {
+      setIsSavingPhoneNumbers(false);
+    }
+  };
+
   const webhookEndpointUrl = `https://api.leadzoai.com/functions/v1/hotel_payment_webhook?hotel_id=king-villa-01`;
 
   const handleSavePaymentSettings = () => {
@@ -932,6 +954,10 @@ export default function HotelLeadManagerPage() {
       } else {
         responseText = "Haan ji, bilkul! Rooms available hain. Hamare paas do options hain: ek ₹2,500 wala Super Deluxe Room (jo thoda bada aur spacious hai), aur doosra ₹1,800 wala Deluxe Room (jo medium-size comfortable room hai). Dono me AC, Free Breakfast aur High-Speed Wi-Fi included hai. Aapko kaun sa pasand aayega?";
       }
+    } else if (q.includes("manager") || q.includes("owner") || q.includes("malik") || q.includes("discount") || q.includes("kam karo") || q.includes("deal") || q.includes("party") || q.includes("wedding") || q.includes("shadi") || q.includes("event") || q.includes("group") || q.includes("bulk") || q.includes("baat karni")) {
+      const targetPhone = managerEscalationPhone || hotelPersonalPhone || "+91 9726846660";
+      responseText = `Ji bilkul! Is special request aur custom enquiry ke liye main aapki call turant hamare Senior Hotel Manager (${targetPhone}) se connect kar raha hoon. Kripya line par bane rahein...`;
+      toast.info(`📞 Live Call Escalation: Forwarding call to Hotel Manager (${targetPhone})...`, { duration: 5000 });
     } else {
       responseText = "Namaste! King Villa Resort & Suites me Rooms available hain (₹2,500 bada room / ₹1,800 medium room). Swimming pool, free Wi-Fi, aur 24-hour free cancellation included hai. Kya main aapke WhatsApp par payment link bhej doon?";
     }
@@ -1102,6 +1128,10 @@ export default function HotelLeadManagerPage() {
     {
       guest: "Kya hum pets ko saath la sakte hain aur alcohol allowed hai?",
       ai: `${villaQuestions.find(v => v.id === "q_pets")?.enabled ? "Haan ji, villa pet-friendly hai with prior intimation." : "Pets property par allowed nahi hain."} ${villaQuestions.find(v => v.id === "q_alcohol")?.enabled ? "Alcohol private villa me responsibly allowed hai." : "Property strictly dry / non-alcoholic hai."}`
+    },
+    {
+      guest: "Hum 40 logon ka group hain aur wedding function ke liye bulk discount chahiye, kya owner se baat ho sakti hai?",
+      ai: "Ji bilkul! 40 logon ki wedding booking aur special group discount ke liye main aapki call turant hamare Senior Hotel Manager se connect kar raha hoon. Kripya line par bane rahein..."
     },
     {
       guest: "Check-in ke time par kya ID proof compulsory hai?",
@@ -4223,49 +4253,88 @@ export default function HotelLeadManagerPage() {
 
             <CardContent className="p-4 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <Label className="text-xs font-medium">Your Personal / Hotel Mobile Number</Label>
-                  <Input defaultValue="+91 9726846668" className="text-xs font-mono bg-background" />
-                  <p className="text-[10px] text-muted-foreground">Calls to this number will be auto-handled by Leadzo AI Voice Manager</p>
+                {/* Primary Hotel Mobile Number */}
+                <div className="space-y-1.5 p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-semibold text-slate-200 flex items-center gap-1.5">
+                      <Phone size={13} className="text-emerald-400" /> Your Personal / Hotel Mobile Number
+                    </Label>
+                    <Badge variant="outline" className="text-[9px] bg-emerald-500/10 text-emerald-400 border-emerald-500/30">
+                      Primary Inbound
+                    </Badge>
+                  </div>
+                  <div className="flex gap-2">
+                    <Input 
+                      value={hotelPersonalPhone} 
+                      onChange={(e) => setHotelPersonalPhone(e.target.value)}
+                      placeholder="+91 9726846660" 
+                      className="text-xs font-mono bg-slate-950 border-slate-800 text-white h-8 flex-1" 
+                    />
+                    <Button 
+                      onClick={handleSavePhoneNumbers}
+                      disabled={isSavingPhoneNumbers}
+                      className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white text-xs cursor-pointer px-3 shrink-0 gap-1"
+                    >
+                      <Check size={12} /> Save
+                    </Button>
+                  </div>
+                  <p className="text-[10px] text-slate-400">Calls to this number will be auto-handled by Leadzo AI Voice Manager</p>
                 </div>
 
-                <div className="space-y-1">
-                  <Label className="text-xs text-indigo-300 font-medium">Leadzo AI Virtual Inbound Number</Label>
-                  <div className="flex gap-2 items-center">
-                    <div className="relative flex-1">
-                      <Input readOnly value={activeNumber || "+1 928 963 5202"} className="text-xs font-mono bg-indigo-500/10 border-indigo-500/30 text-indigo-200 font-bold pr-8" />
-                      {activeNumber && (
-                        <Button 
-                          size="icon" 
-                          variant="ghost" 
-                          className="absolute right-1 top-1 h-7 w-7 text-indigo-300 hover:text-indigo-100 hover:bg-indigo-500/20"
-                          onClick={() => {
-                            navigator.clipboard.writeText(activeNumber);
-                            toast.success("Number Copied!");
-                          }}
-                        >
-                          <Copy size={12} />
-                        </Button>
-                      )}
-                    </div>
-                    {!activeNumber ? (
-                      <Button 
-                        onClick={() => setIsBuyNumberModalOpen(true)}
-                        className="shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer h-9 px-3 text-xs"
-                      >
-                        Buy via Vapi
-                      </Button>
-                    ) : (
-                      <Button 
-                        onClick={() => toast.success(`${activeNumber} is active for AI Call Guard!`)}
-                        variant="outline"
-                        className="shrink-0 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/30 cursor-pointer h-9 px-3 text-xs font-semibold"
-                      >
-                        Active
-                      </Button>
-                    )}
+                {/* Secondary / Manager Escalation Call Transfer Number */}
+                <div className="space-y-1.5 p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-semibold text-indigo-300 flex items-center gap-1.5">
+                      <PhoneCall size={13} className="text-indigo-400" /> Senior Manager Call Escalation (Optional)
+                    </Label>
+                    <Badge variant="outline" className="text-[9px] bg-indigo-500/10 text-indigo-400 border-indigo-500/30">
+                      Live Call Transfer
+                    </Badge>
                   </div>
-                  <p className="text-[10px] text-indigo-300/70">Target AI Number for Instant Call Forwarding</p>
+                  <div className="flex gap-2">
+                    <Input 
+                      value={managerEscalationPhone} 
+                      onChange={(e) => setManagerEscalationPhone(e.target.value)}
+                      placeholder="e.g. +91 98765 43210 (Optional Manager Number)" 
+                      className="text-xs font-mono bg-slate-950 border-slate-800 text-indigo-200 h-8 flex-1" 
+                    />
+                    <Button 
+                      onClick={handleSavePhoneNumbers}
+                      disabled={isSavingPhoneNumbers}
+                      className="h-8 bg-indigo-600 hover:bg-indigo-700 text-white text-xs cursor-pointer px-3 shrink-0 gap-1"
+                    >
+                      <Check size={12} /> Save
+                    </Button>
+                  </div>
+                  <p className="text-[10px] text-indigo-300/80">
+                    AI will forward call here if guest asks for discounts, parties, or owner ({managerEscalationPhone ? managerEscalationPhone : 'Defaults to Primary Number'})
+                  </p>
+                </div>
+              </div>
+
+              {/* Leadzo Virtual Number Banner */}
+              <div className="p-3 rounded-xl bg-indigo-950/30 border border-indigo-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="space-y-0.5">
+                  <span className="text-xs font-semibold text-indigo-300 flex items-center gap-1.5">
+                    <Globe size={13} /> Leadzo AI Virtual Inbound Target Number:
+                  </span>
+                  <p className="text-[10px] text-slate-300">Set call forwarding on your mobile to this virtual number</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs font-bold text-emerald-300 bg-emerald-500/10 px-2.5 py-1 rounded border border-emerald-500/20">
+                    {activeNumber || "+1 928 963 5202"}
+                  </span>
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => {
+                      navigator.clipboard.writeText(activeNumber || "+19289635202");
+                      toast.success("Virtual Number Copied!");
+                    }}
+                    className="h-7 text-xs border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/10 cursor-pointer gap-1"
+                  >
+                    <Copy size={11} /> Copy
+                  </Button>
                 </div>
               </div>
 
