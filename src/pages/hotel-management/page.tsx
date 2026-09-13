@@ -924,16 +924,16 @@ export default function HotelLeadManagerPage() {
         : (qFood?.aiNoResponseHindi || "Property me in-house chef available nahi hai, lekin aap Swiggy/Zomato se order kar sakte hain.");
     } else if (q.includes("check in") || q.includes("checkin") || q.includes("checkout") || q.includes("check out") || q.includes("timing") || q.includes("samay")) {
       responseText = "Hamara standard Check-in time dopahar 12:00 PM hai aur standard Check-out time subah 11:00 AM hai. Early check-in room availability par depend karta hai.";
-    } else if (q.includes("price") || q.includes("rate") || q.includes("cost") || q.includes("kitna") || q.includes("room") || q.includes("available") || q.includes("booking") || q.includes("villa") || q.includes("charge")) {
-      const matchedRoom = rooms.find(r => q.includes(r.number.toLowerCase()) || (r.type && q.includes(r.type.toLowerCase())));
-      if (matchedRoom) {
-        responseText = `${matchedRoom.number} (${matchedRoom.type}) ka price per night ₹${(matchedRoom.pricePerNight || 1800).toLocaleString()} hai. Isme Free Breakfast, AC, private attached washroom aur High-speed Wi-Fi included hai. Kya main aapke WhatsApp par instant booking aur Razorpay payment link bhej doon?`;
+    } else if (q.includes("price") || q.includes("rate") || q.includes("cost") || q.includes("kitna") || q.includes("room") || q.includes("available") || q.includes("booking") || q.includes("villa") || q.includes("charge") || q.includes("kamra")) {
+      if (q.includes("room 1") || q.includes("super deluxe") || q.includes("2500") || q.includes("bada")) {
+        responseText = "Room 1 hamara Super Deluxe room hai jo thoda bada aur spacious hai king bed ke sath. Iska price ₹2,500/night hai jisme Free Breakfast, AC, private attached washroom aur Wi-Fi included hai. Kya main aapke WhatsApp par direct payment link bhej doon?";
+      } else if (q.includes("room 2") || q.includes("room 3") || q.includes("room 4") || q.includes("1800") || q.includes("deluxe") || q.includes("medium")) {
+        responseText = "Room 2, 3 aur 4 hamare Standard Deluxe rooms hain jo medium-size comfortable rooms hain. Inka price ₹1,800/night hai jisme Free Breakfast, AC, private washroom aur Wi-Fi included hai. Kya main aapke WhatsApp par payment link bhej doon?";
       } else {
-        const rateList = rooms.map(r => `${r.number}: ₹${(r.pricePerNight || 1800).toLocaleString()}`).join(", ");
-        responseText = `King Villa me rooms available hain (${rateList}). Sabhi rooms me Free Breakfast, AC & High-speed Wi-Fi included hai. Kya main aapke WhatsApp par direct booking aur payment link bhej doon?`;
+        responseText = "Haan ji, bilkul! Rooms available hain. Hamare paas do options hain: ek ₹2,500 wala Super Deluxe Room (jo thoda bada aur spacious hai), aur doosra ₹1,800 wala Deluxe Room (jo medium-size comfortable room hai). Dono me AC, Free Breakfast aur High-Speed Wi-Fi included hai. Aapko kaun sa pasand aayega?";
       }
     } else {
-      responseText = "Namaste! King Villa Resort & Suites me Rooms available hain. Swimming pool, free Wi-Fi, aur 24-hour free cancellation included hai. Kya main aapki booking lock kar doon?";
+      responseText = "Namaste! King Villa Resort & Suites me Rooms available hain (₹2,500 bada room / ₹1,800 medium room). Swimming pool, free Wi-Fi, aur 24-hour free cancellation included hai. Kya main aapke WhatsApp par payment link bhej doon?";
     }
 
     setTimeout(() => {
@@ -1078,8 +1078,8 @@ export default function HotelLeadManagerPage() {
   const [previewQueryIndex, setPreviewQueryIndex] = useState(0);
   const sampleQueries = [
     {
-      guest: "Namaste, kya Sept 15 ko Room 1 aur Room 2 available hain aur unka price kya hai?",
-      ai: "Namaste! Haan, Sept 15 ke liye Room 1 (Super Deluxe) ₹2,500/night aur Room 2 (Small Deluxe) ₹1,800/night me available hai. Free Breakfast & High-speed Wi-Fi included hai. Kya main aapke WhatsApp par instant booking aur Razorpay payment link bhej doon?"
+      guest: "Namaste, kya weekend ke liye rooms available hain aur pricing kya hai?",
+      ai: "Haan ji, bilkul! Rooms available hain. Hamare paas do options hain: ek ₹2,500 wala Super Deluxe Room (thoda bada aur spacious room) aur doosra ₹1,800 wala Deluxe Room (medium-sized comfortable room). Dono me Free Breakfast, AC aur Wi-Fi included hai. Aap kaun sa book karna chahenge?"
     },
     {
       guest: "Kya villa me swimming pool hai aur use karne ke timings kya hain?",
