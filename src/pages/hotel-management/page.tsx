@@ -576,6 +576,119 @@ export default function HotelLeadManagerPage() {
     setIsDictatingPolicy(false);
   };
 
+  // 💰 Dynamic Room Rates & Categories Management State (Synced to AI Voice Brain)
+  const [isManageRoomRatesOpen, setIsManageRoomRatesOpen] = useState(false);
+  const [editableRoomRates, setEditableRoomRates] = useState<{ id: string; number: string; type: string; price: number }[]>([]);
+  const [newRoomNumberInput, setNewRoomNumberInput] = useState("");
+  const [newRoomTypeInput, setNewRoomTypeInput] = useState("Deluxe Room");
+  const [newRoomPriceInput, setNewRoomPriceInput] = useState<number | string>(1800);
+  const [isAddingNewRoomUnit, setIsAddingNewRoomUnit] = useState(false);
+  const [isSavingRoomRates, setIsSavingRoomRates] = useState(false);
+
+  const openManageRoomRatesModal = () => {
+    setEditableRoomRates(rooms.map(r => ({
+      id: r.id,
+      number: r.number,
+      type: r.type,
+      price: r.pricePerNight || 1800
+    })));
+    setIsManageRoomRatesOpen(true);
+  };
+
+  const handleUpdateSingleRoomRate = (id: string, updates: Partial<{ number: string; type: string; price: number }>) => {
+    setEditableRoomRates(prev => prev.map(r => r.id === id ? { ...r, ...updates } : r));
+  };
+
+  const handleAddNewRoomUnit = async () => {
+    if (!newRoomNumberInput.trim()) {
+      toast.error("Please enter a Room Number / Name (e.g. Room 5 or Executive Suite).");
+      return;
+    }
+    const priceNum = Number(newRoomPriceInput) || 1800;
+    setIsAddingNewRoomUnit(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not logged in");
+
+      const masterIcal = `https://stbqeiapgdaklktrlrjm.supabase.co/functions/v1/leadzo_master_ical?user_id=${user.id}&room_id=${crypto.randomUUID()}`;
+      
+      const { data, error } = await supabase.from('hotel_rooms').insert({
+        user_id: user.id,
+        number: newRoomNumberInput.trim(),
+        type: newRoomTypeInput.trim(),
+        price_per_night: priceNum,
+        master_export_ical: masterIcal,
+        ical_links: { direct: masterIcal }
+      }).select().single();
+
+      if (error) throw error;
+
+      const newRoomObj: Room = {
+        id: data.id,
+        number: data.number,
+        type: data.type,
+        pricePerNight: data.price_per_night,
+        masterExportIcal: data.master_export_ical,
+        icalLinks: data.ical_links || {}
+      };
+
+      setRooms(prev => [...prev, newRoomObj]);
+      setEditableRoomRates(prev => [...prev, { id: data.id, number: data.number, type: data.type, price: data.price_per_night }]);
+
+      setNewRoomNumberInput("");
+      setNewRoomPriceInput(1800);
+      toast.success(`➕ "${newRoomObj.number}" added and trained into AI Voice Brain!`);
+    } catch (e: any) {
+      toast.error(`Error adding room: ${e.message || e}`);
+    } finally {
+      setIsAddingNewRoomUnit(false);
+    }
+  };
+
+  const handleDeleteRoomUnit = async (id: string, roomNumber: string) => {
+    try {
+      await supabase.from('hotel_rooms').delete().eq('id', id);
+      setRooms(prev => prev.filter(r => r.id !== id));
+      setEditableRoomRates(prev => prev.filter(r => r.id !== id));
+      toast.info(`Room "${roomNumber}" removed.`);
+    } catch (e: any) {
+      toast.error(`Failed to delete room: ${e.message || e}`);
+    }
+  };
+
+  const handleSaveAllRoomRates = async () => {
+    setIsSavingRoomRates(true);
+    try {
+      for (const item of editableRoomRates) {
+        await supabase.from('hotel_rooms').update({
+          number: item.number,
+          type: item.type,
+          price_per_night: Number(item.price) || 1800
+        }).eq('id', item.id);
+      }
+
+      setRooms(prev => prev.map(r => {
+        const match = editableRoomRates.find(e => e.id === r.id);
+        if (match) {
+          return {
+            ...r,
+            number: match.number,
+            type: match.type,
+            pricePerNight: Number(match.price) || 1800
+          };
+        }
+        return r;
+      }));
+
+      toast.success("✨ All Room Rates updated! AI Voice Receptionist brain trained with new rates.");
+      setIsManageRoomRatesOpen(false);
+    } catch (e: any) {
+      toast.error(`Failed to save rates: ${e.message || e}`);
+    } finally {
+      setIsSavingRoomRates(false);
+    }
+  };
+
   // 📞 Dual-Engine Live AI Voice Receptionist State (Web Speech + Native Audio + Vapi)
   const [isVapiVoiceModalOpen, setIsVapiVoiceModalOpen] = useState(false);
   const [vapiCallStatus, setVapiCallStatus] = useState<"idle" | "loading" | "active" | "error">("idle");
@@ -712,15 +825,15 @@ export default function HotelLeadManagerPage() {
     } else if (q.includes("check in") || q.includes("checkin") || q.includes("checkout") || q.includes("check out") || q.includes("timing") || q.includes("samay")) {
       responseText = "Hamara standard Check-in time dopahar 12:00 PM hai aur standard Check-out time subah 11:00 AM hai. Early check-in room availability par depend karta hai.";
     } else if (q.includes("price") || q.includes("rate") || q.includes("cost") || q.includes("kitna") || q.includes("room") || q.includes("available") || q.includes("booking") || q.includes("villa") || q.includes("charge")) {
-      if (q.includes("room 1") || q.includes("super deluxe") || q.includes("first")) {
-        responseText = "Room 1 (Super Deluxe) ka price per night ₹2,500 hai. Isme Free Breakfast, AC, private attached washroom aur High-speed Wi-Fi included hai. Kya main aapke WhatsApp par instant booking aur Razorpay payment link bhej doon?";
-      } else if (q.includes("room 2") || q.includes("room 3") || q.includes("room 4") || q.includes("small deluxe") || q.includes("deluxe")) {
-        responseText = "Small Deluxe Rooms (Room 2, 3 & 4) ka price per night sirf ₹1,800 hai jisme AC, attached washroom aur Wi-Fi included hai. Kya main aapke WhatsApp par instant booking link bhej doon?";
+      const matchedRoom = rooms.find(r => q.includes(r.number.toLowerCase()) || (r.type && q.includes(r.type.toLowerCase())));
+      if (matchedRoom) {
+        responseText = `${matchedRoom.number} (${matchedRoom.type}) ka price per night ₹${(matchedRoom.pricePerNight || 1800).toLocaleString()} hai. Isme Free Breakfast, AC, private attached washroom aur High-speed Wi-Fi included hai. Kya main aapke WhatsApp par instant booking aur Razorpay payment link bhej doon?`;
       } else {
-        responseText = "King Villa me Room 1 (Super Deluxe) ₹2,500 per night hai aur Rooms 2, 3, 4 (Small Deluxe) sirf ₹1,800 per night hain. Isme Free Breakfast & High-speed Wi-Fi included hai. Kya main aapke WhatsApp par direct booking link bhej doon?";
+        const rateList = rooms.map(r => `${r.number}: ₹${(r.pricePerNight || 1800).toLocaleString()}`).join(", ");
+        responseText = `King Villa me rooms available hain (${rateList}). Sabhi rooms me Free Breakfast, AC & High-speed Wi-Fi included hai. Kya main aapke WhatsApp par direct booking aur payment link bhej doon?`;
       }
     } else {
-      responseText = "Namaste! King Villa Resort & Suites me Rooms ₹1,800 se ₹2,500 per night me available hain. Swimming pool, free Wi-Fi, aur 24-hour free cancellation included hai. Kya main aapki booking lock kar doon?";
+      responseText = "Namaste! King Villa Resort & Suites me Rooms available hain. Swimming pool, free Wi-Fi, aur 24-hour free cancellation included hai. Kya main aapki booking lock kar doon?";
     }
 
     setTimeout(() => {
@@ -4115,6 +4228,50 @@ export default function HotelLeadManagerPage() {
             </CardContent>
           </Card>
 
+          {/* 💰 Room Categories & Dynamic Rates Configuration Bar */}
+          <Card className="border-border bg-gradient-to-r from-emerald-500/10 via-indigo-500/10 to-blue-500/10 shadow-sm">
+            <CardContent className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                    <DollarSign size={16} />
+                  </div>
+                  <h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
+                    Room Categories & Pricing (Live in AI Voice Brain)
+                  </h3>
+                  <Badge variant="outline" className="text-[10px] bg-emerald-500/20 text-emerald-300 border-emerald-500/40">
+                    {rooms.length} Units Active
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  AI Receptionist automatically quotes these rates on phone calls and generates dynamic Razorpay payment links for callers.
+                </p>
+                <div className="flex flex-wrap items-center gap-2 pt-1.5">
+                  {rooms.map(r => (
+                    <div 
+                      key={r.id} 
+                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-card/80 border border-border text-xs shadow-xs"
+                    >
+                      <BedDouble size={12} className="text-emerald-400" />
+                      <span className="font-medium text-slate-200">{r.number}</span>
+                      <span className="text-[10px] text-muted-foreground truncate max-w-[120px]">({r.type})</span>
+                      <span className="font-bold text-emerald-300 bg-emerald-500/15 px-1.5 py-0.2 rounded text-[11px]">
+                        ₹{(r.pricePerNight || 1800).toLocaleString()}/night
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <Button
+                onClick={() => openManageRoomRatesModal()}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer h-9 text-xs font-semibold gap-1.5 shadow-md shrink-0 self-start md:self-center"
+              >
+                <Plus size={14} /> 💰 Add Room / Edit Rates
+              </Button>
+            </CardContent>
+          </Card>
+
           {/* Hotel Policies & Live Preview Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             
@@ -4586,6 +4743,168 @@ export default function HotelLeadManagerPage() {
                 </div>
               </div>
             </Tabs>
+          </DialogContent>
+        </Dialog>
+
+        {/* Modal: Manage Room Categories & Dynamic Rates Configuration */}
+        <Dialog open={isManageRoomRatesOpen} onOpenChange={setIsManageRoomRatesOpen}>
+          <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col p-0 bg-slate-950 border-slate-800 text-white shadow-2xl">
+            <DialogHeader className="p-5 pb-3 border-b border-slate-800 bg-slate-900/80">
+              <DialogTitle className="text-base font-semibold flex items-center gap-2 text-white">
+                <DollarSign className="size-5 text-emerald-400" /> Room Categories & Pricing Configuration
+              </DialogTitle>
+              <DialogDescription className="text-xs text-slate-400">
+                Set custom room numbers, room types (Super Deluxe, Deluxe, Suite, etc.) and per-night pricing. AI Voice Manager will immediately quote these exact prices to callers.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="flex-1 overflow-y-auto p-5 space-y-5">
+              {/* Quick Add New Room Unit Section */}
+              <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-emerald-400 flex items-center gap-1.5">
+                    <Plus size={14} /> Add New Room / Unit (e.g. 5, 10, 20 Rooms)
+                  </span>
+                  <span className="text-[10px] text-slate-400">Unlimited Rooms Supported</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-slate-300">Room Name / Number</Label>
+                    <Input 
+                      placeholder="e.g. Room 5 or Luxury Suite" 
+                      value={newRoomNumberInput} 
+                      onChange={(e) => setNewRoomNumberInput(e.target.value)} 
+                      className="text-xs bg-slate-950 border-slate-800 text-white h-8"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-slate-300">Category / Type</Label>
+                    <Input 
+                      placeholder="e.g. Super Deluxe / Executive Suite" 
+                      value={newRoomTypeInput} 
+                      onChange={(e) => setNewRoomTypeInput(e.target.value)} 
+                      className="text-xs bg-slate-950 border-slate-800 text-white h-8"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-slate-300">Price / Night (₹)</Label>
+                    <div className="flex gap-1.5">
+                      <Input 
+                        type="number"
+                        placeholder="1800" 
+                        value={newRoomPriceInput} 
+                        onChange={(e) => setNewRoomPriceInput(e.target.value)} 
+                        className="text-xs bg-slate-950 border-slate-800 text-white h-8 font-mono"
+                      />
+                      <Button 
+                        type="button" 
+                        onClick={handleAddNewRoomUnit}
+                        disabled={isAddingNewRoomUnit}
+                        className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white text-xs cursor-pointer px-3 shrink-0 gap-1"
+                      >
+                        <Plus size={13} /> Add
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Existing Configured Rooms List */}
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-semibold text-slate-200">
+                    Configured Rooms & Rates ({editableRoomRates.length} Units)
+                  </Label>
+                  <span className="text-[10px] text-emerald-400">Live in AI Voice Brain</span>
+                </div>
+
+                <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1">
+                  {editableRoomRates.map((r) => (
+                    <div 
+                      key={r.id} 
+                      className="p-3 rounded-lg border border-slate-800 bg-slate-900/40 hover:bg-slate-900/70 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                    >
+                      <div className="flex items-center gap-2.5 flex-1">
+                        <div className="p-2 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">
+                          <BedDouble size={16} />
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 flex-1">
+                          <div>
+                            <span className="text-[10px] text-slate-400">Room Name:</span>
+                            <Input 
+                              value={r.number} 
+                              onChange={(e) => handleUpdateSingleRoomRate(r.id, { number: e.target.value })} 
+                              className="text-xs bg-slate-950 border-slate-800 text-white h-7 mt-0.5"
+                            />
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-slate-400">Category / Type:</span>
+                            <Input 
+                              value={r.type} 
+                              onChange={(e) => handleUpdateSingleRoomRate(r.id, { type: e.target.value })} 
+                              className="text-xs bg-slate-950 border-slate-800 text-white h-7 mt-0.5"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 sm:self-end">
+                        <div>
+                          <span className="text-[10px] text-slate-400">Rate / Night:</span>
+                          <div className="flex items-center gap-1 mt-0.5">
+                            <span className="text-xs font-bold text-emerald-400">₹</span>
+                            <Input 
+                              type="number"
+                              value={r.price} 
+                              onChange={(e) => handleUpdateSingleRoomRate(r.id, { price: Number(e.target.value) })} 
+                              className="text-xs font-mono font-bold bg-slate-950 border-slate-800 text-emerald-300 h-7 w-24"
+                            />
+                          </div>
+                        </div>
+                        {editableRoomRates.length > 1 && (
+                          <Button 
+                            onClick={() => handleDeleteRoomUnit(r.id, r.number)}
+                            size="icon" 
+                            variant="ghost" 
+                            className="h-7 w-7 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 cursor-pointer self-end"
+                            title="Delete Room Unit"
+                          >
+                            <Trash2 size={13} />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-slate-800 bg-slate-900/80 flex items-center justify-between">
+              <span className="text-[11px] text-slate-400">
+                Saving updates database & trains AI Receptionist voice brain
+              </span>
+              <div className="flex gap-2">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => setIsManageRoomRatesOpen(false)} 
+                  className="text-xs text-slate-400 hover:text-white cursor-pointer"
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  size="sm" 
+                  onClick={handleSaveAllRoomRates} 
+                  disabled={isSavingRoomRates}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs cursor-pointer gap-1.5 font-semibold"
+                >
+                  <Check size={14} /> 💾 Save Rates & Train AI Voice Brain
+                </Button>
+              </div>
+            </div>
           </DialogContent>
         </Dialog>
 
