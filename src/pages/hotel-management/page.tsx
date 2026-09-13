@@ -10,7 +10,7 @@ import {
   Eye, EyeOff, Mic, MicOff, PhoneCall, PhoneOff, Volume2, Trash2, PlusCircle, FileText, Sliders, Tag, Clock, Utensils, Waves, Dog, HelpCircle,
   Snowflake, Bath, Wifi, Car, Wine, UtensilsCrossed, FileCheck, CheckSquare, ListFilter,
   CreditCard, Wallet, Banknote, QrCode, Receipt, Upload, Image as ImageIcon,
-  Search, Send, MessageSquare, PhoneIncoming
+  Search, Send, MessageSquare, PhoneIncoming, Crown, Star, Gift, Zap
 } from "lucide-react";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, Legend } from "recharts";
 import { Button } from "@/components/ui/button.tsx";
@@ -26,6 +26,129 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { BuyVapiNumberModal } from "@/components/virtual-office/BuyVapiNumberModal";
+
+// 🎟️ Hotel Subscription Plans & 10-Day VIP Pilot Pass Configuration
+export interface HotelPlan {
+  id: string;
+  name: string;
+  badge?: string;
+  roomLimitText: string;
+  roomLimit: number;
+  monthlyPrice: number;
+  yearlyPrice: number;
+  tokenCredit: number;
+  costPerDay: string;
+  isPopular?: boolean;
+  highlightColor: string;
+  description: string;
+  features: string[];
+}
+
+export const VIP_TRIAL_PASS = {
+  id: "trial_10day",
+  name: "10-Day VIP Pilot Testing Pass",
+  badge: "🔥 NO-RISK PILOT TRIAL",
+  price: 499,
+  durationText: "10 Days Full Live Access",
+  tokenCredit: 200,
+  description: "Test live AI calls, WhatsApp 5-sec dispatch & 1-sec OTA auto-blocks on your real phone number with zero risk.",
+  perks: [
+    "Full Live Access for 10 Days on your Real Property",
+    "₹200 Free AI Calling & WhatsApp Token Credit (~50 calls / 300 chats)",
+    "24/7 Live AI Inbound Voice Receptionist + WhatsApp 5-Sec Dispatch",
+    "1-Sec Instant Goibibo/Airbnb Calendar Auto-Block",
+    "100% Money Adjusted when upgrading to any Monthly Plan"
+  ]
+};
+
+export const HOTEL_SUBSCRIPTION_PLANS: HotelPlan[] = [
+  {
+    id: "plan_starter",
+    name: "Starter Villa",
+    badge: "Small Villas & Homestays",
+    roomLimitText: "1 to 5 Rooms",
+    roomLimit: 5,
+    monthlyPrice: 2499,
+    yearlyPrice: 24990, // 2 Months Free
+    tokenCredit: 500,
+    costPerDay: "₹83 / day (₹16/room)",
+    highlightColor: "from-blue-500/20 to-cyan-500/10 border-blue-500/40",
+    description: "Ideal for 1-5 bedroom independent villas, homestays, and farmhouses.",
+    features: [
+      "24/7 AI Voice Receptionist in Hindi & English",
+      "5-Sec WhatsApp Auto-Pack (4 HD Photos + Maps Pin)",
+      "Direct Razorpay / UPI Instant Payment Collection",
+      "1-Sec OTA Calendar Auto-Block (Goibibo/Airbnb)",
+      "₹500 Included Free AI Calling & WhatsApp Balance",
+      "Live Guest Conversations Hub & Transcripts"
+    ]
+  },
+  {
+    id: "plan_boutique",
+    name: "Boutique Hotel",
+    badge: "⭐ MOST POPULAR",
+    isPopular: true,
+    roomLimitText: "6 to 10 Rooms",
+    roomLimit: 10,
+    monthlyPrice: 4499,
+    yearlyPrice: 44990, // 2 Months Free
+    tokenCredit: 800,
+    costPerDay: "₹150 / day (₹15/room)",
+    highlightColor: "from-amber-500/20 to-orange-500/10 border-amber-500/50 shadow-amber-500/10",
+    description: "Best for boutique hotels, guest houses, and prime heritage stays.",
+    features: [
+      "Everything in Starter Villa Plan",
+      "Up to 10 Rooms Multi-OTA Live Sync",
+      "Senior Manager Call Forwarding (35-50 Group Discounts)",
+      "2-Way AI WhatsApp Auto-Reply & Takeover",
+      "₹800 Included Free AI Calling & WhatsApp Balance",
+      "Multi-Channel Revenue & Booking Source Analytics",
+      "Fast-Track Priority Support"
+    ]
+  },
+  {
+    id: "plan_resort",
+    name: "Grand Resort",
+    badge: "For Growing Resorts",
+    roomLimitText: "11 to 20 Rooms",
+    roomLimit: 20,
+    monthlyPrice: 7999,
+    yearlyPrice: 79990, // 2 Months Free
+    tokenCredit: 1500,
+    costPerDay: "₹266 / day (₹13/room)",
+    highlightColor: "from-purple-500/20 to-pink-500/10 border-purple-500/40",
+    description: "Perfect for multi-room resorts, pool clubs, and luxury stays.",
+    features: [
+      "Everything in Boutique Hotel Plan",
+      "Up to 20 Rooms Independent Pricing Control",
+      "VIP Lead Scoring & Instant Telegram/WhatsApp Alerts",
+      "Bulk WhatsApp Promotional Broadcasts (Festivals/Offers)",
+      "₹1,500 Included Free AI Calling & WhatsApp Balance",
+      "Dedicated Relationship Manager Support"
+    ]
+  },
+  {
+    id: "plan_luxury",
+    name: "Luxury Chain",
+    badge: "Enterprise / Multi-Property",
+    roomLimitText: "20+ Rooms (Unlimited)",
+    roomLimit: 999,
+    monthlyPrice: 11999,
+    yearlyPrice: 119990, // 2 Months Free
+    tokenCredit: 2500,
+    costPerDay: "₹399 / day",
+    highlightColor: "from-emerald-500/20 to-teal-500/10 border-emerald-500/40",
+    description: "Full-scale solution for luxury hotel chains and multiple property clusters.",
+    features: [
+      "Unlimited Rooms & Multi-Property Dashboard",
+      "Custom Fine-Tuned AI Voice & Script Tone Training",
+      "Custom Payment Webhook & PMS API Integration",
+      "₹2,500 Included Free AI Calling & WhatsApp Balance",
+      "Dedicated 24/7 Technical Account Manager",
+      "Custom SLA & White-label Reports"
+    ]
+  }
+];
 
 interface OtaChannel {
   id: string;
@@ -817,6 +940,58 @@ export default function HotelLeadManagerPage() {
     setTimeout(() => {
       toast.success("✅ WhatsApp Media Pack Delivered! High-res photos, Google Maps Pin & Direct Booking link sent to guest WhatsApp.", { id: "wa-media-test", duration: 5000 });
     }, 1500);
+  };
+
+  // 🎟️ Hotel Subscription & 10-Day VIP Pilot Pass State
+  const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
+  const [selectedBillingCycle, setSelectedBillingCycle] = useState<"monthly" | "yearly">("monthly");
+  const [isActivatingPlan, setIsActivatingPlan] = useState(false);
+  const [hotelSubscription, setHotelSubscription] = useState(() => {
+    const saved = localStorage.getItem("leadzo_hotel_subscription");
+    if (saved) {
+      try { return JSON.parse(saved); } catch(e) {}
+    }
+    return {
+      planId: "trial_10day",
+      planName: "10-Day VIP Pilot Pass",
+      roomLimit: 5,
+      price: 499,
+      tokenBalance: 200,
+      status: "trial", // 'trial' | 'active' | 'expired'
+      daysLeft: 10,
+      isSubscribed: true,
+      billingCycle: "monthly"
+    };
+  });
+
+  const handleActivatePlan = (planId: string, isTrial: boolean = false) => {
+    setIsActivatingPlan(true);
+    const plan = isTrial ? null : HOTEL_SUBSCRIPTION_PLANS.find(p => p.id === planId);
+    const planName = isTrial ? VIP_TRIAL_PASS.name : (plan?.name || "Starter Villa");
+    const tokenBonus = isTrial ? VIP_TRIAL_PASS.tokenCredit : (plan?.tokenCredit || 500);
+    const roomLimit = isTrial ? 5 : (plan?.roomLimit || 5);
+    const pricePaid = isTrial ? 499 : (selectedBillingCycle === 'yearly' ? (plan?.yearlyPrice || 24990) : (plan?.monthlyPrice || 2499));
+
+    toast.loading(`⚡ Activating ${planName}...`, { id: "sub-activate" });
+
+    setTimeout(() => {
+      const newSub = {
+        planId: isTrial ? "trial_10day" : (plan?.id || "plan_starter"),
+        planName,
+        roomLimit,
+        price: pricePaid,
+        tokenBalance: (hotelSubscription.tokenBalance || 0) + tokenBonus,
+        status: isTrial ? "trial" : "active",
+        daysLeft: isTrial ? 10 : (selectedBillingCycle === 'yearly' ? 365 : 30),
+        isSubscribed: true,
+        billingCycle: selectedBillingCycle
+      };
+      setHotelSubscription(newSub);
+      localStorage.setItem("leadzo_hotel_subscription", JSON.stringify(newSub));
+      setIsActivatingPlan(false);
+      setIsSubscriptionModalOpen(false);
+      toast.success(`🎉 Congratulations! ${planName} is now ACTIVE! ₹${tokenBonus} AI Token Balance credited to your hotel account.`, { id: "sub-activate", duration: 6000 });
+    }, 1200);
   };
 
   // 💬 AI Guest Conversations & Call Transcripts State
@@ -2990,7 +3165,30 @@ export default function HotelLeadManagerPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+          {/* 🎟️ Active Hotel Subscription / VIP Pilot Badge */}
+          <button 
+            onClick={() => setIsSubscriptionModalOpen(true)}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 text-xs shadow-sm hover:border-amber-500/50 hover:from-amber-500/20 transition-all cursor-pointer group"
+          >
+            <Crown size={14} className="text-amber-400 group-hover:rotate-12 transition-transform" />
+            <div className="flex items-center gap-1.5">
+              <span className="font-semibold text-amber-300 text-xs">{hotelSubscription.planName}</span>
+              <span className="text-[10px] text-slate-400">({hotelSubscription.daysLeft}d left)</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 font-mono font-bold">₹{hotelSubscription.tokenBalance} AI Bal</span>
+            </div>
+          </button>
+
+          <Button 
+            onClick={() => setIsSubscriptionModalOpen(true)} 
+            variant="default" 
+            size="sm" 
+            className="gap-2 cursor-pointer bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-slate-950 font-semibold shadow-md shadow-amber-500/20"
+          >
+            <Sparkles size={14} />
+            Plans & VIP Trial (₹499)
+          </Button>
+
           {/* ⏱️ 3-Minute Live Auto-Sync Timeline Badge */}
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/10 text-xs shadow-sm">
             <span className="relative flex h-2 w-2">
@@ -3005,12 +3203,55 @@ export default function HotelLeadManagerPage() {
 
           <Button onClick={handleAiAutoMatchRooms} disabled={isAiMatching} variant="secondary" size="sm" className="gap-2 cursor-pointer border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20">
             <Wand2 size={14} className={cn(isAiMatching && "animate-spin text-amber-400")} />
-            {isAiMatching ? "AI Matching..." : "AI Auto-Match Rooms"}
+            {isAiMatching ? "AI Matching..." : "AI Auto-Match"}
           </Button>
           <Button onClick={handleSyncAll} disabled={isSyncingAll} variant="outline" size="sm" className="gap-2 cursor-pointer border-border hover:bg-muted">
             <RefreshCw size={14} className={cn(isSyncingAll && "animate-spin text-amber-400")} />
-            {isSyncingAll ? "Syncing..." : "Sync All Rooms"}
+            {isSyncingAll ? "Syncing..." : "Sync All"}
           </Button>
+        </div>
+      </div>
+
+      {/* 🚀 Top VIP Pilot Pass & Room Subscription Promotional Banner */}
+      <div className="relative overflow-hidden rounded-xl border border-amber-500/30 bg-gradient-to-r from-amber-950/40 via-slate-900 to-indigo-950/40 p-4 shadow-lg">
+        <div className="absolute -top-12 -right-12 size-40 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
+          <div className="flex items-start sm:items-center gap-3.5">
+            <div className="size-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center shrink-0 text-amber-400 shadow-inner">
+              <Gift size={20} className="animate-bounce" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 text-[10px] uppercase tracking-wider font-bold">
+                  🔥 10-Day VIP Pilot Pass @ ₹499 Only
+                </Badge>
+                <span className="text-xs text-slate-300 font-medium">
+                  Test Live AI Voice Receptionist + WhatsApp 5-Sec Auto-Pack on your Real Phone
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 mt-1">
+                Includes ₹200 free AI token balance • 1-Sec OTA auto-block • 100% money adjusted when upgrading to Starter (₹2,499) or Boutique (₹4,499) plans!
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <Button 
+              onClick={() => setIsSubscriptionModalOpen(true)}
+              size="sm"
+              className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold gap-1.5 text-xs shadow-md shadow-amber-500/20"
+            >
+              <Zap size={13} className="fill-slate-950" /> Start 10-Day Trial (₹499)
+            </Button>
+            <Button 
+              onClick={() => setIsSubscriptionModalOpen(true)}
+              variant="outline"
+              size="sm"
+              className="border-amber-500/30 text-amber-300 hover:bg-amber-500/10 text-xs"
+            >
+              View Room Plans <ArrowRight size={12} className="ml-1" />
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -6912,6 +7153,214 @@ export default function HotelLeadManagerPage() {
             <Button variant="ghost" size="sm" onClick={() => setIsExtensionModalOpen(false)}>
               Got it
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 👑 Hotel Subscription & 10-Day VIP Pilot Pass Modal */}
+      <Dialog open={isSubscriptionModalOpen} onOpenChange={setIsSubscriptionModalOpen}>
+        <DialogContent className="sm:max-w-5xl max-h-[92vh] overflow-y-auto p-0 bg-slate-950 border-slate-800 text-white shadow-2xl">
+          <div className="relative overflow-hidden p-6 pb-4 border-b border-slate-800 bg-gradient-to-br from-amber-950/40 via-slate-900 to-indigo-950/40">
+            <div className="absolute -top-12 -right-12 size-48 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+            
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
+              <div className="flex items-center gap-3">
+                <div className="size-12 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shadow-inner">
+                  <Crown size={24} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <DialogTitle className="text-xl font-bold font-serif text-white">
+                      Leadzo Hotel Management Plans
+                    </DialogTitle>
+                    <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 text-[10px]">
+                      Room-Count Pricing 🏨
+                    </Badge>
+                  </div>
+                  <DialogDescription className="text-xs text-slate-300 mt-0.5">
+                    24/7 AI Voice Receptionist • WhatsApp 5-Sec Media Pack • 1-Sec Multi-OTA Auto-Block
+                  </DialogDescription>
+                </div>
+              </div>
+
+              {/* Active Subscription Status Pill */}
+              <div className="px-3.5 py-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 flex items-center gap-2.5">
+                <div className="size-2 rounded-full bg-emerald-400 animate-pulse" />
+                <div className="text-left">
+                  <p className="text-[10px] text-slate-400 leading-tight">Current Plan</p>
+                  <p className="text-xs font-bold text-amber-300 font-mono">
+                    {hotelSubscription.planName} ({hotelSubscription.daysLeft}d left)
+                  </p>
+                </div>
+                <div className="pl-2 border-l border-amber-500/20 text-left">
+                  <p className="text-[10px] text-slate-400 leading-tight">AI Balance</p>
+                  <p className="text-xs font-bold text-emerald-400 font-mono">
+                    ₹{hotelSubscription.tokenBalance}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* 🎟️ Special 10-Day VIP Pilot Pass Banner Card */}
+            <div className="mt-5 p-4 rounded-xl border-2 border-amber-500/50 bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-500/15 shadow-lg relative overflow-hidden">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge className="bg-amber-500 text-slate-950 font-extrabold text-[10px] tracking-wider uppercase">
+                      🎟️ 10-DAY VIP PILOT PASS
+                    </Badge>
+                    <span className="text-xs text-amber-200 font-semibold">
+                      Experience Live AI Receptionist on Your Real Property with Zero Risk!
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-300 leading-relaxed">
+                    Includes <strong>10 Days Full Access</strong> • <strong>₹200 Free AI Calling & WhatsApp Credit</strong> (~50 AI calls / 300 WhatsApp packs) • 1-Sec Goibibo/Airbnb Calendar Sync • <strong>100% Adjusted when upgrading to any Monthly Plan</strong>.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3 shrink-0">
+                  <div className="text-right">
+                    <p className="text-2xl font-black font-mono text-amber-300 leading-none">₹499</p>
+                    <p className="text-[10px] text-slate-400 font-medium">One-Time Pilot Fee</p>
+                  </div>
+                  <Button 
+                    onClick={() => handleActivatePlan("trial_10day", true)}
+                    disabled={isActivatingPlan}
+                    className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 font-bold px-4 py-2 text-xs shadow-md shadow-amber-500/20 gap-1.5 cursor-pointer"
+                  >
+                    <Zap size={14} className="fill-slate-950" />
+                    {isActivatingPlan ? "Activating..." : "Start 10-Day Trial (₹499)"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* Monthly vs Yearly Billing Switch */}
+            <div className="flex items-center justify-center gap-3 mt-5">
+              <span className={cn("text-xs font-medium cursor-pointer transition-colors", selectedBillingCycle === "monthly" ? "text-white font-bold" : "text-slate-400")} onClick={() => setSelectedBillingCycle("monthly")}>
+                Monthly Billing
+              </span>
+              <button 
+                onClick={() => setSelectedBillingCycle(prev => prev === "monthly" ? "yearly" : "monthly")}
+                className="w-11 h-6 rounded-full bg-slate-800 border border-slate-700 p-0.5 relative transition-colors focus:outline-none"
+              >
+                <div className={cn("w-5 h-5 rounded-full bg-amber-400 shadow-md transition-transform", selectedBillingCycle === "yearly" ? "translate-x-5" : "translate-x-0")} />
+              </button>
+              <div className="flex items-center gap-1.5 cursor-pointer" onClick={() => setSelectedBillingCycle("yearly")}>
+                <span className={cn("text-xs font-medium transition-colors", selectedBillingCycle === "yearly" ? "text-white font-bold" : "text-slate-400")}>
+                  Yearly Billing
+                </span>
+                <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/40 text-[9px] font-mono font-bold">
+                  2 MONTHS FREE 🎉 (Save 20%)
+                </Badge>
+              </div>
+            </div>
+          </div>
+
+          {/* 4 Room-Based Pricing Cards Grid */}
+          <div className="p-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+            {HOTEL_SUBSCRIPTION_PLANS.map((plan) => {
+              const price = selectedBillingCycle === "yearly" ? plan.yearlyPrice : plan.monthlyPrice;
+              const isCurrent = hotelSubscription.planId === plan.id;
+
+              return (
+                <div 
+                  key={plan.id}
+                  className={cn(
+                    "rounded-xl border p-4 flex flex-col justify-between transition-all bg-gradient-to-b",
+                    plan.isPopular 
+                      ? "border-amber-500/50 from-amber-950/20 via-slate-900 to-slate-950 shadow-lg shadow-amber-500/10 ring-1 ring-amber-500/30" 
+                      : "border-slate-800 from-slate-900/60 to-slate-950 hover:border-slate-700",
+                    isCurrent && "ring-2 ring-emerald-500"
+                  )}
+                >
+                  <div>
+                    {/* Badge & Popular Pill */}
+                    <div className="flex items-center justify-between gap-1 mb-2">
+                      <Badge variant="outline" className="text-[9px] font-medium border-slate-700 text-slate-300">
+                        {plan.roomLimitText}
+                      </Badge>
+                      {plan.isPopular && (
+                        <Badge className="bg-amber-500 text-slate-950 font-bold text-[9px] flex items-center gap-1">
+                          <Star size={10} className="fill-slate-950" /> POPULAR
+                        </Badge>
+                      )}
+                    </div>
+
+                    <h3 className="text-base font-bold text-white font-serif">{plan.name}</h3>
+                    <p className="text-[11px] text-slate-400 mt-0.5 line-clamp-2">{plan.description}</p>
+
+                    {/* Price Block */}
+                    <div className="my-3.5 p-2.5 rounded-lg bg-slate-900/80 border border-slate-800">
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-2xl font-black font-mono text-white">₹{price.toLocaleString()}</span>
+                        <span className="text-[10px] text-slate-400">/{selectedBillingCycle === "yearly" ? "year" : "mo"}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-[10px] text-slate-400 mt-1 pt-1 border-t border-slate-800/80">
+                        <span>Cost / Day: <strong className="text-slate-200">{plan.costPerDay}</strong></span>
+                      </div>
+                    </div>
+
+                    {/* Free Token Balance Callout */}
+                    <div className="p-2 rounded-md bg-emerald-500/10 border border-emerald-500/20 mb-3 flex items-center gap-2 text-[11px] text-emerald-300 font-semibold">
+                      <Gift size={13} className="shrink-0 text-emerald-400" />
+                      <span>Includes <strong>₹{plan.tokenCredit} Free AI Balance</strong></span>
+                    </div>
+
+                    {/* Features List */}
+                    <div className="space-y-2 text-[11px] text-slate-300">
+                      {plan.features.map((feat, fIdx) => (
+                        <div key={fIdx} className="flex items-start gap-1.5">
+                          <CheckCircle2 size={13} className="text-emerald-400 shrink-0 mt-0.5" />
+                          <span className="leading-snug">{feat}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* CTA Subscribe Button */}
+                  <div className="mt-5 pt-3 border-t border-slate-800/80">
+                    <Button
+                      onClick={() => handleActivatePlan(plan.id)}
+                      disabled={isActivatingPlan}
+                      className={cn(
+                        "w-full text-xs font-bold py-2 cursor-pointer transition-all",
+                        plan.isPopular 
+                          ? "bg-amber-500 hover:bg-amber-600 text-slate-950 shadow-md shadow-amber-500/20" 
+                          : "bg-slate-800 hover:bg-slate-700 text-white border border-slate-700"
+                      )}
+                    >
+                      {isCurrent ? "Active Plan ✅" : `Subscribe ${plan.name}`}
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Modal Footer */}
+          <div className="p-4 px-6 border-t border-slate-800 bg-slate-900/60 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400">
+            <div className="flex items-center gap-4 flex-wrap">
+              <span className="flex items-center gap-1.5 text-slate-300">
+                <ShieldCheck size={14} className="text-emerald-400" />
+                100% Instant Setup & Activation
+              </span>
+              <span>•</span>
+              <span>Accepted: <strong>UPI, Razorpay, NetBanking, Cards</strong></span>
+              <span>•</span>
+              <span>📞 24/7 Priority Support: <strong>+91 9726846660</strong></span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setIsSubscriptionModalOpen(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                Preview Dashboard (Dev Mode)
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
