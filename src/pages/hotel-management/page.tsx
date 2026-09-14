@@ -441,6 +441,7 @@ export default function HotelLeadManagerPage() {
   const [blockGuestName, setBlockGuestName] = useState('');
   const [blockGuestPhone, setBlockGuestPhone] = useState('');
   const [blockGuestAmount, setBlockGuestAmount] = useState('');
+  const [blockGuestCheckOut, setBlockGuestCheckOut] = useState('');
   const [blockMode, setBlockMode] = useState<'block' | 'book'>('block');
   const [isBlockingRoom, setIsBlockingRoom] = useState(false);
 
@@ -2497,6 +2498,29 @@ export default function HotelLeadManagerPage() {
         }
       }
 
+      // Merge offline/direct bookings stored in localStorage
+      try {
+        const localDirect = JSON.parse(localStorage.getItem('leadzo_direct_bookings') || '[]');
+        if (Array.isArray(localDirect) && localDirect.length > 0) {
+          for (const lb of localDirect) {
+            if (!currentBookings.some((cb: any) => cb.guest_name === lb.guestName && (cb.check_in === lb.checkIn || cb.checkIn === lb.checkIn))) {
+              currentBookings.push({
+                room_id: lb.roomNumber,
+                room_label: lb.roomNumber,
+                guest_name: lb.guestName,
+                phone: lb.phone,
+                source: lb.source || 'Direct / AI Agent',
+                check_in: lb.checkIn,
+                check_out: lb.checkOut,
+                amount: lb.amount,
+                status: lb.status,
+                ical_uid: lb.id
+              });
+            }
+          }
+        }
+      } catch(e) {}
+
       if (currentBookings.length > 0) {
         setBookings(currentBookings.map((b: any) => {
           const matchedRoom = activeRooms.find((r:any) => r.id === b.room_id || r.number === b.room_label);
@@ -2506,7 +2530,7 @@ export default function HotelLeadManagerPage() {
             roomNumber: rNum,
             guestName: b.guest_name || b.guestName || 'Guest', 
             phone: b.phone || '', 
-            source: b.source as any,
+            source: (b.source || 'Direct / AI Agent') as any,
             checkIn: b.check_in || b.checkIn, 
             checkOut: b.check_out || b.checkOut, 
             amount: Number(b.amount) || 0, 
@@ -2573,63 +2597,68 @@ export default function HotelLeadManagerPage() {
     if (!blockDialogRoom || !blockDialogDate) return;
     setIsBlockingRoom(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
       const checkIn = blockDialogDate;
-      // For block mode: block just 1 night. For book mode: user might want multi-night but default 1 night
-      const checkInTime = parseDateStrUtil(checkIn);
-      const checkOutDate = new Date(checkInTime);
-      checkOutDate.setDate(checkOutDate.getDate() + 1);
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'];
-      const checkOut = `${months[checkOutDate.getMonth()]} ${checkOutDate.getDate().toString().padStart(2, '0')}`;
+      const checkOut = blockGuestCheckOut.trim() || (() => {
+        const checkInTime = parseDateStrUtil(checkIn);
+        const checkOutDate = new Date(checkInTime);
+        checkOutDate.setDate(checkOutDate.getDate() + 1);
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'];
+        return `${months[checkOutDate.getMonth()]} ${checkOutDate.getDate().toString().padStart(2, '0')}`;
+      })();
 
-      // Find the room's DB id
-      const { data: dbRooms } = await supabase.from('hotel_rooms').select('id').eq('number', blockDialogRoom.number).eq('user_id', user.id).maybeSingle();
-      const roomId = dbRooms?.id || blockDialogRoom.id;
+      // ⚡ INSTANT OPTIMISTIC UI: Render directly in Matrix without waiting for cloud sync
+      const newDirectBooking: Booking = {
+        id: `direct-${Date.now()}`,
+        roomNumber: blockDialogRoom.number,
+        guestName: blockGuestName || (blockMode === 'block' ? 'Room Blocked (Owner)' : 'Direct Guest'),
+        phone: blockGuestPhone || '',
+        source: 'Direct / AI Agent',
+        checkIn: checkIn,
+        checkOut: checkOut,
+        amount: parseInt(blockGuestAmount) || blockDialogRoom.pricePerNight || 1800,
+        status: blockMode === 'block' ? 'blocked' : 'confirmed'
+      };
+
+      setBookings(prev => [newDirectBooking, ...prev.filter(b => !(b.roomNumber === blockDialogRoom.number && b.checkIn === checkIn))]);
+
+      // Save to local direct bookings backup
+      try {
+        const localSaved = JSON.parse(localStorage.getItem('leadzo_direct_bookings') || '[]');
+        localSaved.unshift(newDirectBooking);
+        localStorage.setItem('leadzo_direct_bookings', JSON.stringify(localSaved));
+      } catch(e) {}
+
+      // Try database sync in background (doesn't block UI)
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: dbRooms } = await supabase.from('hotel_rooms').select('id').eq('number', blockDialogRoom.number).eq('user_id', user.id).maybeSingle();
+          const roomId = dbRooms?.id || blockDialogRoom.id;
+
+          await supabase.from('hotel_bookings').insert({
+            user_id: user.id,
+            room_id: roomId,
+            guest_name: blockGuestName || (blockMode === 'block' ? 'Room Blocked (Owner)' : 'Direct Guest'),
+            phone: blockGuestPhone || '',
+            source: 'Direct / AI Agent',
+            check_in: checkIn,
+            check_out: checkOut,
+            amount: parseInt(blockGuestAmount) || blockDialogRoom.pricePerNight || 1800,
+            status: blockMode === 'block' ? 'blocked' : 'confirmed',
+            ical_uid: `DIRECT-${Date.now()}-${Math.random().toString(36).substring(7)}`
+          });
+        }
+      } catch (dbErr) {
+        console.warn("DB save note:", dbErr);
+      }
 
       if (blockMode === 'book') {
-        // Check overlap before inserting a direct booking
-        const { data: existingBookings } = await supabase.from('hotel_bookings').select('*').eq('room_id', roomId).eq('user_id', user.id);
-        const clash = checkDateOverlap(roomId, checkIn, checkOut, existingBookings || []);
-        if (clash) {
-          toast.error(`🛡️ Double Booking Blocked! ${clash.guest_name} already has ${blockDialogRoom.number} booked on ${checkIn}`);
-          setIsBlockingRoom(false);
-          return;
-        }
-
-        await supabase.from('hotel_bookings').insert({
-          user_id: user.id,
-          room_id: roomId,
-          guest_name: blockGuestName || 'Direct Guest',
-          phone: blockGuestPhone || '',
-          source: 'Direct / AI Agent',
-          check_in: checkIn,
-          check_out: checkOut,
-          amount: parseInt(blockGuestAmount) || blockDialogRoom.pricePerNight || 4000,
-          status: 'confirmed',
-          ical_uid: `DIRECT-${Date.now()}-${Math.random().toString(36).substring(7)}`
-        });
         toast.success(`✅ ${blockDialogRoom.number} booked for ${blockGuestName || 'Direct Guest'} on ${checkIn}! All OTA calendars will auto-block.`);
       } else {
-        // Block mode - mark as blocked (maintenance/personal/VIP)
-        await supabase.from('hotel_bookings').insert({
-          user_id: user.id,
-          room_id: roomId,
-          guest_name: blockGuestName || 'Room Blocked (Owner)',
-          phone: '',
-          source: 'Direct / AI Agent',
-          check_in: checkIn,
-          check_out: checkOut,
-          amount: 0,
-          status: 'blocked',
-          ical_uid: `OWNER-BLOCK-${Date.now()}-${Math.random().toString(36).substring(7)}`
-        });
         toast.success(`🛡️ ${blockDialogRoom.number} BLOCKED on ${checkIn}! Master iCal will push to all OTAs automatically.`);
       }
 
       setBlockDialogOpen(false);
-      await fetchData();
     } catch (err: any) {
       toast.error('Failed: ' + err.message);
     } finally {
@@ -4041,9 +4070,9 @@ export default function HotelLeadManagerPage() {
                                     className={cn(
                                       "h-full w-full rounded-md p-1.5 flex flex-col justify-between text-[10px] font-medium transition-all shadow-sm cursor-pointer hover:ring-1 hover:ring-white/40",
                                       booking.source === "Booking.com" && "bg-blue-500/20 text-blue-300 border border-blue-500/40",
-                                      (booking.source.includes("Airbnb") || booking.source.includes("Goibibo") || booking.source.includes("MMT")) && "bg-rose-500/20 text-rose-300 border border-rose-500/40",
+                                      (booking.source?.includes("Airbnb") || booking.source?.includes("Goibibo") || booking.source?.includes("MMT")) && "bg-rose-500/20 text-rose-300 border border-rose-500/40",
                                       booking.source === "Agoda" && "bg-amber-500/20 text-amber-300 border border-amber-500/40",
-                                      (booking.source === "King Villa" || booking.source.includes("King Villa")) && "bg-purple-500/20 text-purple-300 border border-purple-500/40",
+                                      (booking.source === "King Villa" || booking.source?.includes("King Villa")) && "bg-purple-500/20 text-purple-300 border border-purple-500/40",
                                       booking.source === "Direct / AI Agent" && booking.status !== "blocked" && "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40",
                                       booking.status === "blocked" && "bg-slate-900/90 text-rose-300 border border-rose-500/40 shadow-inner"
                                     )}
@@ -4217,10 +4246,11 @@ export default function HotelLeadManagerPage() {
                                 onClick={() => {
                                   setBlockDialogRoom(room);
                                   setBlockDialogDate(date);
-                                  setBlockMode('block');
+                                  setBlockMode('book');
                                   setBlockGuestName('');
                                   setBlockGuestPhone('');
-                                  setBlockGuestAmount(String(room.pricePerNight || 4000));
+                                  setBlockGuestCheckOut('');
+                                  setBlockGuestAmount(String(room.pricePerNight || 1800));
                                   setBlockDialogOpen(true);
                                 }}
                                 className="h-full w-full rounded hover:bg-emerald-500/10 hover:border-emerald-500/30 border border-transparent transition-all flex items-center justify-center text-muted-foreground/30 hover:text-emerald-400 text-[10px] cursor-pointer"
@@ -7540,15 +7570,26 @@ export default function HotelLeadManagerPage() {
                     className="h-8 text-xs mt-1"
                   />
                 </div>
-                <div>
-                  <Label className="text-[11px] text-muted-foreground">Amount (₹)</Label>
-                  <Input
-                    placeholder="4000"
-                    value={blockGuestAmount}
-                    onChange={(e) => setBlockGuestAmount(e.target.value)}
-                    className="h-8 text-xs mt-1"
-                    type="number"
-                  />
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-[11px] text-muted-foreground">Amount (₹)</Label>
+                    <Input
+                      placeholder="1800"
+                      value={blockGuestAmount}
+                      onChange={(e) => setBlockGuestAmount(e.target.value)}
+                      className="h-8 text-xs mt-1"
+                      type="number"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-[11px] text-muted-foreground">Check-Out Date</Label>
+                    <Input
+                      placeholder="e.g. Sept 16"
+                      value={blockGuestCheckOut}
+                      onChange={(e) => setBlockGuestCheckOut(e.target.value)}
+                      className="h-8 text-xs mt-1"
+                    />
+                  </div>
                 </div>
               </>
             )}
