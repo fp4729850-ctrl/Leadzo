@@ -2373,18 +2373,29 @@ export default function HotelLeadManagerPage() {
 
       if (hasNewSync) {
         const refetched = await supabase.from('hotel_bookings').select('*');
-        if (refetched.data) currentBookings = refetched.data;
+        if (refetched.data && refetched.data.length >= currentBookings.length) {
+          currentBookings = refetched.data;
+        }
         if (isAutoSync) {
           toast.success("🔔 Nayi booking sync ho gayi! Table & Calendar grid update ho chuki hai.");
         }
       }
 
-      setBookings(currentBookings.map((b: any) => ({
-        id: b.id, 
-        roomNumber: activeRooms.find((r:any) => r.id === b.room_id)?.number || 'Room 1',
-        guestName: b.guest_name, phone: b.phone || '', source: b.source as any,
-        checkIn: b.check_in, checkOut: b.check_out, amount: Number(b.amount) || 0, status: b.status as any
-      })));
+      setBookings(currentBookings.map((b: any) => {
+        const matchedRoom = activeRooms.find((r:any) => r.id === b.room_id || r.number === b.room_label);
+        const rNum = matchedRoom ? matchedRoom.number : (b.room_label || b.roomNumber || 'Room 1');
+        return {
+          id: b.id, 
+          roomNumber: rNum,
+          guestName: b.guest_name || b.guestName || 'Guest', 
+          phone: b.phone || '', 
+          source: b.source as any,
+          checkIn: b.check_in || b.checkIn, 
+          checkOut: b.check_out || b.checkOut, 
+          amount: Number(b.amount) || 0, 
+          status: b.status as any
+        };
+      }));
     } catch (err) {
       console.error("Error fetching hotel data:", err);
     }
@@ -3168,9 +3179,11 @@ export default function HotelLeadManagerPage() {
     return new Date(currentYear, mIdx, day).getTime();
   };
 
+  const normRoom = (r: string) => (r || '').replace(/^Room\s*/i, '').trim().toLowerCase();
+
   const getBookingForCell = (roomNum: string, date: string) => {
     return bookings.find(b => {
-      if (b.roomNumber !== roomNum) return false;
+      if (normRoom(b.roomNumber) !== normRoom(roomNum)) return false;
       const bInNorm = normalizeBookingDate(b.checkIn);
       const dateNorm = normalizeBookingDate(date);
       if (bInNorm === dateNorm) return true;
@@ -3189,7 +3202,7 @@ export default function HotelLeadManagerPage() {
 
   const getCheckoutForCell = (roomNum: string, date: string) => {
     return bookings.find(b => {
-      if (b.roomNumber !== roomNum) return false;
+      if (normRoom(b.roomNumber) !== normRoom(roomNum)) return false;
       const bOutNorm = normalizeBookingDate(b.checkOut);
       const dateNorm = normalizeBookingDate(date);
       return bOutNorm === dateNorm;
@@ -3791,13 +3804,13 @@ export default function HotelLeadManagerPage() {
                               onClick={() => setSelectedRoomForIcal(room)}
                               className="h-7 text-[11px] gap-1 cursor-pointer border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10 text-amber-300"
                             >
-                              <Settings size={11} /> Room {room.number} iCal
+                              <Settings size={11} /> {room.number.startsWith('Room') ? room.number : room.number === 'Entire Villa' ? 'Entire Villa' : `Room ${room.number}`} iCal
                             </Button>
                           </DialogTrigger>
                           <DialogContent className="sm:max-w-[550px]">
                             <DialogHeader>
                               <DialogTitle className="flex items-center gap-2 text-base">
-                                <BedDouble className="size-5 text-amber-500" /> Room {room.number} ({room.type}) iCal Links
+                                <BedDouble className="size-5 text-amber-500" /> {room.number.startsWith('Room') ? room.number : room.number === 'Entire Villa' ? 'Entire Villa' : `Room ${room.number}`} ({room.type}) iCal Links
                               </DialogTitle>
                               <DialogDescription className="text-xs">
                                 Manage dedicated iCal URLs for Room {room.number}. Leadzo will block Room {room.number} across all OTAs when booked anywhere.
