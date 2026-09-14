@@ -1888,7 +1888,7 @@ export default function HotelLeadManagerPage() {
 
   const [channels, setChannels] = useState<OtaChannel[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
-  const [dateOffset, setDateOffset] = useState(0); // 0 means starting from today
+  const [dateOffset, setDateOffset] = useState(-1); // -1 starts from yesterday so active stays & checkouts are immediately visible
 
   const generateDates = (offset: number) => {
     const datesArr = [];
@@ -3187,6 +3187,15 @@ export default function HotelLeadManagerPage() {
     });
   };
 
+  const getCheckoutForCell = (roomNum: string, date: string) => {
+    return bookings.find(b => {
+      if (b.roomNumber !== roomNum) return false;
+      const bOutNorm = normalizeBookingDate(b.checkOut);
+      const dateNorm = normalizeBookingDate(date);
+      return bOutNorm === dateNorm;
+    });
+  };
+
   // -------------------------------------------------------------
   // Dynamic Dashboard Analytics Calculations
   // -------------------------------------------------------------
@@ -3721,7 +3730,7 @@ export default function HotelLeadManagerPage() {
                 </div>
                 <div className="flex items-center gap-2 mt-2">
                   <Button variant="outline" size="sm" onClick={() => setDateOffset(prev => prev - 7)} className="h-7 text-xs px-2 cursor-pointer border-border hover:bg-muted">&larr; Previous Dates</Button>
-                  <Button variant="outline" size="sm" onClick={() => setDateOffset(0)} className="h-7 text-xs px-2 cursor-pointer border-border hover:bg-muted">Today</Button>
+                  <Button variant="outline" size="sm" onClick={() => setDateOffset(-1)} className="h-7 text-xs px-2 cursor-pointer border-border hover:bg-muted">Today</Button>
                   <Button variant="outline" size="sm" onClick={() => setDateOffset(prev => prev + 7)} className="h-7 text-xs px-2 cursor-pointer border-border hover:bg-muted">Next Dates &rarr;</Button>
                 </div>
               </div>
@@ -3732,9 +3741,27 @@ export default function HotelLeadManagerPage() {
                   <tr className="bg-muted/30 border-b border-border text-muted-foreground">
                     <th className="p-3 w-48">Room & Type</th>
                     <th className="p-3 w-36">Per-Room iCal Setup</th>
-                    {dates.map((d, i) => (
-                      <th key={i} className="p-3 text-center border-l border-border/40 font-mono">{d}</th>
-                    ))}
+                    {dates.map((d, i) => {
+                      const isToday = normalizeBookingDate(d) === normalizeBookingDate(generateDates(0)[0]);
+                      return (
+                        <th 
+                          key={i} 
+                          className={cn(
+                            "p-3 text-center border-l border-border/40 font-mono transition-colors",
+                            isToday && "bg-emerald-500/10 text-emerald-300 font-bold border-emerald-500/40"
+                          )}
+                        >
+                          <div className="flex flex-col items-center">
+                            <span>{d}</span>
+                            {isToday && (
+                              <span className="text-[9px] font-sans px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-semibold mt-0.5 border border-emerald-500/30">
+                                Today
+                              </span>
+                            )}
+                          </div>
+                        </th>
+                      );
+                    })}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/60">
@@ -3863,6 +3890,7 @@ export default function HotelLeadManagerPage() {
 
                       {dates.map((date, idx) => {
                         const booking = getBookingForCell(room.number, date);
+                        const checkoutBooking = !booking ? getCheckoutForCell(room.number, date) : null;
                         return (
                           <td key={idx} className="p-2 border-l border-border/40 text-center relative h-14">
                             {booking ? (
@@ -3957,6 +3985,66 @@ export default function HotelLeadManagerPage() {
                                       <Database size={14} className={cn(isAiScrapingData && "animate-pulse text-indigo-400")} />
                                       {isAiScrapingData ? "AI is Extracting Data..." : "Sync Real Data (AI Agent)"}
                                     </Button>
+                                  </div>
+                                </DialogContent>
+                              </Dialog>
+                            ) : checkoutBooking ? (
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                  <div 
+                                    className="h-full w-full rounded-md p-1.5 flex flex-col justify-between text-[10px] font-medium transition-all shadow-sm cursor-pointer hover:ring-1 hover:ring-white/40 bg-amber-500/15 text-amber-300 border border-dashed border-amber-500/50"
+                                    title={`${checkoutBooking.guestName} checking out today (11 AM) - Available for tonight`}
+                                  >
+                                    <span className="font-bold truncate text-[11px] leading-tight text-white">{checkoutBooking.guestName}</span>
+                                    <div className="flex items-center justify-between text-[9px] opacity-90 pt-0.5 border-t border-amber-500/30">
+                                      <span className="text-amber-300 flex items-center gap-0.5 font-semibold">🚪 Out 11 AM</span>
+                                      <span className="text-emerald-300 font-bold">Free Night</span>
+                                    </div>
+                                  </div>
+                                </DialogTrigger>
+                                <DialogContent className="max-w-md">
+                                  <DialogHeader>
+                                    <DialogTitle className="flex items-center justify-between text-base">
+                                      <span>Guest Check-Out Today</span>
+                                      <Badge variant="outline" className="border bg-amber-500/15 text-amber-400 border-amber-500/30">
+                                        🚪 Out Today 11:00 AM
+                                      </Badge>
+                                    </DialogTitle>
+                                    <DialogDescription className="text-xs">
+                                      Guest stay ends this morning. Room becomes available for incoming guests after housekeeping.
+                                    </DialogDescription>
+                                  </DialogHeader>
+                                  <div className="space-y-3 py-2 text-xs">
+                                    <div className="grid grid-cols-2 gap-3 p-3 bg-muted/30 rounded-lg border border-border">
+                                      <div>
+                                        <span className="text-[10px] text-muted-foreground">Guest Name</span>
+                                        <p className="font-bold text-sm text-foreground mt-0.5">{checkoutBooking.guestName}</p>
+                                      </div>
+                                      <div>
+                                        <span className="text-[10px] text-muted-foreground">Total Booking Amount</span>
+                                        <p className="font-bold text-sm text-emerald-400 mt-0.5">₹{checkoutBooking.amount.toLocaleString()}</p>
+                                      </div>
+                                      <div>
+                                        <span className="text-[10px] text-muted-foreground">Room Unit</span>
+                                        <p className="font-medium text-foreground mt-0.5">{checkoutBooking.roomNumber}</p>
+                                      </div>
+                                      <div>
+                                        <span className="text-[10px] text-muted-foreground">OTA Platform</span>
+                                        <p className="font-medium text-foreground mt-0.5">{checkoutBooking.source}</p>
+                                      </div>
+                                      <div>
+                                        <span className="text-[10px] text-muted-foreground">Check-in</span>
+                                        <p className="font-medium text-foreground mt-0.5">{checkoutBooking.checkIn}</p>
+                                      </div>
+                                      <div>
+                                        <span className="text-[10px] text-muted-foreground">Check-out (Today)</span>
+                                        <p className="font-medium text-foreground mt-0.5 text-amber-400 font-bold">{checkoutBooking.checkOut}</p>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center justify-between text-[11px] text-muted-foreground px-1 bg-muted/20 p-2 rounded">
+                                      <span>✨ Night Availability:</span>
+                                      <span className="text-emerald-400 font-semibold">Available for Booking Tonight</span>
+                                    </div>
                                   </div>
                                 </DialogContent>
                               </Dialog>
