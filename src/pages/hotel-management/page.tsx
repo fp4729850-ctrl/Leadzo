@@ -1887,7 +1887,13 @@ export default function HotelLeadManagerPage() {
   };
 
   const [channels, setChannels] = useState<OtaChannel[]>([]);
-  const [rooms, setRooms] = useState<Room[]>([]);
+  const [rooms, setRooms] = useState<Room[]>(() => [
+    { id: '438bd6c2-335d-4c09-80d1-428419e34d5c', number: 'Room 4', type: '1 Small Delux No. 04', pricePerNight: 1800, masterExportIcal: '', icalLinks: {} },
+    { id: 'master-unit', number: 'Entire Villa', type: 'Entire King Villa (5-Bedroom)', pricePerNight: 7900, masterExportIcal: '', icalLinks: {} },
+    { id: '39688b67-ea6d-4526-bdae-d68edc1720d3', number: 'Room 1', type: '1 Super Delux Room No 1', pricePerNight: 2500, masterExportIcal: '', icalLinks: {} },
+    { id: '9820ca74-f16f-49cf-9b65-9c62cba167a9', number: 'Room 2', type: '1 Small Delux No. 02', pricePerNight: 1800, masterExportIcal: '', icalLinks: {} },
+    { id: '92666322-e804-44ef-b966-ac5e302bc22e', number: 'Room 3', type: '1 Small Delux No. 03', pricePerNight: 1800, masterExportIcal: '', icalLinks: {} }
+  ]);
   const [dateOffset, setDateOffset] = useState(-1); // -1 starts from yesterday so active stays & checkouts are immediately visible
 
   const generateDates = (offset: number) => {
@@ -1907,7 +1913,19 @@ export default function HotelLeadManagerPage() {
   };
 
   const dates = generateDates(dateOffset);
-  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [bookings, setBookings] = useState<Booking[]>(() => {
+    return LIVE_KING_VILLA_OTA_BOOKINGS.map((b: any, idx: number) => ({
+      id: b.booking_id || `init-b-${idx}`,
+      roomNumber: b.room_label || 'Room 1',
+      guestName: b.guest_name,
+      phone: b.phone || '',
+      source: 'Goibibo / MakeMyTrip' as any,
+      checkIn: b.check_in,
+      checkOut: b.check_out,
+      amount: Number(b.amount) || 1800,
+      status: 'confirmed' as any
+    }));
+  });
 
   // Fetch data from Supabase
   const fetchData = async (isAutoSync: boolean = false) => {
@@ -2381,21 +2399,23 @@ export default function HotelLeadManagerPage() {
         }
       }
 
-      setBookings(currentBookings.map((b: any) => {
-        const matchedRoom = activeRooms.find((r:any) => r.id === b.room_id || r.number === b.room_label);
-        const rNum = matchedRoom ? matchedRoom.number : (b.room_label || b.roomNumber || 'Room 1');
-        return {
-          id: b.id, 
-          roomNumber: rNum,
-          guestName: b.guest_name || b.guestName || 'Guest', 
-          phone: b.phone || '', 
-          source: b.source as any,
-          checkIn: b.check_in || b.checkIn, 
-          checkOut: b.check_out || b.checkOut, 
-          amount: Number(b.amount) || 0, 
-          status: b.status as any
-        };
-      }));
+      if (currentBookings.length > 0) {
+        setBookings(currentBookings.map((b: any) => {
+          const matchedRoom = activeRooms.find((r:any) => r.id === b.room_id || r.number === b.room_label);
+          const rNum = matchedRoom ? matchedRoom.number : (b.room_label || b.roomNumber || 'Room 1');
+          return {
+            id: b.id, 
+            roomNumber: rNum,
+            guestName: b.guest_name || b.guestName || 'Guest', 
+            phone: b.phone || '', 
+            source: b.source as any,
+            checkIn: b.check_in || b.checkIn, 
+            checkOut: b.check_out || b.checkOut, 
+            amount: Number(b.amount) || 0, 
+            status: b.status as any
+          };
+        }));
+      }
     } catch (err) {
       console.error("Error fetching hotel data:", err);
     }
