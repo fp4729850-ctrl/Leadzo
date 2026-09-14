@@ -2031,7 +2031,7 @@ export default function HotelLeadManagerPage() {
 
   const dates = generateDates(dateOffset);
   const [bookings, setBookings] = useState<Booking[]>(() => {
-    return LIVE_KING_VILLA_OTA_BOOKINGS.map((b: any, idx: number) => ({
+    const otaList = LIVE_KING_VILLA_OTA_BOOKINGS.map((b: any, idx: number) => ({
       id: b.booking_id || `init-b-${idx}`,
       roomNumber: b.room_label || 'Room 1',
       guestName: b.guest_name,
@@ -2042,6 +2042,15 @@ export default function HotelLeadManagerPage() {
       amount: Number(b.amount) || 1800,
       status: 'confirmed' as any
     }));
+
+    // ⚡ Persist local direct bookings permanently across all page refreshes
+    try {
+      const localSaved = JSON.parse(localStorage.getItem('leadzo_direct_bookings') || '[]');
+      if (Array.isArray(localSaved) && localSaved.length > 0) {
+        return [...localSaved, ...otaList];
+      }
+    } catch(e) {}
+    return otaList;
   });
 
   // Fetch data from Supabase
@@ -2521,15 +2530,20 @@ export default function HotelLeadManagerPage() {
         const localDirect = JSON.parse(localStorage.getItem('leadzo_direct_bookings') || '[]');
         if (Array.isArray(localDirect) && localDirect.length > 0) {
           for (const lb of localDirect) {
-            if (!currentBookings.some((cb: any) => cb.guest_name === lb.guestName && (cb.check_in === lb.checkIn || cb.checkIn === lb.checkIn))) {
-              currentBookings.push({
+            if (!currentBookings.some((cb: any) => (cb.guest_name === lb.guestName || cb.guestName === lb.guestName) && (cb.check_in === lb.checkIn || cb.checkIn === lb.checkIn))) {
+              currentBookings.unshift({
+                id: lb.id,
                 room_id: lb.roomNumber,
                 room_label: lb.roomNumber,
+                roomNumber: lb.roomNumber,
                 guest_name: lb.guestName,
+                guestName: lb.guestName,
                 phone: lb.phone,
                 source: lb.source || 'Direct / AI Agent',
                 check_in: lb.checkIn,
+                checkIn: lb.checkIn,
                 check_out: lb.checkOut,
+                checkOut: lb.checkOut,
                 amount: lb.amount,
                 status: lb.status,
                 ical_uid: lb.id
@@ -2541,8 +2555,8 @@ export default function HotelLeadManagerPage() {
 
       if (currentBookings.length > 0) {
         setBookings(currentBookings.map((b: any) => {
-          const matchedRoom = activeRooms.find((r:any) => r.id === b.room_id || r.number === b.room_label);
-          const rNum = matchedRoom ? matchedRoom.number : (b.room_label || b.roomNumber || 'Room 1');
+          const matchedRoom = activeRooms.find((r:any) => r.id === b.room_id || normRoom(r.number) === normRoom(b.room_label || b.roomNumber));
+          const rNum = matchedRoom ? matchedRoom.number : (b.roomNumber || b.room_label || 'Room 1');
           return {
             id: b.id, 
             roomNumber: rNum,
@@ -4099,14 +4113,27 @@ export default function HotelLeadManagerPage() {
                                     <span className="font-bold truncate text-[11px] leading-tight text-white">{booking.guestName}</span>
                                     <div className="flex items-center justify-between text-[9px] opacity-90 pt-0.5 border-t border-white/10">
                                       {booking.status === "blocked" ? (
-                                        <span className="truncate font-semibold text-rose-300 flex items-center gap-1">
-                                          🔒 Confirmed Blocked
-                                        </span>
+                                        <div className="flex items-center justify-between w-full">
+                                          <span className="truncate font-semibold text-rose-300 flex items-center gap-1">
+                                            🔒 Blocked
+                                          </span>
+                                          {normalizeBookingDate(booking.checkOut) === normalizeBookingDate(date) && (
+                                            <span className="px-1 py-0.2 rounded bg-amber-500/30 text-amber-300 font-bold text-[9px] border border-amber-500/40 flex items-center gap-0.5 shrink-0">
+                                              🚪 Out 11 AM
+                                            </span>
+                                          )}
+                                        </div>
                                       ) : (
                                         <>
                                           <span className="truncate max-w-[55px]">{booking.source}</span>
-                                          {booking.amount > 0 && (
-                                            <span className="font-bold text-emerald-300">₹{booking.amount.toLocaleString()}</span>
+                                          {normalizeBookingDate(booking.checkOut) === normalizeBookingDate(date) ? (
+                                            <span className="px-1 py-0.2 rounded bg-amber-500/30 text-amber-300 font-bold text-[9px] border border-amber-500/40 flex items-center gap-0.5 shrink-0">
+                                              🚪 Out 11 AM
+                                            </span>
+                                          ) : (
+                                            booking.amount > 0 && (
+                                              <span className="font-bold text-emerald-300">₹{booking.amount.toLocaleString()}</span>
+                                            )
                                           )}
                                         </>
                                       )}
