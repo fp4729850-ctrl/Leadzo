@@ -4159,7 +4159,7 @@ export default function HotelLeadManagerPage() {
                                       type="button"
                                       variant="outline" 
                                       size="sm"
-                                      onClick={() => openCheckoutReviewModal(booking.guestName, booking.roomNumber)}
+                                      onClick={() => openCheckoutReviewModal(booking.guestName, booking.roomNumber, booking.phone)}
                                       className="w-full mt-2 gap-2 border-amber-500/40 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 cursor-pointer text-xs"
                                     >
                                       <Star size={13} className="text-amber-400 fill-amber-400" />
@@ -4230,7 +4230,7 @@ export default function HotelLeadManagerPage() {
                                     <div className="pt-2 border-t border-border flex flex-col gap-2">
                                       <Button 
                                         type="button"
-                                        onClick={() => openCheckoutReviewModal(checkoutBooking.guestName, checkoutBooking.roomNumber)}
+                                        onClick={() => openCheckoutReviewModal(checkoutBooking.guestName, checkoutBooking.roomNumber, checkoutBooking.phone)}
                                         className="w-full bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-600 text-white font-semibold text-xs h-9 flex items-center justify-center gap-2 shadow-md cursor-pointer"
                                       >
                                         <Sparkles size={14} className="text-yellow-200 animate-pulse" />
