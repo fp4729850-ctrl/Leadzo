@@ -1023,15 +1023,33 @@ export default function HotelLeadManagerPage() {
     toast.success("⭐ Google Review Link saved! AI will auto-dispatch this on guest checkout WhatsApp.");
   };
 
-  // 🌟 AI 5-Star & 4-Star Dynamic Review Templates (Varying for Natural Google Algorithm Authenticity)
-  const AI_REVIEW_TEMPLATES = [
-    "Had an unforgettable and relaxing stay at King Villa Resort & Suites! The rooms are spacious, spotlessly clean, and luxurious. The private swimming pool is pristine and peaceful. Special thanks to the staff for their warm and courteous hospitality. Highly recommended for families and friends! ⭐⭐⭐⭐⭐",
-    "Exceptional hospitality and wonderful ambiance! Stayed here with family, and everything exceeded our expectations. Fast check-in, pristine rooms, delicious breakfast, and serene surroundings. Will definitely book again whenever we visit. 5/5 stars! ⭐⭐⭐⭐⭐",
-    "One of the best villa stays in Daman! Clean bathrooms, plush bedding, and private pool access made our weekend truly special. The host Heming and team made sure we had everything we needed. A solid 5-star experience! ⭐⭐⭐⭐⭐",
-    "Very pleasant and comfortable stay at King Villa. The location is peaceful and ideal for relaxing. Rooms are well-equipped, air conditioning is great, and room service is prompt. Great value for money and very courteous management! ⭐⭐⭐⭐",
-    "Beautiful property with lush greenery and peaceful vibes. Loved our stay! Clean rooms, cooperative staff, and very safe environment for kids. Thank you King Villa for hosting us so well. Loved every minute! ⭐⭐⭐⭐⭐",
-    "Wonderful experience from arrival to checkout! The property is maintained to high standards, peaceful neighborhood, and the staff attended to all our requests with a smile. Highly recommend to anyone visiting! ⭐⭐⭐⭐"
-  ];
+  // 🌟 Dynamic AI Brain-Aware Review Generator (Reads Live Policy & Amenities Memory)
+  const generateBrainAwareReview = (guestName: string, roomNumber: string, rating: number): string => {
+    const qPool = villaQuestions.find(v => v.id === "q_pool")?.enabled ?? false;
+    const qFood = villaQuestions.find(v => v.id === "q_food")?.enabled ?? false;
+    const qAc = villaQuestions.find(v => v.id === "q_ac")?.enabled ?? true;
+    const qKitchen = villaQuestions.find(v => v.id === "q_kitchen")?.enabled ?? false;
+    const qWifi = villaQuestions.find(v => v.id === "q_wifi")?.enabled ?? true;
+    const qParking = villaQuestions.find(v => v.id === "q_parking")?.enabled ?? true;
+
+    if (rating === 5) {
+      const fiveStarTemplates = [
+        `Had an unforgettable and relaxing stay at King Villa Resort & Suites! The rooms are spacious, spotlessly clean, and luxurious. ${qPool ? 'The private swimming pool was pristine and refreshing. ' : ''}${qFood ? 'Loved the delicious fresh breakfast. ' : ''}${qWifi ? 'High-speed Wi-Fi worked seamlessly. ' : ''}Special thanks to the host and staff for their warm and courteous hospitality. Highly recommended for families and friends! ⭐⭐⭐⭐⭐`,
+        `Exceptional hospitality and wonderful ambiance! Stayed here with family, and everything exceeded our expectations. Fast check-in, pristine rooms with ${qAc ? 'superb chilled AC and ' : ''}plush bedding, and serene surroundings. ${qKitchen ? 'Having access to an equipped modular kitchen made our stay super comfortable. ' : ''}${qPool ? 'The pool area was very clean and enjoyable. ' : ''}Will definitely book again whenever we visit Daman. 5/5 stars! ⭐⭐⭐⭐⭐`,
+        `One of the best villa stays in Daman! Clean private bathrooms, plush bedding, and peaceful vibes made our weekend truly special. ${qParking ? 'Secure private parking was very convenient. ' : ''}${qPool ? 'The pool added to the fun! ' : ''}The host Heming and team made sure we had everything we needed. A solid 5-star experience! ⭐⭐⭐⭐⭐`,
+        `Beautiful property with lush greenery and peaceful vibes. Loved our stay! Clean rooms, cooperative staff, and very safe environment for kids. ${qFood ? 'The meals were freshly served and delicious. ' : ''}${qPool ? 'Relaxing by the pool was awesome. ' : ''}Thank you King Villa for hosting us so well. Loved every minute! ⭐⭐⭐⭐⭐`,
+        `Outstanding experience at King Villa! The entire property is well-maintained, tranquil, and very comfortable. ${qAc ? 'Air conditioning was chilled, ' : ''}${qWifi ? 'internet was fast, ' : ''}and the hospitality was top notch. Perfect destination for family relaxation! ⭐⭐⭐⭐⭐`
+      ];
+      return fiveStarTemplates[Math.floor(Math.random() * fiveStarTemplates.length)];
+    } else {
+      const fourStarTemplates = [
+        `Very pleasant and comfortable stay at King Villa (${roomNumber || 'Deluxe Room'}). The location is peaceful and ideal for relaxing. Rooms are well-equipped, ${qAc ? 'air conditioning is great, ' : ''}${qWifi ? 'Wi-Fi connectivity is reliable, ' : ''}and room service is prompt. Great value for money and very courteous management! ⭐⭐⭐⭐`,
+        `Wonderful experience from arrival to checkout! The property is maintained to high standards with a peaceful neighborhood, ${qParking ? 'ample parking space, ' : ''}and the staff attended to all our requests with a smile. ${qPool ? 'Clean pool facility too. ' : ''}Highly recommend to anyone visiting! ⭐⭐⭐⭐`,
+        `Good relaxing weekend with family at King Villa. Rooms were neat and tidy, check-in was hassle-free, and ${qKitchen ? 'the kitchen access was a big plus. ' : 'the atmosphere was very calming. '}Prompt service from the team. Definitely recommended for a calm getaway! ⭐⭐⭐⭐`
+      ];
+      return fourStarTemplates[Math.floor(Math.random() * fourStarTemplates.length)];
+    }
+  };
 
   const [isCheckoutReviewModalOpen, setIsCheckoutReviewModalOpen] = useState(false);
   const [selectedCheckoutGuest, setSelectedCheckoutGuest] = useState<{
@@ -1045,38 +1063,33 @@ export default function HotelLeadManagerPage() {
   const openCheckoutReviewModal = (guestName: string, roomNumber: string, phone?: string) => {
     // 80% 5-star, 20% 4-star for natural diversity
     const rating = Math.random() > 0.2 ? 5 : 4;
-    const matchingTemplates = rating === 5 
-      ? AI_REVIEW_TEMPLATES.filter(t => t.includes("⭐⭐⭐⭐⭐"))
-      : AI_REVIEW_TEMPLATES.filter(t => t.includes("⭐⭐⭐⭐") && !t.includes("⭐⭐⭐⭐⭐"));
-    
-    const selectedTemplate = matchingTemplates.length > 0 
-      ? matchingTemplates[Math.floor(Math.random() * matchingTemplates.length)]
-      : AI_REVIEW_TEMPLATES[Math.floor(Math.random() * AI_REVIEW_TEMPLATES.length)];
+    const reviewText = generateBrainAwareReview(guestName, roomNumber, rating);
 
     setSelectedCheckoutGuest({
       guestName,
       roomNumber,
       phoneNumber: phone || "+91 97268 46660",
       rating,
-      reviewText: selectedTemplate
+      reviewText
     });
     setIsCheckoutReviewModalOpen(true);
   };
 
   const handleRegenerateReview = () => {
     if (!selectedCheckoutGuest) return;
-    const rating = Math.random() > 0.2 ? 5 : 4;
-    const matchingTemplates = rating === 5 
-      ? AI_REVIEW_TEMPLATES.filter(t => t.includes("⭐⭐⭐⭐⭐"))
-      : AI_REVIEW_TEMPLATES.filter(t => t.includes("⭐⭐⭐⭐") && !t.includes("⭐⭐⭐⭐⭐"));
-    const newTemplate = matchingTemplates[Math.floor(Math.random() * matchingTemplates.length)] || AI_REVIEW_TEMPLATES[Math.floor(Math.random() * AI_REVIEW_TEMPLATES.length)];
+    const rating = selectedCheckoutGuest.rating || (Math.random() > 0.2 ? 5 : 4);
+    const newTemplate = generateBrainAwareReview(
+      selectedCheckoutGuest.guestName,
+      selectedCheckoutGuest.roomNumber,
+      rating
+    );
     
     setSelectedCheckoutGuest({
       ...selectedCheckoutGuest,
       rating,
       reviewText: newTemplate
     });
-    toast.info("✨ AI generated a fresh, personalized review draft!");
+    toast.info("✨ AI generated a fresh, brain-verified review draft!");
   };
 
   const handleSendWhatsAppReview = () => {
@@ -1557,10 +1570,13 @@ export default function HotelLeadManagerPage() {
       } else if (q.includes("room 2") || q.includes("room 3") || q.includes("room 4") || q.includes("1800") || q.includes("deluxe") || q.includes("medium")) {
         responseText = "Room 2, 3 aur 4 hamare Standard Deluxe rooms hain jo medium-size comfortable rooms hain (₹1,800/night). Booking confirm karne ke liye sirf 30% advance token (₹540) pay karna hoga, baki ₹1,260 aap hotel check-in par de sakte hain. Kya main aapke WhatsApp par 30% token link bhej doon?";
       } else {
-        responseText = "Haan ji, bilkul! Rooms available hain: ₹2,500 wala Super Deluxe Room (₹750 advance token) aur ₹1,800 wala Deluxe Room (₹540 advance token). Dono me AC, Free Breakfast aur Swimming Pool access included hai. Aapko kaun sa pasand aayega?";
+        const poolMsg = qPool?.enabled ? " aur Swimming Pool access" : "";
+        const foodMsg = qFood?.enabled ? ", Free Breakfast" : "";
+        responseText = `Haan ji, bilkul! Rooms available hain: ₹2,500 wala Super Deluxe Room (₹750 advance token) aur ₹1,800 wala Deluxe Room (₹540 advance token). Dono me AC${foodMsg}${poolMsg} included hai. Aapko kaun sa pasand aayega?`;
       }
     } else if (q.includes("photo") || q.includes("image") || q.includes("tasveer") || q.includes("pic") || q.includes("location") || q.includes("map") || q.includes("kahan hai") || q.includes("address") || q.includes("pata")) {
-      responseText = "Haan ji, bilkul! Maine King Villa ke Super Deluxe rooms, Swimming Pool ki high-quality photos aur Google Maps live location aapke WhatsApp number par bhej di hai. Aap WhatsApp check kar sakte hain!";
+      const poolPhoto = qPool?.enabled ? ", Swimming Pool" : "";
+      responseText = `Haan ji, bilkul! Maine King Villa ke Super Deluxe rooms${poolPhoto} ki high-quality photos aur Google Maps live location aapke WhatsApp number par bhej di hai. Aap WhatsApp check kar sakte hain!`;
       toast.success("📲 WhatsApp Media Pack Sent: 4 Photos + Google Maps Pin delivered to caller!", { duration: 5000 });
     } else if (q.includes("manager") || q.includes("owner") || q.includes("malik") || q.includes("discount") || q.includes("kam karo") || q.includes("deal") || q.includes("party") || q.includes("wedding") || q.includes("shadi") || q.includes("event") || q.includes("group") || q.includes("bulk") || q.includes("baat karni")) {
       const targetPhone = managerEscalationPhone || hotelPersonalPhone || "+91 9726846660";
@@ -1739,7 +1755,7 @@ export default function HotelLeadManagerPage() {
     },
     {
       guest: "Kya aap hotel aur swimming pool ki photos aur Google Maps location WhatsApp par bhej sakte hain?",
-      ai: "Haan ji, bilkul! Maine King Villa ke Super Deluxe rooms, Swimming Pool ki photos aur Google Maps location aapke WhatsApp number par bhej di hai. Aap WhatsApp par check kar sakte hain!"
+      ai: `Haan ji, bilkul! Maine King Villa ke Super Deluxe rooms${villaQuestions.find(v => v.id === "q_pool")?.enabled ? ", Swimming Pool" : ""} ki photos aur Google Maps location aapke WhatsApp number par bhej di hai. Aap WhatsApp par check kar sakte hain!`
     },
     {
       guest: "Hum 40 logon ka group hain aur wedding function ke liye bulk discount chahiye, kya owner se baat ho sakti hai?",
@@ -7866,6 +7882,38 @@ export default function HotelLeadManagerPage() {
               </div>
             </div>
 
+            {/* AI Brain Memory Status Indicator */}
+            <div className="p-2.5 rounded-lg bg-indigo-950/40 border border-indigo-500/30 flex items-center justify-between flex-wrap gap-2 text-[11px]">
+              <div className="flex items-center gap-1.5 text-indigo-300 font-medium">
+                <Bot size={13} className="text-indigo-400 shrink-0" />
+                <span>AI Brain Memory Active:</span>
+              </div>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <Badge variant="outline" className={cn(
+                  "text-[10px] px-1.5 py-0 font-medium",
+                  villaQuestions.find(v => v.id === "q_pool")?.enabled
+                    ? "bg-blue-500/10 text-blue-300 border-blue-500/30"
+                    : "bg-rose-500/10 text-rose-300 border-rose-500/30"
+                )}>
+                  {villaQuestions.find(v => v.id === "q_pool")?.enabled ? "🏊 Pool Active" : "🚫 Pool Excluded (No Pool)"}
+                </Badge>
+                <Badge variant="outline" className={cn(
+                  "text-[10px] px-1.5 py-0 font-medium",
+                  villaQuestions.find(v => v.id === "q_food")?.enabled
+                    ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/30"
+                    : "bg-slate-500/10 text-slate-400 border-slate-700"
+                )}>
+                  {villaQuestions.find(v => v.id === "q_food")?.enabled ? "🍳 Breakfast Active" : "Self-Cook/Swiggy"}
+                </Badge>
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-cyan-500/10 text-cyan-300 border-cyan-500/30">
+                  ❄️ AC Active
+                </Badge>
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-purple-500/10 text-purple-300 border-purple-500/30">
+                  📶 Wi-Fi Active
+                </Badge>
+              </div>
+            </div>
+
             {/* Smart Rating Selection (Natural Algorithm Variation) */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
@@ -7880,7 +7928,8 @@ export default function HotelLeadManagerPage() {
                   type="button"
                   onClick={() => {
                     if (!selectedCheckoutGuest) return;
-                    setSelectedCheckoutGuest({ ...selectedCheckoutGuest, rating: 5 });
+                    const newText = generateBrainAwareReview(selectedCheckoutGuest.guestName, selectedCheckoutGuest.roomNumber, 5);
+                    setSelectedCheckoutGuest({ ...selectedCheckoutGuest, rating: 5, reviewText: newText });
                   }}
                   className={cn(
                     "p-2.5 rounded-lg border text-left flex items-center justify-between transition-all cursor-pointer",
@@ -7900,7 +7949,8 @@ export default function HotelLeadManagerPage() {
                   type="button"
                   onClick={() => {
                     if (!selectedCheckoutGuest) return;
-                    setSelectedCheckoutGuest({ ...selectedCheckoutGuest, rating: 4 });
+                    const newText = generateBrainAwareReview(selectedCheckoutGuest.guestName, selectedCheckoutGuest.roomNumber, 4);
+                    setSelectedCheckoutGuest({ ...selectedCheckoutGuest, rating: 4, reviewText: newText });
                   }}
                   className={cn(
                     "p-2.5 rounded-lg border text-left flex items-center justify-between transition-all cursor-pointer",
