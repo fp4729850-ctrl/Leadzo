@@ -87,6 +87,29 @@ serve(async (req) => {
         const targetRoom = rooms?.find((r: any) => r.id === targetRoomId);
         const roomPrice = targetRoom?.price_per_night || 4000;
 
+        // Sync: Remove cancelled bookings
+        // Find existing iCal bookings for this room and source
+        const { data: existingBookings } = await supabase
+          .from('hotel_bookings')
+          .select('id, ical_uid')
+          .eq('room_id', targetRoomId)
+          .eq('source', src)
+          .not('ical_uid', 'is', null);
+
+        const parsedUids = parsed.map((e: any) => e.ical_uid).filter(Boolean);
+
+        if (existingBookings && existingBookings.length > 0) {
+          for (const b of existingBookings) {
+            if (!parsedUids.includes(b.ical_uid)) {
+              // Booking was removed from iCal feed (likely cancelled)
+              await supabase
+                .from('hotel_bookings')
+                .delete()
+                .eq('id', b.id);
+            }
+          }
+        }
+
         for (const event of parsed) {
           if (!event.ical_uid) continue;
 
@@ -138,7 +161,7 @@ serve(async (req) => {
         const links = room.ical_links || {};
         for (const [provider, url] of Object.entries(links)) {
           if (typeof url === 'string' && url.startsWith('http')) {
-            const sourceName = provider.toLowerCase().includes('airbnb') ? 'Airbnb' : provider.toLowerCase().includes('agoda') ? 'Agoda' : 'Booking.com';
+            const sourceName = provider.toLowerCase().includes('airbnb') ? 'Airbnb' : provider.toLowerCase().includes('agoda') ? 'Agoda' : provider.toLowerCase().includes('goibibo') ? 'Goibibo' : provider.charAt(0).toUpperCase() + provider.slice(1);
             const added = await processFeed(url, sourceName, room.id);
             totalNewBookings += added;
           }
