@@ -152,21 +152,31 @@ export default function LandingPage() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-border bg-background py-8">
-        <div className="container mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
-          <div className="flex flex-col md:flex-row items-center gap-4">
+      <footer className="border-t border-border bg-background py-12">
+        <div className="container mx-auto px-4 max-w-5xl">
+          <div className="grid md:grid-cols-2 gap-8 mb-8 text-sm text-muted-foreground">
+            <div>
+              <h4 className="font-bold text-foreground text-base mb-4">Contact Us</h4>
+              <p className="mb-2"><strong>Email:</strong> leadzoai@gmail.com</p>
+              <p><strong>Address:</strong> Marwad, Daman, Devka Road, Nani Daman</p>
+            </div>
+            <div className="flex flex-col md:items-end justify-center">
+              <a href="https://google.com/preferences/source?q=www.leadzoai.com" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-primary/5 hover:bg-primary/10 border border-primary/20 text-xs font-medium text-foreground transition-colors">
+                <Globe className="size-4 text-primary" /> Add to Google Preferred Sources
+              </a>
+            </div>
+          </div>
+          
+          <div className="pt-8 border-t border-border flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
             <div className="flex items-center gap-2">
               <Bot className="size-5" />
               <span>&copy; {new Date().getFullYear()} Leadzo AI. All rights reserved.</span>
             </div>
-            <a href="https://google.com/preferences/source?q=www.leadzoai.com" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/5 hover:bg-primary/10 border border-primary/20 text-xs font-medium text-foreground transition-colors">
-              <Globe className="size-3 text-primary" /> Add to Google Preferred Sources
-            </a>
-          </div>
-          <div className="flex gap-6 font-medium">
-            <Link to="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</Link>
-            <Link to="/terms" className="hover:text-foreground transition-colors">Terms of Service</Link>
-            <Link to="/refunds" className="hover:text-foreground transition-colors">Refund Policy</Link>
+            <div className="flex gap-6 font-medium">
+              <Link to="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</Link>
+              <Link to="/terms" className="hover:text-foreground transition-colors">Terms of Service</Link>
+              <Link to="/refunds" className="hover:text-foreground transition-colors">Refund Policy</Link>
+            </div>
           </div>
         </div>
       </footer>
