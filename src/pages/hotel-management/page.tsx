@@ -405,7 +405,7 @@ export default function HotelLeadManagerPage() {
   const [isAiMatching, setIsAiMatching] = useState(false);
   const [autoSyncCountdown, setAutoSyncCountdown] = useState(180); // 3-minute countdown (180s)
   const [isBuyNumberModalOpen, setIsBuyNumberModalOpen] = useState(false);
-  const [activeNumber, setActiveNumber] = useState<string | null>("+1 928 963 5202");
+  const [activeNumber, setActiveNumber] = useState<string | null>("+91 942 939 7495");
   const [isAddChannelOpen, setIsAddChannelOpen] = useState(false);
   const [newChannelName, setNewChannelName] = useState("");
   const [newChannelIcal, setNewChannelIcal] = useState("");
@@ -5248,13 +5248,13 @@ export default function HotelLeadManagerPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="font-mono text-xs font-bold text-emerald-300 bg-emerald-500/10 px-2.5 py-1 rounded border border-emerald-500/20">
-                    {activeNumber || "+1 928 963 5202"}
+                    {activeNumber || "+91 942 939 7495"}
                   </span>
                   <Button 
                     size="sm" 
                     variant="outline"
                     onClick={() => {
-                      navigator.clipboard.writeText(activeNumber || "+19289635202");
+                      navigator.clipboard.writeText(activeNumber || "+919429397495");
                       toast.success("Virtual Number Copied!");
                     }}
                     className="h-7 text-xs border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/10 cursor-pointer gap-1"
@@ -5359,9 +5359,9 @@ export default function HotelLeadManagerPage() {
                   </p>
                   <div className="pt-1 flex items-center justify-between">
                     <span className="font-mono text-[11px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                      Dial: *61*{activeNumber ? activeNumber.replace(/\s+/g, '') : '+19289635202'}#
+                      Dial: *61*{activeNumber ? activeNumber.replace(/\s+/g, '') : '+919429397495'}#
                     </span>
-                    <Button size="sm" variant="ghost" onClick={() => { navigator.clipboard.writeText(`*61*${activeNumber ? activeNumber.replace(/\s+/g, '') : '+19289635202'}#`); toast.success("USSD Code Copied!"); }} className="h-6 text-[10px] cursor-pointer">
+                    <Button size="sm" variant="ghost" onClick={() => { navigator.clipboard.writeText(`*61*${activeNumber ? activeNumber.replace(/\s+/g, '') : '+919429397495'}#`); toast.success("USSD Code Copied!"); }} className="h-6 text-[10px] cursor-pointer">
                       Copy Code
                     </Button>
                   </div>
@@ -5382,9 +5382,9 @@ export default function HotelLeadManagerPage() {
                   </p>
                   <div className="pt-1 flex items-center justify-between">
                     <span className="font-mono text-[11px] text-indigo-300 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
-                      Dial: *21*{activeNumber ? activeNumber.replace(/\s+/g, '') : '+19289635202'}#
+                      Dial: *21*{activeNumber ? activeNumber.replace(/\s+/g, '') : '+919429397495'}#
                     </span>
-                    <Button size="sm" variant="ghost" onClick={() => { navigator.clipboard.writeText(`*21*${activeNumber ? activeNumber.replace(/\s+/g, '') : '+19289635202'}#`); toast.success("USSD Code Copied!"); }} className="h-6 text-[10px] cursor-pointer">
+                    <Button size="sm" variant="ghost" onClick={() => { navigator.clipboard.writeText(`*21*${activeNumber ? activeNumber.replace(/\s+/g, '') : '+919429397495'}#`); toast.success("USSD Code Copied!"); }} className="h-6 text-[10px] cursor-pointer">
                       Copy Code
                     </Button>
                   </div>
@@ -5395,10 +5395,10 @@ export default function HotelLeadManagerPage() {
               <div className="pt-2 flex flex-wrap items-center justify-between gap-2 border-t border-amber-500/20">
                 <span className="text-xs text-muted-foreground">1-Click Mobile Setup:</span>
                 <div className="flex gap-2">
-                  <Button size="sm" variant="outline" onClick={() => toast.info(`Jio Forwarding Code: *61*${activeNumber ? activeNumber.replace(/\s+/g, '') : '+19289635202'}#`)} className="h-7 text-[11px] cursor-pointer">Jio</Button>
-                  <Button size="sm" variant="outline" onClick={() => toast.info(`Airtel Forwarding Code: *61*${activeNumber ? activeNumber.replace(/\s+/g, '') : '+19289635202'}#`)} className="h-7 text-[11px] cursor-pointer">Airtel</Button>
-                  <Button size="sm" variant="outline" onClick={() => toast.info(`Vi Forwarding Code: *61*${activeNumber ? activeNumber.replace(/\s+/g, '') : '+19289635202'}#`)} className="h-7 text-[11px] cursor-pointer">Vi</Button>
-                  <Button size="sm" variant="outline" onClick={() => toast.info(`BSNL Forwarding Code: *61*${activeNumber ? activeNumber.replace(/\s+/g, '') : '+19289635202'}#`)} className="h-7 text-[11px] cursor-pointer">BSNL</Button>
+                  <Button size="sm" variant="outline" onClick={() => toast.info(`Jio Forwarding Code: *61*${activeNumber ? activeNumber.replace(/\s+/g, '') : '+919429397495'}#`)} className="h-7 text-[11px] cursor-pointer">Jio</Button>
+                  <Button size="sm" variant="outline" onClick={() => toast.info(`Airtel Forwarding Code: *61*${activeNumber ? activeNumber.replace(/\s+/g, '') : '+919429397495'}#`)} className="h-7 text-[11px] cursor-pointer">Airtel</Button>
+                  <Button size="sm" variant="outline" onClick={() => toast.info(`Vi Forwarding Code: *61*${activeNumber ? activeNumber.replace(/\s+/g, '') : '+919429397495'}#`)} className="h-7 text-[11px] cursor-pointer">Vi</Button>
+                  <Button size="sm" variant="outline" onClick={() => toast.info(`BSNL Forwarding Code: *61*${activeNumber ? activeNumber.replace(/\s+/g, '') : '+919429397495'}#`)} className="h-7 text-[11px] cursor-pointer">BSNL</Button>
                 </div>
               </div>
             </CardContent>

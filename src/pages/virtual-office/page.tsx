@@ -53,7 +53,7 @@ export default function VirtualOfficePage() {
   const [isApiModalOpen, setIsApiModalOpen] = useState(false);
   const [videoStyle, setVideoStyle] = useState<"cartoon" | "human">("cartoon");
   const [isBuyNumberModalOpen, setIsBuyNumberModalOpen] = useState(false);
-  const [activeNumber, setActiveNumber] = useState<string | null>("+1 928 963 5202");
+  const [activeNumber, setActiveNumber] = useState<string | null>("+91 942 939 7495");
 
   const spawnPacket = (role: string, color: string, finalMessage: string) => {
     setActiveSenders(prev => ({ ...prev, [role]: true }));
