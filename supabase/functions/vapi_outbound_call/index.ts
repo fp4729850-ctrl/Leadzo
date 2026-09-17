@@ -64,7 +64,7 @@ serve(async (req) => {
         },
         assistantId: assistantId,
         assistantOverrides: {
-          firstMessageMode: "assistant-speaks-first-with-model-generated-message",
+          firstMessage: `Namaste Boss! Main ${businessData.company_name || 'King Villa'} ki AI Manager bol rahi hoon. Aaj main aapki kaise madad kar sakti hoon?`,
           voice: {
             provider: "11labs",
             voiceId: "ThT5KcBeYPX3keUQqHPh", // Priya (Indian Female)
