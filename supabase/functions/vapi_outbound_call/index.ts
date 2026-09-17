@@ -69,7 +69,8 @@ serve(async (req) => {
             : `Hello Boss! I have the latest updates from the marketing team and data analysis for ${businessData.company_name || 'your company'}. What would you like to discuss?`,
           voice: {
             provider: "11labs",
-            voiceId: "ThT5KcBeYPX3keUQqHPh" // Priya (Indian Female) for natural Hindi
+            voiceId: "ThT5KcBeYPX3keUQqHPh", // Priya (Indian Female)
+            model: "eleven_multilingual_v2" // CRITICAL: Required for Hindi/Hinglish, otherwise it sounds robotic
           },
           model: {
             provider: "openai",
