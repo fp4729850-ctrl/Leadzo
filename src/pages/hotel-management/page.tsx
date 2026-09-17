@@ -1619,97 +1619,26 @@ export default function HotelLeadManagerPage() {
     setIsAiSpeaking(false);
 
     try {
-      // 1. Acquire microphone
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      micStreamRef.current = stream;
-
-      // 2. Setup Web Audio Analyser for realistic real-time sound waves
-      try {
-        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-        const audioCtx = new AudioCtx();
-        audioContextRef.current = audioCtx;
-        const source = audioCtx.createMediaStreamSource(stream);
-        const analyser = audioCtx.createAnalyser();
-        analyser.fftSize = 256;
-        source.connect(analyser);
-
-        const dataArray = new Uint8Array(analyser.frequencyBinCount);
-        const updateVol = () => {
-          if (!analyser || isMutedRef.current) {
-            setVapiVolume(0);
-          } else {
-            analyser.getByteFrequencyData(dataArray);
-            let sum = 0;
-            for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
-            const avg = sum / dataArray.length;
-            const norm = Math.min(1, avg / 70);
-            setVapiVolume(norm);
-          }
-          animFrameRef.current = requestAnimationFrame(updateVol);
-        };
-        updateVol();
-      } catch (e) {
-        console.warn("Audio visualizer notice:", e);
+      toast.info("Initiating live Vapi AI call to your phone...", { duration: 4000 });
+      
+      const { data, error } = await supabase.functions.invoke('vapi_outbound_call');
+      
+      if (error) {
+        throw new Error(error.message || "Failed to trigger Vapi call");
       }
-
+      
       setVapiCallStatus("active");
-      toast.success("🎙️ Connected to Leadzo AI Voice Receptionist! Speak now.");
-
-      // 3. Initial AI Greeting
-      const greeting = "Namaste! Welcome to King Villa Resort & Suites. Main AI Hotel Manager hoon, kya main aapki room booking ya hotel amenities me madad kar sakta hoon?";
+      toast.success("🎙️ Call Connected! Your phone is ringing. Pick up to speak with your AI Manager.");
+      
+      const greeting = "Ring ring! Your phone is ringing now. Please answer it to speak with the real Vapi AI Manager.";
       const initialTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       setVoiceMessages([{ sender: 'ai', text: greeting, time: initialTime }]);
-      speakAiResponse(greeting);
-
-      // 4. Setup Speech Recognition
-      const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (SpeechRec) {
-        const rec = new SpeechRec();
-        rec.continuous = true;
-        rec.interimResults = true;
-        rec.lang = 'hi-IN';
-
-        rec.onresult = (event: any) => {
-          if (isMutedRef.current || isAiSpeakingRef.current) return;
-          let finalTranscript = '';
-          for (let i = event.resultIndex; i < event.results.length; ++i) {
-            if (event.results[i].isFinal) {
-              finalTranscript += event.results[i][0].transcript;
-            } else {
-              setLiveTranscript(event.results[i][0].transcript);
-            }
-          }
-          if (finalTranscript.trim()) {
-            setLiveTranscript('');
-            handleVoiceQuery(finalTranscript);
-          }
-        };
-
-        rec.onerror = (err: any) => {
-          console.warn("SpeechRec notice:", err);
-        };
-
-        recognitionRef.current = rec;
-        try { rec.start(); } catch(e) {}
-      }
-
-      // 5. Try Vapi Cloud in background if available
-      try {
-        const VAPI_KEY = (import.meta as any).env?.VITE_VAPI_PUBLIC_KEY;
-        if (VAPI_KEY && VAPI_KEY !== 'dummy-public-key' && VAPI_KEY.length > 20) {
-          const vapi = new Vapi(VAPI_KEY);
-          vapiClientRef.current = vapi;
-        }
-      } catch(e) {}
-
+      
     } catch (err: any) {
-      console.error("Microphone audio start notice:", err);
-      // Even if mic access fails, keep active in simulated mode so user can click quick questions!
-      setVapiCallStatus("active");
-      const fallbackGreeting = "Namaste! Welcome to King Villa Resort & Suites. Main AI Hotel Manager hoon. Microphone allow karein ya niche diye gaye sample questions par click karke test karein!";
-      const initialTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      setVoiceMessages([{ sender: 'ai', text: fallbackGreeting, time: initialTime }]);
-      speakAiResponse(fallbackGreeting);
+      console.error("Vapi call trigger error:", err);
+      toast.error(`Error: ${err.message}`);
+      setVapiCallStatus("error");
+      setVoiceMessages([{ sender: 'ai', text: "Failed to trigger the live phone call. Ensure backend is deployed.", time: new Date().toLocaleTimeString() }]);
     }
   };
 
