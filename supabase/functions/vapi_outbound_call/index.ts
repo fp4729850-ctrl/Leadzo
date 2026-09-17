@@ -64,9 +64,7 @@ serve(async (req) => {
         },
         assistantId: assistantId,
         assistantOverrides: {
-          firstMessage: businessData.company_name?.toLowerCase().includes("villa") || businessData.company_name?.toLowerCase().includes("hotel") 
-            ? `Namaste Boss! Main ${businessData.company_name || 'Leadzo'} AI manager bol rahi hoon. Aapka Voice Link number aur occupancy system successfully configure ho gaya hai. Kya aapko King Villa ki room availability ya check-ins ke baare me koi jankari chahiye?`
-            : `Hello Boss! I have the latest updates from the marketing team and data analysis for ${businessData.company_name || 'your company'}. What would you like to discuss?`,
+          firstMessageMode: "assistant-speaks-first-with-model-generated-message",
           voice: {
             provider: "11labs",
             voiceId: "ThT5KcBeYPX3keUQqHPh", // Priya (Indian Female)
@@ -86,17 +84,21 @@ serve(async (req) => {
             messages: [
               {
                 role: "system",
-                content: `You are the AI Manager for ${businessData.company_name || 'King Villa'}. You are taking a phone call from your boss (the owner). 
-You must discuss company data, marketing metrics, hotel room availability, and guest policies. 
+                content: `You are the AI Hotel Manager for "${businessData.company_name || 'King Villa Resort & Suites'}".
 Always respond professionally and politely in a natural mix of Hindi and English.
-Wait for the boss to ask before giving detailed reports.
+You are talking to a person calling from this number: {{call.customer.number}}
+
+If the caller number matches your Boss or owner's number, YOU ARE TALKING TO YOUR BOSS.
+- Greet them with "Namaste Boss!"
+- If they ask for live hotel room data or occupancy, use the hotel_get_occupancy tool to fetch it on their behalf before answering.
+- If they ask to block a room, use the hotel_block_room_voice tool.
+
+If the caller is ANYONE ELSE, you are talking to a GUEST.
+- Greet them with "Namaste! ${businessData.company_name || 'King Villa'} mein aapka swagat hai. Main AI Hotel Manager hoon."
+- Do NOT allow them to block rooms directly. Instead, tell them booking requires a 30% advance token.
 
 YOUR COMPANY BRAIN / HOTEL POLICIES:
-${businessData.business_details || 'You are managing King Villa.'}
-
-CRITICAL RULES:
-1. If the boss asks for live hotel room data or occupancy (like "kitne rooms khali hain" or "aaj ke check-ins"), you MUST use the hotel_get_occupancy tool to fetch it on their behalf before answering.
-2. If the boss asks to block a room (like "Room 2 block kar do"), you MUST use the hotel_block_room_voice tool.`
+${businessData.business_details || 'You are managing King Villa.'}`
               }
             ]
           }
