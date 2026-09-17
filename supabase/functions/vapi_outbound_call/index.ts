@@ -64,54 +64,38 @@ serve(async (req) => {
         },
         assistantId: assistantId,
         assistantOverrides: {
-          firstMessage: `Hello Boss! I have the latest updates from the marketing team and data analysis for ${businessData.company_name || 'your company'}. What would you like to discuss?`,
+          firstMessage: businessData.company_name?.toLowerCase().includes("villa") || businessData.company_name?.toLowerCase().includes("hotel") 
+            ? `Namaste Boss! Main ${businessData.company_name || 'Leadzo'} AI manager bol rahi hoon. Aapka Voice Link number aur occupancy system successfully configure ho gaya hai. Kya aapko King Villa ki room availability ya check-ins ke baare me koi jankari chahiye?`
+            : `Hello Boss! I have the latest updates from the marketing team and data analysis for ${businessData.company_name || 'your company'}. What would you like to discuss?`,
+          voice: {
+            provider: "11labs",
+            voiceId: "ThT5KcBeYPX3keUQqHPh" // Priya (Indian Female) for natural Hindi
+          },
           model: {
             provider: "openai",
             model: "gpt-4o",
             tools: [
-              {
-                type: "function",
-                function: {
-                  name: "get_marketing_metrics",
-                  description: "Fetch real-time Facebook/Meta Ads campaign metrics.",
-                  parameters: { type: "object", properties: {} }
-                }
-              },
-              {
-                type: "function",
-                function: {
-                  name: "get_revenue_data",
-                  description: "Fetch real-time Razorpay revenue and sales data.",
-                  parameters: { type: "object", properties: {} }
-                }
-              },
-              {
-                type: "function",
-                function: {
-                  name: "get_support_tickets",
-                  description: "Fetch the number of open and resolved customer support tickets.",
-                  parameters: { type: "object", properties: {} }
-                }
-              },
-              {
-                type: "function",
-                function: {
-                  name: "get_api_balances",
-                  description: "Fetch the remaining API credits for Vapi, OpenAI, Gemini and Ad Campaign budgets.",
-                  parameters: { type: "object", properties: {} }
-                }
-              }
+              { type: "function", function: { name: "get_marketing_metrics", description: "Fetch real-time Facebook/Meta Ads campaign metrics.", parameters: { type: "object", properties: {} } } },
+              { type: "function", function: { name: "get_revenue_data", description: "Fetch real-time Razorpay revenue and sales data.", parameters: { type: "object", properties: {} } } },
+              { type: "function", function: { name: "get_support_tickets", description: "Fetch the number of open and resolved customer support tickets.", parameters: { type: "object", properties: {} } } },
+              { type: "function", function: { name: "get_api_balances", description: "Fetch the remaining API credits.", parameters: { type: "object", properties: {} } } },
+              { type: "function", function: { name: "hotel_get_occupancy", description: "Fetch live hotel room availability and occupancy report for King Villa.", parameters: { type: "object", properties: {} } } },
+              { type: "function", function: { name: "hotel_block_room_voice", description: "Block a specific hotel room for given dates.", parameters: { type: "object", properties: { roomNumber: { type: "string" }, checkIn: { type: "string" }, checkOut: { type: "string" }, guestName: { type: "string" } } } } }
             ],
             messages: [
               {
                 role: "system",
-                content: `You are the AI Manager for ${businessData.company_name || 'Leadzo'}. You are taking a phone call from your boss (the user). 
-You must discuss company data analysis, marketing metrics, and whatever the marketing team has reported. Always respond professionally and wait for the boss to ask before giving detailed reports.
+                content: `You are the AI Manager for ${businessData.company_name || 'King Villa'}. You are taking a phone call from your boss (the owner). 
+You must discuss company data, marketing metrics, hotel room availability, and guest policies. 
+Always respond professionally and politely in a natural mix of Hindi and English.
+Wait for the boss to ask before giving detailed reports.
 
-YOUR COMPANY BRAIN:
-${businessData.business_details || ''}
+YOUR COMPANY BRAIN / HOTEL POLICIES:
+${businessData.business_details || 'You are managing King Villa.'}
 
-If the boss asks for live data (like marketing metrics or revenue), you MUST use the appropriate function tool to fetch it on their behalf before answering.`
+CRITICAL RULES:
+1. If the boss asks for live hotel room data or occupancy (like "kitne rooms khali hain" or "aaj ke check-ins"), you MUST use the hotel_get_occupancy tool to fetch it on their behalf before answering.
+2. If the boss asks to block a room (like "Room 2 block kar do"), you MUST use the hotel_block_room_voice tool.`
               }
             ]
           }
