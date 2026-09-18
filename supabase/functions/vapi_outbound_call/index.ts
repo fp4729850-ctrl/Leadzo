@@ -64,7 +64,7 @@ serve(async (req) => {
         },
         assistantId: assistantId,
         assistantOverrides: {
-          firstMessage: `Namaste Boss! Main ${businessData.company_name || 'King Villa'} ki AI Manager bol rahi hoon. Aaj main aapki kaise madad kar sakti hoon?`,
+          firstMessage: `Namaste Boss! Main ${businessData.company_name || 'King Villa'} ka AI Manager bol raha hoon. Aaj main aapki kaise madad kar sakta hoon?`,
           voice: {
             provider: "11labs",
             voiceId: "EtEf6yOMlronn3UoIDrF", // Ankit (Indian Male)
