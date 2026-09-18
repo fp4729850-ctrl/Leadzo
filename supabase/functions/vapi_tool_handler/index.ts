@@ -23,6 +23,30 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "No message" }), { headers: corsHeaders, status: 400 })
     }
 
+    // ═══════════════════════════════════════════════════════════════
+    // ASSISTANT-REQUEST: Fires before call connects
+    // ═══════════════════════════════════════════════════════════════
+    if (message.type === 'assistant-request') {
+      const callerNumber = message.call?.customer?.number || '';
+      const callerDigits = callerNumber.replace(/\D/g, '');
+      const isBoss = callerDigits.includes('9726846660') || callerDigits.includes('9429397495') || callerDigits.endsWith('6660');
+
+      console.log(`assistant-request event | caller: ${callerNumber} | isBoss: ${isBoss}`);
+
+      const firstMessage = isBoss
+        ? "Hello Boss! Main King Villa ki AI Manager bol raha hoon. Aapki King Villa hotel ke baare mein kya jaanna chahte hain?"
+        : "Namaste! King Villa Resort & Suites mein aapka swagat hai. Main AI Hotel Manager hoon. Kya main aapki room booking mein madad kar sakta hoon?";
+
+      return new Response(
+        JSON.stringify({
+          assistant: {
+            firstMessage
+          }
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     if (message.type === 'tool-calls') {
       const toolCalls = message.toolWithToolCallList || []
       
