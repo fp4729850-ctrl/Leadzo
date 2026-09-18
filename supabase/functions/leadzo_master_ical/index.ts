@@ -112,24 +112,27 @@ serve(async (req) => {
       room_id = body.room_id || null;
     }
 
-    if (!user_id) {
-      return new Response('Missing user_id parameter', {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'text/plain' }
-      });
+    let roomsQuery = supabase.from('hotel_rooms').select('*');
+    if (user_id && user_id !== 'undefined' && user_id !== 'null') {
+      roomsQuery = roomsQuery.eq('user_id', user_id);
     }
-
-    let roomsQuery = supabase.from('hotel_rooms').select('*').eq('user_id', user_id);
-    if (room_id) roomsQuery = roomsQuery.eq('id', room_id);
+    if (room_id && room_id !== 'undefined' && room_id !== 'null') {
+      roomsQuery = roomsQuery.eq('id', room_id);
+    }
     const { data: rooms, error: roomsErr } = await roomsQuery;
-    if (roomsErr) throw roomsErr;
+    if (roomsErr) console.warn("rooms query note:", roomsErr);
 
-    let bookingsQuery = supabase.from('hotel_bookings').select('*').eq('user_id', user_id);
-    if (room_id) bookingsQuery = bookingsQuery.eq('room_id', room_id);
+    let bookingsQuery = supabase.from('hotel_bookings').select('*');
+    if (user_id && user_id !== 'undefined' && user_id !== 'null') {
+      bookingsQuery = bookingsQuery.eq('user_id', user_id);
+    }
+    if (room_id && room_id !== 'undefined' && room_id !== 'null') {
+      bookingsQuery = bookingsQuery.eq('room_id', room_id);
+    }
     const { data: bookings, error: bookingsErr } = await bookingsQuery;
-    if (bookingsErr) throw bookingsErr;
+    if (bookingsErr) console.warn("bookings query note:", bookingsErr);
 
-    const icsContent = buildICS(rooms || [], bookings || [], 'My Hotel');
+    const icsContent = buildICS(rooms || [], bookings || [], 'King Villa Resort');
 
     return new Response(icsContent, {
       status: 200,
