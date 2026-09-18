@@ -45,6 +45,10 @@ serve(async (req) => {
       throw new Error("No Vapi Phone ID configured for the active company. Please configure it in API settings.");
     }
 
+    // 4. Clean up phone number for better prompt matching
+    const cleanPhone = userData.phone.replace(/\D/g, ''); // e.g., "919726846660"
+    const shortPhone = cleanPhone.length > 10 ? cleanPhone.slice(-10) : cleanPhone; // e.g., "9726846660"
+
     // Call Vapi
     const vapiPrivateKey = Deno.env.get('VAPI_PRIVATE_KEY');
     if (!vapiPrivateKey) throw new Error("VAPI_PRIVATE_KEY is not configured in backend.");
@@ -82,9 +86,9 @@ serve(async (req) => {
                 content: `You are the AI Manager for ${businessData.company_name || 'King Villa Resort & Suites'}.
 
 **CALLER IDENTIFICATION LOGIC:**
-The caller's phone number is: ${userData.phone}
+The caller's phone number is: {{call.customer.number}}
 
-Rule 1: If the caller's phone number is EXACTLY "${userData.phone}", then YOU ARE TALKING TO YOUR BOSS (THE OWNER OF THE BUSINESS).
+Rule 1: If the caller's phone number CONTAINS or is EXACTLY "${userData.phone}" OR "${cleanPhone}" OR "${shortPhone}", then YOU ARE TALKING TO YOUR BOSS (THE OWNER OF THE BUSINESS).
 - Script for Boss: "Namaste Boss! AI system mein aapka swagat hai. Aaj main aapki kaise madad kar sakta hoon?"
 - Behavior for Boss: You must answer all their questions about the business, occupancy, and revenue. If they want to block a room, use the hotel_block_room_voice tool. If they ask for occupancy, use hotel_get_occupancy.
 
