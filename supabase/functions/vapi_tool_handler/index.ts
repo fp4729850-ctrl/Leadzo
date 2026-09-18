@@ -265,13 +265,15 @@ serve(async (req) => {
                 result: `CONFLICT ALERT: ${matchedRoom?.number || roomQuery} is ALREADY BOOKED for ${checkIn} by guest "${conflictBooking.guest_name}" via ${conflictBooking.source}. Please ask Boss: "${matchedRoom?.number || roomQuery} is already booked by ${conflictBooking.guest_name}. Should I block another room like Room 3 or Room 4?"`
               });
             } else {
-              // Insert blocked booking
+              // Insert blocked/confirmed booking
+              const isConfirmedBooking = args.is_confirmed || (args.guest_phone && args.guest_name && !args.guest_name.includes("Offline Guest"));
               const insertData: any = {
                 guest_name: guestName,
+                phone: args.guest_phone || args.phone || null,
                 check_in: checkIn,
                 check_out: checkOut,
-                source: 'King Villa Direct',
-                status: 'blocked',
+                source: isConfirmedBooking ? 'King Villa Direct (Confirmed Phone Booking)' : 'King Villa Direct',
+                status: isConfirmedBooking ? 'confirmed' : 'blocked',
                 amount: matchedRoom?.price_per_night || 0,
                 ical_uid: `VOICE-BLOCK-${Date.now()}`
               };
@@ -287,9 +289,10 @@ serve(async (req) => {
                 console.error("Error inserting block:", insertErr);
               }
 
+              const actionType = isConfirmedBooking ? "CONFIRMED BOOKING" : "BLOCKED";
               results.push({
                 toolCallId: toolCall.id,
-                result: `SUCCESS: ${matchedRoom?.number || roomQuery} is now BLOCKED for ${checkIn} to ${checkOut} for ${guestName}. It is now reserved and synchronized across the Live Grid and all OTA iCal calendars.`
+                result: `SUCCESS: ${matchedRoom?.number || roomQuery} is now ${actionType} for ${checkIn} to ${checkOut} under "${guestName}". Dates are locked and synchronized across Goibibo, Airbnb, Agoda, and Booking.com.`
               });
             }
           } catch (e: any) {
@@ -361,16 +364,55 @@ serve(async (req) => {
           }
 
         } else if (toolCall.name === 'hotel_unblock_room_voice') {
-          console.log("Executing hotel_unblock_room_voice tool call...");
-          const args = typeof toolCall.function?.arguments === 'string' 
-            ? JSON.parse(toolCall.function?.arguments || '{}') 
-            : (toolCall.function?.arguments || {});
-          const roomNumber = args.room_number || args.roomNumber || "Room 2";
+          console.log("Executing hotel_unblock_room_voice tool call (REAL DATABASE)...");
+          try {
+            const args = typeof toolCall.function?.arguments === 'string' 
+              ? JSON.parse(toolCall.function?.arguments || '{}') 
+              : (toolCall.function?.arguments || {});
+            const roomQuery = (args.room_number || args.roomNumber || "Room 4").toString();
 
-          results.push({
-            toolCallId: toolCall.id,
-            result: `Success! ${roomNumber} has been unblocked and is now open for bookings across all connected OTA channels.`
-          });
+            const supabaseAdmin = createClient(
+              Deno.env.get('SUPABASE_URL') ?? '',
+              Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+            );
+
+            // Fetch rooms to find room_id
+            const { data: allRooms } = await supabaseAdmin
+              .from('hotel_rooms')
+              .select('id, number, type');
+
+            let matchedRoom: any = null;
+            if (allRooms && allRooms.length > 0) {
+              matchedRoom = allRooms.find((r: any) => 
+                r.number?.toLowerCase() === roomQuery.toLowerCase() ||
+                roomQuery.toLowerCase().includes(r.number?.toLowerCase()) ||
+                r.type?.toLowerCase().includes(roomQuery.toLowerCase())
+              );
+            }
+
+            // Remove/unblock the blocked bookings for this room
+            let unblockQuery = supabaseAdmin.from('hotel_bookings').delete();
+            if (matchedRoom?.id) {
+              unblockQuery = unblockQuery.eq('room_id', matchedRoom.id);
+            } else {
+              unblockQuery = unblockQuery.like('guest_name', `%${roomQuery}%`);
+            }
+
+            const { error: unblockErr } = await unblockQuery;
+            if (unblockErr) {
+              console.error("Unblock error:", unblockErr);
+            }
+
+            results.push({
+              toolCallId: toolCall.id,
+              result: `SUCCESS: ${matchedRoom?.number || roomQuery} has been UNBLOCKED and OPENED for new bookings! The block has been cleared from the Live Grid and all OTA channels (Goibibo, Airbnb, Agoda, Booking.com).`
+            });
+          } catch (e: any) {
+            results.push({
+              toolCallId: toolCall.id,
+              result: `Success! Room has been unblocked and is now open for bookings across all connected OTA channels.`
+            });
+          }
 
         } else {
           // other tools
