@@ -175,7 +175,7 @@ AVAILABLE LIVE TOOLS:
               { type: "function", function: { name: "get_support_tickets", description: "Fetch the number of open and resolved customer support tickets.", parameters: { type: "object", properties: {} } } },
               { type: "function", function: { name: "get_api_balances", description: "Fetch the remaining API credits.", parameters: { type: "object", properties: {} } } },
               { type: "function", function: { name: "hotel_get_occupancy", description: "Fetch live hotel room availability and occupancy report for King Villa.", parameters: { type: "object", properties: {} } } },
-              { type: "function", function: { name: "hotel_block_room_voice", description: "Block a specific hotel room for given dates.", parameters: { type: "object", properties: { roomNumber: { type: "string" }, checkIn: { type: "string" }, checkOut: { type: "string" }, guestName: { type: "string" } } } } }
+              { type: "function", function: { name: "hotel_block_room_voice", description: "CRITICAL: Call this function whenever Boss asks to block any room (e.g. 'Room 4 block karna hai', 'Room 2 block kar do').", parameters: { type: "object", properties: { room_number: { type: "string", description: "e.g. Room 4, Room 2, Room 1, Room 3, Entire Villa" }, check_in: { type: "string" }, check_out: { type: "string" }, guestName: { type: "string" } }, required: ["room_number"] } } }
             ],
             messages: [
               {
