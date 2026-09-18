@@ -499,6 +499,22 @@ export default function HotelLeadManagerPage() {
   const [newPolicyTitle, setNewPolicyTitle] = useState("");
   const [newPolicyDescription, setNewPolicyDescription] = useState("");
 
+  const syncPoliciesWithVoiceBrain = async (questions: VillaAmenityQuestion[], policies: HotelPolicyItem[]) => {
+    try {
+      await supabase.functions.invoke('vapi_sync_assistant', {
+        body: {
+          phone: hotelPersonalPhone,
+          questions: questions,
+          policies: policies,
+          checkInTime: "12:00 PM",
+          checkOutTime: "11:00 AM"
+        }
+      });
+    } catch(err) {
+      console.error("Auto-sync policies with voice brain failed:", err);
+    }
+  };
+
   const toggleVillaQuestion = (id: string, enabled: boolean) => {
     const updated = villaQuestions.map(q => q.id === id ? { ...q, enabled } : q);
     setVillaQuestions(updated);
@@ -508,12 +524,15 @@ export default function HotelLeadManagerPage() {
     setHotelPolicies(updatedPolicies);
     localStorage.setItem('leadzo_hotel_policies', JSON.stringify(updatedPolicies));
 
+    // Instantly sync to Vapi Voice Brain in real-time
+    syncPoliciesWithVoiceBrain(updated, updatedPolicies);
+
     const target = updated.find(q => q.id === id);
     if (target) {
       if (enabled) {
-        toast.success(`🟢 ${target.title}: SET TO YES (Active in AI Voice Brain)`);
+        toast.success(`🟢 ${target.title}: SET TO YES (Synced to AI Voice Brain)`);
       } else {
-        toast.info(`🔴 ${target.title}: SET TO NO / RESTRICTED (Updated in AI Voice Brain)`);
+        toast.info(`🔴 ${target.title}: SET TO NO / RESTRICTED (Synced to AI Voice Brain)`);
       }
     }
   };
@@ -532,6 +551,7 @@ export default function HotelLeadManagerPage() {
     const updated = [...hotelPolicies, newPolicy];
     setHotelPolicies(updated);
     localStorage.setItem('leadzo_hotel_policies', JSON.stringify(updated));
+    syncPoliciesWithVoiceBrain(villaQuestions, updated);
     toast.success(`➕ "${newPolicy.title}" added to AI Voice Manager memory!`);
     setNewPolicyTitle("");
     setNewPolicyDescription("");
@@ -546,6 +566,7 @@ export default function HotelLeadManagerPage() {
     const updated = hotelPolicies.filter(p => p.id !== id);
     setHotelPolicies(updated);
     localStorage.setItem('leadzo_hotel_policies', JSON.stringify(updated));
+    syncPoliciesWithVoiceBrain(villaQuestions, updated);
     toast.info("Custom rule removed from AI memory.");
   };
 
@@ -872,14 +893,20 @@ export default function HotelLeadManagerPage() {
       localStorage.setItem("leadzo_hotel_personal_phone", hotelPersonalPhone);
       localStorage.setItem("leadzo_hotel_manager_escalation_phone", managerEscalationPhone);
       
-      toast.info("Syncing phone numbers with AI Receptionist...");
+      toast.info("Syncing real hotel policies, amenities & Boss number with AI Voice Brain...");
       const { error } = await supabase.functions.invoke('vapi_sync_assistant', {
-        body: { phone: hotelPersonalPhone }
+        body: { 
+          phone: hotelPersonalPhone,
+          questions: villaQuestions,
+          policies: hotelPolicies,
+          checkInTime: "12:00 PM",
+          checkOutTime: "11:00 AM"
+        }
       });
       
       if (error) throw error;
       
-      toast.success(`💾 Boss Number (${hotelPersonalPhone}) Synced! AI Escalation connected to ${managerEscalationPhone || hotelPersonalPhone}`);
+      toast.success(`💾 AI Voice Brain Synced! Boss Number (${hotelPersonalPhone}) & Live Amenities Active!`);
     } catch(e: any) {
       toast.error(`Failed to sync phone numbers: ${e.message}`);
     } finally {

@@ -15,8 +15,12 @@ serve(async (req) => {
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) throw new Error("No authorization header");
     
-    const { phone } = await req.json();
-    if (!phone) throw new Error("Phone number is required");
+    const reqBody = await req.json();
+    const phone = reqBody.phone || "+91 9726846660";
+    const dynamicPolicies = reqBody.policies || null; // Array of { title, description, category }
+    const dynamicQuestions = reqBody.questions || null; // Array of { id, title, enabled, yesDescription, noDescription }
+    const checkInTime = reqBody.checkInTime || "12:00 PM";
+    const checkOutTime = reqBody.checkOutTime || "11:00 AM";
 
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -29,7 +33,9 @@ serve(async (req) => {
     if (authError || !user) throw new Error("User not found");
 
     // 1. Save the new phone number to Supabase (users table)
-    await supabaseClient.from('users').update({ phone }).eq('id', user.id);
+    if (phone) {
+      await supabaseClient.from('users').update({ phone }).eq('id', user.id);
+    }
 
     // 2. Fetch business data for the prompt
     const { data: businessData } = await supabaseClient
@@ -48,6 +54,45 @@ serve(async (req) => {
       const cleanPhone = phone.replace(/\D/g, ''); // e.g., "919726846660"
       const shortPhone = cleanPhone.length > 10 ? cleanPhone.slice(-10) : cleanPhone; // e.g., "9726846660"
 
+      // Build Dynamic Amenities & Policies from Real UI State
+      let amenitiesList = "";
+      let rulesList = "";
+
+      if (dynamicQuestions && Array.isArray(dynamicQuestions) && dynamicQuestions.length > 0) {
+        for (const q of dynamicQuestions) {
+          if (q.enabled) {
+            amenitiesList += `✅ ${q.title}: ${q.yesDescription}\n`;
+          } else {
+            rulesList += `❌ ${q.title} (NOT AVAILABLE / RESTRICTED): ${q.noDescription}\n`;
+          }
+        }
+      } else if (dynamicPolicies && Array.isArray(dynamicPolicies) && dynamicPolicies.length > 0) {
+        for (const p of dynamicPolicies) {
+          if (p.description?.toLowerCase().includes("no ") || p.description?.toLowerCase().includes("not available") || p.description?.toLowerCase().includes("strictly")) {
+            rulesList += `❌ ${p.title}: ${p.description}\n`;
+          } else {
+            amenitiesList += `✅ ${p.title}: ${p.description}\n`;
+          }
+        }
+      } else {
+        // Safe fallback without assuming pool
+        amenitiesList = `
+✅ Food & Dining: Complimentary breakfast & in-house fresh dining on lawn
+✅ Air Conditioning: Fully air-conditioned bedrooms and common living lounge
+✅ Modular Kitchen: Fully equipped kitchen (Gas, Fridge, Microwave, Utensils) accessible for guests
+✅ Attached Bathrooms: Private attached bathrooms in every room with 24/7 hot water geyser
+✅ High-Speed Wi-Fi: 100+ Mbps Optical Fiber Wi-Fi throughout villa
+✅ Free Secure Parking: Gated private parking (up to 4 cars) inside villa compound
+✅ Pet Friendly: Pets allowed with prior notification
+✅ Drinks/Alcohol: Permitted responsibly inside private villa`;
+
+        rulesList = `
+❌ Swimming Pool: Property par swimming pool available nahi hai (No swimming pool at property)
+❌ Smoking: 100% strictly non-smoking property (penalty applies for indoor smoking)
+✅ Govt ID: Physical Government Photo ID (Aadhar / Passport / DL) mandatory for all adults at check-in
+✅ Cancellation: Free cancellation up to 48 hours prior to check-in`;
+      }
+
       const HOTEL_KNOWLEDGE = `
 📍 LOCATION:
 - King Villa Resort & Suites, Marwad, Devka Road, Nani Daman, Daman.
@@ -60,23 +105,13 @@ serve(async (req) => {
 - Room 4: Small Deluxe Room No. 04 — ₹1,800/night
 - Entire Villa: 5-Bedroom Full Private Villa — ₹7,900/night
 - Total inventory: 4 private luxury rooms + entire villa booking option.
-- Timings: Check-in at 12:00 PM | Check-out at 11:00 AM
+- Timings: Check-in at ${checkInTime} | Check-out at ${checkOutTime}
 
-🏖️ AMENITIES & FACILITIES:
-- Private Swimming Pool (7:00 AM – 9:00 PM free guest access)
-- Complimentary breakfast & in-house fresh dining on villa lawn
-- Fully air-conditioned bedrooms and common living lounge
-- Modular Kitchen access for guests (Gas, Refrigerator, Microwave, Utensils)
-- Attached En-Suite Bathrooms in every room with 24/7 Hot Water Geyser
-- 100+ Mbps High-Speed Optical Fiber Wi-Fi
-- Free Secure Gated Parking inside villa compound (Up to 4 cars)
-- Pet friendly (pets welcomed with advance notice)
-- Alcohol / Drinks permitted responsibly inside private villa
-- Non-smoking inside bedrooms (designated lawn/balcony areas only)
+🏖️ ACTIVE AMENITIES (ONLY ANSWER YES TO WHAT IS LISTED HERE):
+${amenitiesList}
 
-📋 POLICIES:
-- Physical Government Photo ID (Aadhar, Passport, DL) required for all adults at check-in.
-- Cancellation: Free cancellation up to 48 hours before check-in date.`;
+📋 RULES & RESTRICTIONS (STRICTLY ENFORCE THESE):
+${rulesList}`;
 
       const systemPrompt = `You are the AI Hotel Manager for King Villa Resort & Suites, Daman.
 
