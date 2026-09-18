@@ -68,39 +68,7 @@ serve(async (req) => {
         },
         assistantId: assistantId,
         assistantOverrides: {
-          firstMessage: `Namaste Boss! Main ${businessData.company_name || 'King Villa'} ka AI Manager bol raha hoon. Aaj main aapki kaise madad kar sakta hoon?`,
-          model: {
-            provider: "openai",
-            model: "gpt-4o",
-            tools: [
-              { type: "function", function: { name: "get_marketing_metrics", description: "Fetch real-time Facebook/Meta Ads campaign metrics.", parameters: { type: "object", properties: {} } } },
-              { type: "function", function: { name: "get_revenue_data", description: "Fetch real-time Razorpay revenue and sales data.", parameters: { type: "object", properties: {} } } },
-              { type: "function", function: { name: "get_support_tickets", description: "Fetch the number of open and resolved customer support tickets.", parameters: { type: "object", properties: {} } } },
-              { type: "function", function: { name: "get_api_balances", description: "Fetch the remaining API credits.", parameters: { type: "object", properties: {} } } },
-              { type: "function", function: { name: "hotel_get_occupancy", description: "Fetch live hotel room availability and occupancy report for King Villa.", parameters: { type: "object", properties: {} } } },
-              { type: "function", function: { name: "hotel_block_room_voice", description: "Block a specific hotel room for given dates.", parameters: { type: "object", properties: { roomNumber: { type: "string" }, checkIn: { type: "string" }, checkOut: { type: "string" }, guestName: { type: "string" } } } } }
-            ],
-            messages: [
-              {
-                role: "system",
-                content: `You are the AI Manager for ${businessData.company_name || 'King Villa Resort & Suites'}.
-
-**CALLER IDENTIFICATION LOGIC:**
-The caller's phone number is: {{call.customer.number}}
-
-Rule 1: If the caller's phone number CONTAINS or is EXACTLY "${userData.phone}" OR "${cleanPhone}" OR "${shortPhone}", then YOU ARE TALKING TO YOUR BOSS (THE OWNER OF THE BUSINESS).
-- Script for Boss: "Namaste Boss! AI system mein aapka swagat hai. Aaj main aapki kaise madad kar sakta hoon?"
-- Behavior for Boss: You must answer all their questions about the business, occupancy, and revenue. If they want to block a room, use the hotel_block_room_voice tool. If they ask for occupancy, use hotel_get_occupancy.
-
-Rule 2: If the caller's phone number is ANYTHING ELSE, then YOU ARE TALKING TO A GUEST/CUSTOMER.
-- Script for Guest: "Namaste! ${businessData.company_name || 'King Villa Resort & Suites'} mein aapka swagat hai. Main AI Manager hoon. Kya main aapki room booking me madad kar sakta hoon?"
-- Behavior for Guest: Answer their questions about the hotel using the business knowledge below. DO NOT allow them to block rooms directly. Instead, tell them booking requires a 30% advance token.
-
-**BUSINESS KNOWLEDGE:**
-${businessData.business_details || '- Rooms: Super Deluxe Rooms (₹2500), Medium Rooms (₹1800), Entire Villa (₹7900).\n- Amenities: Private Swimming Pool, Fresh Breakfast, High-Speed Wi-Fi, AC.\n- Rules: 100% strictly non-smoking villa.\n- Location: Marwad, Devka Road, Nani Daman.'}`
-              }
-            ]
-          }
+          firstMessage: `Hello Boss! Main ${businessData.company_name || 'King Villa'} ki AI Manager bol raha hoon. Aapki ${businessData.company_name || 'King Villa'} hotel ke baare mein kya jaanna chahte hain?`
         }
       })
     });
