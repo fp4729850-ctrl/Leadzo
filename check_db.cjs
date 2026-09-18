@@ -1,6 +1,11 @@
 const { createClient } = require('@supabase/supabase-js');
-const fs = require('fs');
-const toml = require('toml');
-const config = toml.parse(fs.readFileSync('supabase/config.toml', 'utf8'));
+require('dotenv').config();
 
-// I need the service role key to check the database
+const supabase = createClient(process.env.VITE_SUPABASE_URL, process.env.VITE_SUPABASE_ANON_KEY);
+
+async function run() {
+  const { data, error } = await supabase.from('business_knowledge').select('user_id, company_name, vapi_phone_id').limit(1);
+  console.log("Data:", data);
+  if (error) console.error("Error:", error);
+}
+run();

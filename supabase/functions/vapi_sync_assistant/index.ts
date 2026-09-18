@@ -84,11 +84,6 @@ ${businessData?.business_details || '- Rooms: Super Deluxe Rooms (₹2500), Medi
                 content: systemPrompt
               }
             ]
-          },
-          voice: {
-            provider: "11labs",
-            voiceId: "EtEf6yOMlronn3UoIDrF", // Ankit (Indian Male)
-            model: "eleven_multilingual_v2"
           }
         })
       });

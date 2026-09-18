@@ -65,11 +65,6 @@ serve(async (req) => {
         assistantId: assistantId,
         assistantOverrides: {
           firstMessage: `Namaste Boss! Main ${businessData.company_name || 'King Villa'} ka AI Manager bol raha hoon. Aaj main aapki kaise madad kar sakta hoon?`,
-          voice: {
-            provider: "11labs",
-            voiceId: "EtEf6yOMlronn3UoIDrF", // Ankit (Indian Male)
-            model: "eleven_multilingual_v2" // CRITICAL: Required for Hindi/Hinglish, otherwise it sounds robotic
-          },
           model: {
             provider: "openai",
             model: "gpt-4o",
