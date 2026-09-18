@@ -124,6 +124,7 @@ AVAILABLE LIVE TOOLS:
         },
         body: JSON.stringify({
           firstMessage: "Hello Boss! Main King Villa ki AI Manager bol raha hoon. Aapki King Villa hotel ke baare mein kya jaanna chahte hain?",
+          firstMessageMode: "assistant-speaks-first",
           voice: {
             provider: "vapi",
             voiceId: "Sagar",
