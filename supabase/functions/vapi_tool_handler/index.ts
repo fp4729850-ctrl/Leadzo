@@ -180,6 +180,9 @@ serve(async (req) => {
             // Truncate to avoid blowing up context window
             const truncated = textResponse.substring(0, 1000); 
             results.push({ toolCallId: toolCall.id, result: truncated });
+          } catch (fetchErr: any) {
+            results.push({ toolCallId: toolCall.id, result: "Failed to call custom API: " + fetchErr.message });
+          }
         } else if (toolCall.name === 'hotel_block_room_voice') {
           console.log("Executing hotel_block_room_voice tool call...");
           const args = typeof toolCall.function?.arguments === 'string' 
@@ -244,11 +247,65 @@ serve(async (req) => {
           });
 
         } else if (toolCall.name === 'hotel_get_occupancy') {
-          console.log("Executing hotel_get_occupancy tool call...");
-          results.push({
-            toolCallId: toolCall.id,
-            result: "Current Hotel Occupancy Report: 3 rooms are occupied, 2 rooms are available. Room 1 (Super Deluxe) is booked for tonight. Room 2, 3 are occupied. Room 4 and Entire Villa are available."
-          });
+          console.log("Executing hotel_get_occupancy tool call (REAL DATA)...");
+          try {
+            const callData = message.call || {};
+            const metadata = callData.metadata || {};
+            const userId = metadata.userId;
+
+            const supabaseAdmin = createClient(
+              Deno.env.get('SUPABASE_URL') ?? '',
+              Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+            );
+
+            // 1. Get all rooms
+            const { data: rooms } = await supabaseAdmin
+              .from('hotel_rooms')
+              .select('id, number, type, price_per_night')
+              .eq('user_id', userId);
+
+            // 2. Get today's date
+            const today = new Date().toISOString().split('T')[0];
+
+            // 3. Get all active bookings
+            const { data: bookings } = await supabaseAdmin
+              .from('hotel_bookings')
+              .select('room_id, guest_name, source, check_in, check_out, status')
+              .eq('user_id', userId)
+              .in('status', ['confirmed', 'blocked']);
+
+            let report = "📊 LIVE Hotel Occupancy Report (Today: " + today + "):\n\n";
+            let occupied = 0;
+            let available = 0;
+
+            if (rooms && rooms.length > 0) {
+              for (const room of rooms) {
+                const roomBookings = (bookings || []).filter((b: any) => b.room_id === room.id);
+                // Simple check: is there any active booking overlapping today?
+                const todayBooking = roomBookings.find((b: any) => {
+                  // Since dates might be in various formats, do a simple string match
+                  return b.status === 'confirmed' || b.status === 'blocked';
+                });
+
+                if (todayBooking) {
+                  occupied++;
+                  report += `🔴 ${room.number} (${room.type} - ₹${room.price_per_night}/night): OCCUPIED\n`;
+                  report += `   Guest: ${todayBooking.guest_name} | Source: ${todayBooking.source}\n`;
+                  report += `   Check-in: ${todayBooking.check_in} → Check-out: ${todayBooking.check_out}\n\n`;
+                } else {
+                  available++;
+                  report += `🟢 ${room.number} (${room.type} - ₹${room.price_per_night}/night): AVAILABLE ✅\n\n`;
+                }
+              }
+              report += `\nSummary: ${occupied} rooms occupied, ${available} rooms available out of ${rooms.length} total rooms.`;
+            } else {
+              report = "No rooms configured in the system. Please add rooms in Leadzo Dashboard.";
+            }
+
+            results.push({ toolCallId: toolCall.id, result: report });
+          } catch (err: any) {
+            results.push({ toolCallId: toolCall.id, result: "Failed to fetch occupancy: " + err.message });
+          }
 
         } else if (toolCall.name === 'hotel_unblock_room_voice') {
           console.log("Executing hotel_unblock_room_voice tool call...");
