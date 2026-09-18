@@ -58,7 +58,7 @@ serve(async (req) => {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        phoneNumberId: businessData.vapi_phone_id,
+        phoneNumberId: "6f9a93d3-e474-41a6-8c52-98fc237b428a", // Force using VoiceLink SIP Trunk for outbound calls
         customer: {
           number: userData.phone
         },
