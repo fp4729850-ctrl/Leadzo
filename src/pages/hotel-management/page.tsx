@@ -866,14 +866,22 @@ export default function HotelLeadManagerPage() {
   });
   const [isSavingPhoneNumbers, setIsSavingPhoneNumbers] = useState(false);
 
-  const handleSavePhoneNumbers = () => {
+  const handleSavePhoneNumbers = async () => {
     setIsSavingPhoneNumbers(true);
     try {
       localStorage.setItem("leadzo_hotel_personal_phone", hotelPersonalPhone);
       localStorage.setItem("leadzo_hotel_manager_escalation_phone", managerEscalationPhone);
+      
+      toast.info("Syncing phone numbers with AI Receptionist...");
+      const { error } = await supabase.functions.invoke('vapi_sync_assistant', {
+        body: { phone: hotelPersonalPhone }
+      });
+      
+      if (error) throw error;
+      
       toast.success(`💾 Phone Numbers Saved! Inbound & AI Live Escalation connected to ${managerEscalationPhone || hotelPersonalPhone}`);
     } catch(e: any) {
-      toast.error("Failed to save phone numbers");
+      toast.error(`Failed to sync phone numbers: ${e.message}`);
     } finally {
       setIsSavingPhoneNumbers(false);
     }
