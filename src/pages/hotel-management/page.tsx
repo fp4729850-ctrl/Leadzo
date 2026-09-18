@@ -879,7 +879,7 @@ export default function HotelLeadManagerPage() {
       
       if (error) throw error;
       
-      toast.success(`💾 Phone Numbers Saved! Inbound & AI Live Escalation connected to ${managerEscalationPhone || hotelPersonalPhone}`);
+      toast.success(`💾 Boss Number (${hotelPersonalPhone}) Synced! AI Escalation connected to ${managerEscalationPhone || hotelPersonalPhone}`);
     } catch(e: any) {
       toast.error(`Failed to sync phone numbers: ${e.message}`);
     } finally {
