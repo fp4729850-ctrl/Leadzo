@@ -33,9 +33,60 @@ serve(async (req) => {
 
       console.log(`assistant-request event | caller: ${callerNumber} | isBoss: ${isBoss}`);
 
-      const firstMessage = isBoss
-        ? "नमस्ते बॉस! King Villa का क्या स्टेटस देखना है?"
-        : "नमस्ते! King Villa Resort & Suites में आपका स्वागत है। मैं आपकी room booking में क्या सहायता कर सकता हूँ?";
+      if (isBoss) {
+        return new Response(
+          JSON.stringify({
+            assistant: {
+              firstMessage: "नमस्ते बॉस! King Villa का क्या स्टेटस देखना है?",
+              model: {
+                provider: "openai",
+                model: "gpt-4o",
+                messages: [
+                  {
+                    role: "system",
+                    content: `You are the AI Executive Assistant exclusively for your BOSS (Hotel Owner) of King Villa Resort & Suites, Daman.
+The caller IS YOUR BOSS (${callerNumber}).
+
+PERMANENT BOSS LOCK (CRITICAL):
+- ALWAYS treat the caller as your BOSS for the ENTIRE duration of this call.
+- NEVER switch to guest or customer mode!
+- NEVER ask the Boss if they want to book a room for themselves, and NEVER say "Kya main aapki room booking mein madad kar sakta hoon?".
+- Even if the Boss just says "Hello" or asks "Kaun ho?", respond as their executive assistant: "जी बॉस! मैं King Villa का AI मैनेजर हूँ। बताइये क्या काम है?"
+- When Boss asks about rooms or availability ("Room available hai kya?", "Kaun se room khali hain?", "Occupancy kya hai?"):
+  -> IMMEDIATELY call the 'hotel_get_occupancy' tool. Read the live report from the database and tell Boss clearly which rooms are vacant and which are booked.
+- When Boss asks to block a room ("Room 4 block kar do"):
+  -> IMMEDIATELY call the 'hotel_block_room_voice' tool.
+- Speak in respectful, polite Hindi ("जी बॉस", "हाँजी बॉस"). Keep replies crisp and short (1-2 sentences).`
+                  }
+                ]
+              },
+              transcriber: {
+                provider: "deepgram",
+                model: "nova-2",
+                language: "hi",
+                smartFormat: true,
+                endpointing: 250
+              },
+              stopSpeakingPlan: {
+                numWords: 1,
+                voiceSeconds: 0.2,
+                backoffSeconds: 0.8
+              },
+              startSpeakingPlan: {
+                waitSeconds: 0.35,
+                smartEndpointingEnabled: true
+              },
+              voice: {
+                provider: "vapi",
+                voiceId: "Sagar"
+              }
+            }
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const firstMessage = "नमस्ते! King Villa Resort & Suites में आपका स्वागत है। मैं आपकी room booking में क्या सहायता कर सकता हूँ?";
 
       return new Response(
         JSON.stringify({
@@ -56,6 +107,10 @@ serve(async (req) => {
             startSpeakingPlan: {
               waitSeconds: 0.35,
               smartEndpointingEnabled: true
+            },
+            voice: {
+              provider: "vapi",
+              voiceId: "Sagar"
             }
           }
         }),
@@ -64,12 +119,20 @@ serve(async (req) => {
     }
 
     if (message.type === 'tool-calls') {
-      const toolCalls = message.toolWithToolCallList || []
+      const rawCalls = message.toolCallList || message.toolCalls || message.toolWithToolCallList || [];
       
-      let results = []
+      let results = [];
       
-      for (const t of toolCalls) {
-        const toolCall = t.toolCall
+      for (const item of rawCalls) {
+        const rawTool = item.toolCall || item;
+        const toolCall = {
+          id: rawTool.id || item.id,
+          name: rawTool.name || rawTool.function?.name || item.name || "",
+          arguments: typeof rawTool.function?.arguments === 'string'
+            ? JSON.parse(rawTool.function?.arguments || '{}')
+            : (rawTool.function?.arguments || rawTool.arguments || {}),
+          function: rawTool.function || { name: rawTool.name || "", arguments: rawTool.arguments || {} }
+        };
         if (toolCall.name === 'sendWhatsAppLink') {
           // Extract data
           const callData = message.call || {}
