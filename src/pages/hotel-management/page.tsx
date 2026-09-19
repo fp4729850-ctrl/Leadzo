@@ -1687,38 +1687,53 @@ export default function HotelLeadManagerPage() {
     return saved !== null ? saved === "true" : true;
   });
   const bgOfficeAudioRef = useRef<HTMLAudioElement | null>(null);
+  const bgStaffVoiceRef = useRef<HTMLAudioElement | null>(null);
 
-  // Vapi-Style Authentic Office / Reception Ambiance (Real human chatter & keyboard typing audio)
+  // Vapi-Style Authentic Office & Reception Ambiance (Real human chatter + keyboard typing)
   const startOfficeAmbiance = () => {
     try {
       if (bgOfficeAudioRef.current) {
         bgOfficeAudioRef.current.pause();
         bgOfficeAudioRef.current = null;
       }
+      if (bgStaffVoiceRef.current) {
+        bgStaffVoiceRef.current.pause();
+        bgStaffVoiceRef.current = null;
+      }
+
+      // Track 1: Office ambient room tone & keyboard clicks
       const bgAudio = new Audio("/office_ambiance.mp3");
       bgAudio.loop = true;
-      bgAudio.volume = 0.12; // 12% subtle realistic volume
+      bgAudio.volume = 0.10;
       bgOfficeAudioRef.current = bgAudio;
-      bgAudio.play().catch(e => console.warn("Office ambiance play error:", e));
+      bgAudio.play().catch(e => console.warn("Office typing play error:", e));
+
+      // Track 2: Distant staff member talking on phone handling another guest
+      const bgStaff = new Audio("/bg_staff_voice.mp3");
+      bgStaff.loop = true;
+      bgStaff.volume = 0.20; // 20% volume: clearly audible background human conversation
+      bgStaffVoiceRef.current = bgStaff;
+      bgStaff.play().catch(e => console.warn("Staff chatter play error:", e));
 
       return {
         stop: () => {
           try {
-            if (bgOfficeAudioRef.current) {
-              const audioRef = bgOfficeAudioRef.current;
-              let vol = audioRef.volume;
-              const fade = setInterval(() => {
-                vol = Math.max(0, vol - 0.03);
-                try { audioRef.volume = vol; } catch(e) {}
-                if (vol <= 0.01) {
-                  clearInterval(fade);
-                  try { audioRef.pause(); } catch(e) {}
-                  if (bgOfficeAudioRef.current === audioRef) {
-                    bgOfficeAudioRef.current = null;
-                  }
-                }
-              }, 35);
-            }
+            const audios = [bgOfficeAudioRef.current, bgStaffVoiceRef.current].filter(Boolean) as HTMLAudioElement[];
+            const fade = setInterval(() => {
+              let allZero = true;
+              audios.forEach(a => {
+                a.volume = Math.max(0, a.volume - 0.04);
+                if (a.volume > 0.01) allZero = false;
+              });
+              if (allZero) {
+                clearInterval(fade);
+                audios.forEach(a => {
+                  try { a.pause(); } catch(e) {}
+                });
+                bgOfficeAudioRef.current = null;
+                bgStaffVoiceRef.current = null;
+              }
+            }, 35);
           } catch(e) {}
         }
       };
