@@ -10,7 +10,7 @@ import {
   Eye, EyeOff, Mic, MicOff, PhoneCall, PhoneOff, Volume2, Trash2, PlusCircle, FileText, Sliders, Tag, Clock, Utensils, Waves, Dog, HelpCircle,
   Snowflake, Bath, Wifi, Car, Wine, UtensilsCrossed, FileCheck, CheckSquare, ListFilter,
   CreditCard, Wallet, Banknote, QrCode, Receipt, Upload, Image as ImageIcon,
-  Search, Send, MessageSquare, PhoneIncoming, Crown, Star, Gift, Zap
+  Search, Send, MessageSquare, PhoneIncoming, Crown, Star, Gift, Zap, Server, Radio
 } from "lucide-react";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, Legend } from "recharts";
 import { Button } from "@/components/ui/button.tsx";
@@ -1674,6 +1674,37 @@ export default function HotelLeadManagerPage() {
       toast.error(`Error: ${err.message}`);
       setVapiCallStatus("error");
       setVoiceMessages([{ sender: 'ai', text: "Failed to trigger the live phone call. Ensure backend is deployed.", time: new Date().toLocaleTimeString() }]);
+    }
+  };
+
+  const [voiceEngineMode, setVoiceEngineMode] = useState<"vapi" | "voicelink_ws">(() => {
+    return (localStorage.getItem("leadzo_voice_engine_mode") as any) || "vapi";
+  });
+  const [isPlayingWsSample, setIsPlayingWsSample] = useState(false);
+
+  const playWebSocketSample = async () => {
+    try {
+      setIsPlayingWsSample(true);
+      toast.info("Synthesizing human voice sample...", { id: "ws-sample" });
+      const res = await fetch("https://stbqeiapgdaklktrlrjm.supabase.co/functions/v1/voicelink_voice_server", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: "नमस्ते! King Villa Resort & Suites में आपका स्वागत है। हमारे पास आज के लिए Deluxe Room ₹1800 और Private Pool Villa ₹7900 में उपलब्ध है। क्या मैं आपके WhatsApp पर फ़ोटोज़ और Google Maps लोकेशन भेज दूँ?",
+          voice: "alloy"
+        })
+      });
+      if (!res.ok) throw new Error("Failed to stream audio preview");
+      const blob = await res.blob();
+      const audioUrl = URL.createObjectURL(blob);
+      const audio = new Audio(audioUrl);
+      toast.success("🔊 Playing In-House AI Human Voice Sample!", { id: "ws-sample" });
+      audio.onended = () => setIsPlayingWsSample(false);
+      audio.onerror = () => setIsPlayingWsSample(false);
+      await audio.play();
+    } catch (e: any) {
+      setIsPlayingWsSample(false);
+      toast.error("Audio preview error: " + e.message, { id: "ws-sample" });
     }
   };
 
@@ -5846,6 +5877,123 @@ export default function HotelLeadManagerPage() {
                   Simulate Live Voice Call with Vapi AI Receptionist
                 </Button>
               </div>
+            </Card>
+
+            {/* Card 3: Dual Telephony & AI Voice Engine Switcher (Vapi vs VoiceLink WebSocket) */}
+            <Card className="col-span-full border-indigo-500/30 bg-gradient-to-br from-card/80 to-indigo-950/20 shadow-md">
+              <CardHeader className="p-4 border-b border-border flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <Radio className="size-4 text-indigo-400 animate-pulse" /> Telephony & AI Voice Engine Router
+                  </CardTitle>
+                  <CardDescription className="text-xs text-muted-foreground mt-0.5">
+                    Switch between Vapi AI Cloud Engine and Leadzo In-House WebSocket Server (~75% Cheaper)
+                  </CardDescription>
+                </div>
+                <Badge variant={voiceEngineMode === 'vapi' ? 'default' : 'outline'} className={voiceEngineMode === 'vapi' ? 'bg-indigo-600' : 'border-emerald-500 text-emerald-400'}>
+                  {voiceEngineMode === 'vapi' ? 'Active: Vapi AI Engine' : 'Active: VoiceLink WebSocket Engine'}
+                </Badge>
+              </CardHeader>
+              <CardContent className="p-4 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Option 1: Vapi Engine */}
+                  <div 
+                    onClick={() => {
+                      setVoiceEngineMode('vapi');
+                      localStorage.setItem('leadzo_voice_engine_mode', 'vapi');
+                      toast.success("Switched to Vapi AI Cloud Engine (Primary)");
+                    }}
+                    className={`p-4 rounded-xl border transition-all cursor-pointer relative ${
+                      voiceEngineMode === 'vapi'
+                        ? 'border-indigo-500 bg-indigo-500/10 shadow-sm ring-1 ring-indigo-500/50'
+                        : 'border-border bg-card/40 hover:bg-muted/40'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <div className={`size-3 rounded-full ${voiceEngineMode === 'vapi' ? 'bg-indigo-500 animate-ping' : 'bg-muted-foreground'}`} />
+                        <h4 className="font-semibold text-sm">Mode 1: Vapi AI Engine</h4>
+                      </div>
+                      <Badge variant="secondary" className="text-[10px]">Live / Active</Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      Standard managed telephony with Vapi AI. Fully configured with +91 Indian phone number and auto-sync.
+                    </p>
+                    <div className="flex items-center justify-between text-xs pt-2 border-t border-border/50">
+                      <span className="text-muted-foreground">Est. Cost: <strong className="text-slate-200">~₹7.20 / min</strong></span>
+                      <Button size="sm" variant="outline" className="h-7 text-[11px] gap-1.5" onClick={(e) => { e.stopPropagation(); startVapiVoiceTest(); }}>
+                        <PhoneCall size={12} /> Test Call
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Option 2: In-House WebSocket Server */}
+                  <div 
+                    onClick={() => {
+                      setVoiceEngineMode('voicelink_ws');
+                      localStorage.setItem('leadzo_voice_engine_mode', 'voicelink_ws');
+                      toast.success("Switched to In-House VoiceLink WebSocket Engine (₹1.80/min)");
+                    }}
+                    className={`p-4 rounded-xl border transition-all cursor-pointer relative ${
+                      voiceEngineMode === 'voicelink_ws'
+                        ? 'border-emerald-500 bg-emerald-500/10 shadow-sm ring-1 ring-emerald-500/50'
+                        : 'border-border bg-card/40 hover:bg-muted/40'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <div className={`size-3 rounded-full ${voiceEngineMode === 'voicelink_ws' ? 'bg-emerald-500 animate-ping' : 'bg-muted-foreground'}`} />
+                        <h4 className="font-semibold text-sm text-emerald-400">Mode 2: Leadzo In-House WebSocket</h4>
+                      </div>
+                      <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white text-[10px]">75% Cheaper (~₹1.80/min)</Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      Direct VoiceLink WebSocket (WSS) streaming without Vapi middleman. Ultra-low latency, natural human voice.
+                    </p>
+                    <div className="flex items-center justify-between text-xs pt-2 border-t border-border/50">
+                      <span className="text-emerald-400 font-semibold">Est. Cost: <strong>~₹1.80 / min</strong></span>
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        disabled={isPlayingWsSample}
+                        className="h-7 text-[11px] border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 gap-1.5" 
+                        onClick={(e) => { e.stopPropagation(); playWebSocketSample(); }}
+                      >
+                        <Volume2 size={12} className={isPlayingWsSample ? "animate-spin" : ""} /> 
+                        {isPlayingWsSample ? "Playing..." : "🔊 Test Human Voice Quality"}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* VoiceLink Connection Info Box */}
+                {voiceEngineMode === 'voicelink_ws' && (
+                  <div className="p-3.5 rounded-lg bg-emerald-500/5 border border-emerald-500/30 space-y-2 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-emerald-300 flex items-center gap-1.5">
+                        <Server size={13} /> VoiceLink WebSocket (WSS) Server Endpoint:
+                      </span>
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        className="h-6 text-[10px] text-emerald-400 hover:bg-emerald-500/20 gap-1"
+                        onClick={() => {
+                          navigator.clipboard.writeText("wss://stbqeiapgdaklktrlrjm.supabase.co/functions/v1/voicelink_voice_server");
+                          toast.success("WSS URL Copied to Clipboard!");
+                        }}
+                      >
+                        <Copy size={11} /> Copy WSS URL
+                      </Button>
+                    </div>
+                    <code className="block p-2 rounded bg-black/40 text-emerald-300 text-[11px] font-mono select-all">
+                      wss://stbqeiapgdaklktrlrjm.supabase.co/functions/v1/voicelink_voice_server
+                    </code>
+                    <p className="text-[11px] text-muted-foreground">
+                      💡 <strong>Setup in VoiceLink Portal:</strong> Go to <em>voicelink.co.in</em> → <em>Voice Services</em> → <em>WebSocket Bots</em> → Add Bot and paste the WSS URL above to route incoming calls directly to your in-house server.
+                    </p>
+                  </div>
+                )}
+              </CardContent>
             </Card>
           </div>
         </TabsContent>
