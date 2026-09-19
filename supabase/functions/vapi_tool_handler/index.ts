@@ -140,7 +140,7 @@ REAL DATABASE BOOKING (CONFIRMED ON VOICE CALL):
             },
             model: {
               provider: "openai",
-              model: "gpt-4o",
+              model: "gpt-4o-mini",
               tools: [
                 {
                   type: "function",

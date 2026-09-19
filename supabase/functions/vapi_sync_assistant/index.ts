@@ -195,7 +195,7 @@ AVAILABLE LIVE TOOLS:
           },
           model: {
             provider: "openai",
-            model: "gpt-4o",
+            model: "gpt-4o-mini",
             tools: [
               { type: "function", function: { name: "get_marketing_metrics", description: "Fetch real-time Facebook/Meta Ads campaign metrics.", parameters: { type: "object", properties: {} } } },
               { type: "function", function: { name: "get_revenue_data", description: "Fetch real-time Razorpay revenue and sales data.", parameters: { type: "object", properties: {} } } },
