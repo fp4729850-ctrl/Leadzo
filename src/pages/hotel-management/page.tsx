@@ -1687,53 +1687,40 @@ export default function HotelLeadManagerPage() {
     return saved !== null ? saved === "true" : true;
   });
   const bgOfficeAudioRef = useRef<HTMLAudioElement | null>(null);
-  const bgStaffVoiceRef = useRef<HTMLAudioElement | null>(null);
 
-  // Vapi-Style Authentic Office & Reception Ambiance (Real human chatter + keyboard typing)
+  // Vapi-Style Quiet Office & Reception Ambiance (Gentle fan & soft desk typing - subtle 5% volume)
   const startOfficeAmbiance = () => {
     try {
       if (bgOfficeAudioRef.current) {
         bgOfficeAudioRef.current.pause();
         bgOfficeAudioRef.current = null;
       }
-      if (bgStaffVoiceRef.current) {
-        bgStaffVoiceRef.current.pause();
-        bgStaffVoiceRef.current = null;
-      }
 
-      // Track 1: Office ambient room tone & keyboard clicks
+      // Gentle natural room ambiance & soft typing at ultra-subtle 5% volume
       const bgAudio = new Audio("/office_ambiance.mp3");
       bgAudio.loop = true;
-      bgAudio.volume = 0.10;
+      bgAudio.volume = 0.05; // 5% subtle volume: crystal-clear main voice, gentle quiet office feel
       bgOfficeAudioRef.current = bgAudio;
-      bgAudio.play().catch(e => console.warn("Office typing play error:", e));
-
-      // Track 2: Distant staff member talking on phone handling another guest
-      const bgStaff = new Audio("/bg_staff_voice.mp3");
-      bgStaff.loop = true;
-      bgStaff.volume = 0.20; // 20% volume: clearly audible background human conversation
-      bgStaffVoiceRef.current = bgStaff;
-      bgStaff.play().catch(e => console.warn("Staff chatter play error:", e));
+      bgAudio.play().catch(e => console.warn("Office ambiance play error:", e));
 
       return {
         stop: () => {
           try {
-            const audios = [bgOfficeAudioRef.current, bgStaffVoiceRef.current].filter(Boolean) as HTMLAudioElement[];
-            const fade = setInterval(() => {
-              let allZero = true;
-              audios.forEach(a => {
-                a.volume = Math.max(0, a.volume - 0.04);
-                if (a.volume > 0.01) allZero = false;
-              });
-              if (allZero) {
-                clearInterval(fade);
-                audios.forEach(a => {
-                  try { a.pause(); } catch(e) {}
-                });
-                bgOfficeAudioRef.current = null;
-                bgStaffVoiceRef.current = null;
-              }
-            }, 35);
+            if (bgOfficeAudioRef.current) {
+              const audioRef = bgOfficeAudioRef.current;
+              let vol = audioRef.volume;
+              const fade = setInterval(() => {
+                vol = Math.max(0, vol - 0.015);
+                try { audioRef.volume = vol; } catch(e) {}
+                if (vol <= 0.005) {
+                  clearInterval(fade);
+                  try { audioRef.pause(); } catch(e) {}
+                  if (bgOfficeAudioRef.current === audioRef) {
+                    bgOfficeAudioRef.current = null;
+                  }
+                }
+              }, 30);
+            }
           } catch(e) {}
         }
       };
@@ -6080,7 +6067,7 @@ export default function HotelLeadManagerPage() {
                             {officeBgSound ? "🏢 Active (Vapi Style)" : "Off"}
                           </Badge>
                         </div>
-                        <span className="text-[10px] text-muted-foreground/80 italic">Real human chatter & desk typing</span>
+                        <span className="text-[10px] text-muted-foreground/80 italic">Gentle fan & soft typing (Subtle 5% vol)</span>
                       </div>
                     </div>
                   </div>
