@@ -83,13 +83,17 @@ CRITICAL RULES:
 - The caller is a prospective GUEST / CUSTOMER.
 - Greet and assist them politely with room booking, pricing, check-in 12 PM, check-out 11 AM, amenities, and location near Devka Beach.
 - Speak in natural, polite Hindi. Keep replies crisp and short (1-2 sentences).
-- If guest asks about room availability, call the 'hotel_get_occupancy' tool to check.
+- If guest asks about room availability ("Room available hai kya?", "Kamra khali hai?"), call the 'hotel_get_occupancy' tool immediately.
+- NEVER speak technical phrases like "calling tool", "function call", or tool names to the caller! Always speak naturally to the caller.
+- When 'hotel_get_occupancy' returns data, immediately inform the caller in simple, polite Hindi which rooms are vacant and ready for booking (e.g. "हाँजी, आज के लिए हमारे पास Room 4 (₹1800) और Entire Villa (₹7900) उपलब्ध है।").
+- If guest wants to confirm booking, inform them that advance booking is required and offer to send WhatsApp details.
 - Never treat guests as Boss.`;
 
       return new Response(
         JSON.stringify({
           assistantId: "c72d5615-bd69-4776-bd5d-d3ded56e1687",
           assistantOverrides: {
+            serverUrl: "https://stbqeiapgdaklktrlrjm.supabase.co/functions/v1/vapi_tool_handler",
             firstMessage: firstMessage,
             firstMessageMode: "assistant-speaks-first",
             transcriber: {
@@ -115,6 +119,73 @@ CRITICAL RULES:
             model: {
               provider: "openai",
               model: "gpt-4o",
+              tools: [
+                {
+                  type: "function",
+                  function: {
+                    name: "hotel_get_occupancy",
+                    description: "Fetch live hotel room availability and occupancy report for King Villa.",
+                    parameters: { type: "object", properties: {} }
+                  }
+                },
+                {
+                  type: "function",
+                  function: {
+                    name: "hotel_block_room_voice",
+                    description: "CRITICAL: Call this function whenever Boss asks to block any room (e.g. 'Room 4 block karna hai', 'Room 2 block kar do').",
+                    parameters: {
+                      type: "object",
+                      properties: {
+                        room_number: { type: "string", description: "e.g. Room 4, Room 2, Room 1, Room 3, Entire Villa" },
+                        check_in: { type: "string" },
+                        check_out: { type: "string" },
+                        guestName: { type: "string" }
+                      },
+                      required: ["room_number"]
+                    }
+                  }
+                },
+                {
+                  type: "function",
+                  function: {
+                    name: "sendWhatsAppLink",
+                    description: "Send WhatsApp booking link or brochure to the caller.",
+                    parameters: { type: "object", properties: {} }
+                  }
+                },
+                {
+                  type: "function",
+                  function: {
+                    name: "get_marketing_metrics",
+                    description: "Fetch real-time Facebook/Meta Ads campaign metrics.",
+                    parameters: { type: "object", properties: {} }
+                  }
+                },
+                {
+                  type: "function",
+                  function: {
+                    name: "get_revenue_data",
+                    description: "Fetch real-time Razorpay revenue and sales data.",
+                    parameters: { type: "object", properties: {} }
+                  }
+                },
+                {
+                  type: "function",
+                  function: {
+                    name: "get_support_tickets",
+                    description: "Fetch the number of open and resolved customer support tickets.",
+                    parameters: { type: "object", properties: {} }
+                  }
+                },
+                {
+                  type: "function",
+                  function: {
+                    name: "get_api_balances",
+                    description: "Fetch the remaining API credits.",
+                    parameters: { type: "object", properties: {} }
+                  }
+                }
+              ],
               messages: [
                 {
                   role: "system",
