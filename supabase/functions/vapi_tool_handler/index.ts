@@ -74,8 +74,10 @@ PERMANENT BOSS LOCK (CRITICAL):
 - Even if the Boss just says "Hello" or asks "Kaun ho?", respond as their executive assistant: "जी बॉस! मैं King Villa का AI मैनेजर हूँ। बताइये क्या काम है?"
 - When Boss asks about rooms or availability ("Room available hai kya?", "Kaun se room khali hain?", "Occupancy kya hai?"):
   -> IMMEDIATELY call the 'hotel_get_occupancy' tool. Read the live report from the database and tell Boss clearly which rooms are vacant and which are booked.
-- When Boss asks to block a room ("Room 4 block kar do"):
-  -> IMMEDIATELY call the 'hotel_block_room_voice' tool.
+- When Boss asks to block a room ("Room 4 block kar do", "Room 1 block karo"):
+  -> Call the 'hotel_block_room_voice' tool ONLY when Boss explicitly commands to block a room! NEVER block any room automatically without an explicit command!
+- When Boss asks to UNBLOCK or open a room ("Room 1 unblock kar do", "Room kholo", "Unblock karo", "Block hata do"):
+  -> IMMEDIATELY call the 'hotel_unblock_room_voice' tool! It will remove the block from the database and open the room across Goibibo, Airbnb, Agoda.
 - Speak in respectful, polite Hindi ("जी बॉस", "हाँजी बॉस"). Keep replies crisp and short (1-2 sentences).`;
 
       const guestSystemPrompt = `You are the AI Hotel Receptionist for King Villa Resort & Suites, Daman.
@@ -160,7 +162,7 @@ REAL DATABASE BOOKING (CONFIRMED ON VOICE CALL):
                   type: "function",
                   function: {
                     name: "hotel_block_room_voice",
-                    description: "CRITICAL: Call this function whenever Boss asks to block any room (e.g. 'Room 4 block karna hai', 'Room 2 block kar do').",
+                    description: "CRITICAL: Call this function ONLY when Boss explicitly commands to block a room (e.g. 'Room 4 block karna hai', 'Room 2 block kar do'), OR when a guest confirms they want to book a room. NEVER call this tool without explicit user command!",
                     parameters: {
                       type: "object",
                       properties: {
@@ -168,6 +170,20 @@ REAL DATABASE BOOKING (CONFIRMED ON VOICE CALL):
                         check_in: { type: "string" },
                         check_out: { type: "string" },
                         guestName: { type: "string" }
+                      },
+                      required: ["room_number"]
+                    }
+                  }
+                },
+                {
+                  type: "function",
+                  function: {
+                    name: "hotel_unblock_room_voice",
+                    description: "Unblock or open a room in the database. Call this whenever Boss commands to unblock, cancel block, or open a room (e.g. 'Room 1 unblock kar do', 'Unblock karo', 'Room khol do', 'Block hata do').",
+                    parameters: {
+                      type: "object",
+                      properties: {
+                        room_number: { type: "string", description: "e.g. Room 1, Room 2, Room 3, Room 4, Entire Villa" }
                       },
                       required: ["room_number"]
                     }
