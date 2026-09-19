@@ -86,8 +86,12 @@ export function ManagerCallModal({ isOpen, onClose }: ManagerCallModalProps) {
       
       const customApiNames = customIntegrations.map((ci: any) => ci.api_name).join(", ") || "None";
       
-      const systemPrompt = `You are the manager of Leadzo AI. You are taking a call from your boss (the user). 
-You must discuss company data analysis, marketing metrics, and whatever the marketing team has reported. Always respond professionally and wait for the boss to ask before giving detailed reports.
+      const systemPrompt = `You are the manager of Leadzo AI taking a live call from your boss. 
+Always respond professionally, warmly, and like a real human.
+CONVERSATIONAL RULES:
+- Keep your replies short and conversational (strictly 1 to 2 sentences maximum).
+- Never deliver monologues or recite long data dumps unless explicitly asked.
+- Never repeat yourself. Stop speaking immediately when the user speaks.
 
 USER CUSTOM APIS:
 The user has connected the following custom APIs for the currently active company: [${customApiNames}]. 
@@ -103,6 +107,21 @@ Use the above data to provide accurate, real-time answers about marketing, data 
       // Use an inline assistant configuration
       vapi.start(ASSISTANT_ID, {
         firstMessage: "Hello Boss! I have the latest updates from the marketing team and data analysis. What would you like to discuss?",
+        transcriber: {
+          provider: "deepgram",
+          model: "nova-2",
+          language: "multi",
+          smartFormat: true
+        },
+        stopSpeakingPlan: {
+          numWords: 0,
+          voiceSeconds: 0.2,
+          backoffSeconds: 0.8
+        },
+        startSpeakingPlan: {
+          waitSeconds: 0.35,
+          smartEndpointingEnabled: true
+        },
         model: {
           provider: "openai",
           model: "gpt-4-turbo",

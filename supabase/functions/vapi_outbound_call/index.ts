@@ -68,7 +68,23 @@ serve(async (req) => {
         },
         assistantId: assistantId,
         assistantOverrides: {
-          firstMessage: `Hello Boss! Main ${businessData.company_name || 'King Villa'} ki AI Manager bol raha hoon. Aapki ${businessData.company_name || 'King Villa'} hotel ke baare mein kya jaanna chahte hain?`
+          firstMessage: `Hello Boss! Main ${businessData.company_name || 'King Villa'} ki AI Manager bol raha hoon. Aapki ${businessData.company_name || 'King Villa'} hotel ke baare mein kya jaanna chahte hain?`,
+          transcriber: {
+            provider: "deepgram",
+            model: "nova-2",
+            language: "multi",
+            smartFormat: true,
+            endpointing: 250
+          },
+          stopSpeakingPlan: {
+            numWords: 0,
+            voiceSeconds: 0.2,
+            backoffSeconds: 0.8
+          },
+          startSpeakingPlan: {
+            waitSeconds: 0.35,
+            smartEndpointingEnabled: true
+          }
         }
       })
     });

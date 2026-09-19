@@ -40,7 +40,23 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({
           assistant: {
-            firstMessage
+            firstMessage,
+            transcriber: {
+              provider: "deepgram",
+              model: "nova-2",
+              language: "multi",
+              smartFormat: true,
+              endpointing: 250
+            },
+            stopSpeakingPlan: {
+              numWords: 0,
+              voiceSeconds: 0.2,
+              backoffSeconds: 0.8
+            },
+            startSpeakingPlan: {
+              waitSeconds: 0.35,
+              smartEndpointingEnabled: true
+            }
           }
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

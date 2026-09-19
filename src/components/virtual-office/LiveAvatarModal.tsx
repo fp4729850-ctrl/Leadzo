@@ -159,7 +159,11 @@ export function LiveAvatarModal({ isOpen, onClose, roleName = "AI Manager", face
       setCallStatus("loading");
       const customApiNames = customIntegrations.map((ci: any) => ci.api_name).join(", ") || "None";
       const systemPrompt = `You are a real-time photorealistic AI agent. Your role is ${roleName} at Leadzo AI.
-Always respond professionally and keep your answers conversational.
+Always respond professionally, warmly, and like a real human.
+CONVERSATIONAL RULES:
+- Keep answers concise and natural (1 to 2 sentences maximum).
+- Never deliver long speeches or repeat yourself.
+- Stop speaking immediately when the user speaks.
 
 USER CUSTOM APIS: [${customApiNames}]
 Your active business_id is: ${activeBusinessId}.
@@ -167,6 +171,21 @@ REAL-TIME COMPANY DATA: ${JSON.stringify(metrics || {}, null, 2)}`;
 
       vapi.start(ASSISTANT_ID, {
         firstMessage: `Hello, I am your ${roleName}. How can I assist you today?`,
+        transcriber: {
+          provider: "deepgram",
+          model: "nova-2",
+          language: "multi",
+          smartFormat: true
+        },
+        stopSpeakingPlan: {
+          numWords: 0,
+          voiceSeconds: 0.2,
+          backoffSeconds: 0.8
+        },
+        startSpeakingPlan: {
+          waitSeconds: 0.35,
+          smartEndpointingEnabled: true
+        },
         model: {
           provider: "openai",
           model: "gpt-4-turbo",
