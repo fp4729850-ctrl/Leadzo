@@ -68,16 +68,16 @@ serve(async (req) => {
         },
         assistantId: assistantId,
         assistantOverrides: {
-          firstMessage: `Hello Boss! Main ${businessData.company_name || 'King Villa'} ki AI Manager bol raha hoon. Aapki ${businessData.company_name || 'King Villa'} hotel ke baare mein kya jaanna chahte hain?`,
+          firstMessage: `नमस्ते बॉस! King Villa का क्या स्टेटस देखना है?`,
           transcriber: {
             provider: "deepgram",
             model: "nova-2",
-            language: "multi",
+            language: "hi",
             smartFormat: true,
             endpointing: 250
           },
           stopSpeakingPlan: {
-            numWords: 0,
+            numWords: 1,
             voiceSeconds: 0.2,
             backoffSeconds: 0.8
           },

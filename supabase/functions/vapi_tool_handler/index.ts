@@ -34,8 +34,8 @@ serve(async (req) => {
       console.log(`assistant-request event | caller: ${callerNumber} | isBoss: ${isBoss}`);
 
       const firstMessage = isBoss
-        ? "Hello Boss! Main King Villa ki AI Manager bol raha hoon. Aapki King Villa hotel ke baare mein kya jaanna chahte hain?"
-        : "Namaste! King Villa Resort & Suites mein aapka swagat hai. Main AI Hotel Manager hoon. Kya main aapki room booking mein madad kar sakta hoon?";
+        ? "नमस्ते बॉस! King Villa का क्या स्टेटस देखना है?"
+        : "नमस्ते! King Villa Resort & Suites में आपका स्वागत है। मैं आपकी room booking में क्या सहायता कर सकता हूँ?";
 
       return new Response(
         JSON.stringify({
@@ -44,12 +44,12 @@ serve(async (req) => {
             transcriber: {
               provider: "deepgram",
               model: "nova-2",
-              language: "multi",
+              language: "hi",
               smartFormat: true,
               endpointing: 250
             },
             stopSpeakingPlan: {
-              numWords: 0,
+              numWords: 1,
               voiceSeconds: 0.2,
               backoffSeconds: 0.8
             },
