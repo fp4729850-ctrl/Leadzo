@@ -1681,24 +1681,26 @@ export default function HotelLeadManagerPage() {
     return (localStorage.getItem("leadzo_voice_engine_mode") as any) || "vapi";
   });
   const [isPlayingWsSample, setIsPlayingWsSample] = useState(false);
+  const [selectedMaleVoice, setSelectedMaleVoice] = useState<"elevenlabs_indian_male" | "openai_echo" | "openai_onyx">("elevenlabs_indian_male");
 
-  const playWebSocketSample = async () => {
+  const playWebSocketSample = async (voiceOverride?: "elevenlabs_indian_male" | "openai_echo" | "openai_onyx") => {
     try {
       setIsPlayingWsSample(true);
-      toast.info("Synthesizing human voice sample...", { id: "ws-sample" });
+      const voiceToUse = voiceOverride || selectedMaleVoice;
+      toast.info("Synthesizing Indian Male voice sample...", { id: "ws-sample" });
       const res = await fetch("https://stbqeiapgdaklktrlrjm.supabase.co/functions/v1/voicelink_voice_server", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           text: "नमस्ते! King Villa Resort & Suites में आपका स्वागत है। हमारे पास आज के लिए Deluxe Room ₹1800 और Private Pool Villa ₹7900 में उपलब्ध है। क्या मैं आपके WhatsApp पर फ़ोटोज़ और Google Maps लोकेशन भेज दूँ?",
-          voice: "alloy"
+          voice: voiceToUse
         })
       });
       if (!res.ok) throw new Error("Failed to stream audio preview");
       const blob = await res.blob();
       const audioUrl = URL.createObjectURL(blob);
       const audio = new Audio(audioUrl);
-      toast.success("🔊 Playing In-House AI Human Voice Sample!", { id: "ws-sample" });
+      toast.success("🔊 Playing In-House Indian Male Voice!", { id: "ws-sample" });
       audio.onended = () => setIsPlayingWsSample(false);
       audio.onerror = () => setIsPlayingWsSample(false);
       await audio.play();
@@ -5950,18 +5952,35 @@ export default function HotelLeadManagerPage() {
                     <p className="text-xs text-muted-foreground mb-3">
                       Direct VoiceLink WebSocket (WSS) streaming without Vapi middleman. Ultra-low latency, natural human voice.
                     </p>
-                    <div className="flex items-center justify-between text-xs pt-2 border-t border-border/50">
-                      <span className="text-emerald-400 font-semibold">Est. Cost: <strong>~₹1.80 / min</strong></span>
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
-                        disabled={isPlayingWsSample}
-                        className="h-7 text-[11px] border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 gap-1.5" 
-                        onClick={(e) => { e.stopPropagation(); playWebSocketSample(); }}
-                      >
-                        <Volume2 size={12} className={isPlayingWsSample ? "animate-spin" : ""} /> 
-                        {isPlayingWsSample ? "Playing..." : "🔊 Test Human Voice Quality"}
-                      </Button>
+                    <div className="space-y-2 pt-2 border-t border-border/50">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-emerald-400 font-semibold">Est. Cost: <strong>~₹1.80 / min</strong></span>
+                        <span className="text-[10px] text-muted-foreground">Voice Engine: <strong>Male (Hindi)</strong></span>
+                      </div>
+                      
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
+                        <select
+                          value={selectedMaleVoice}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => setSelectedMaleVoice(e.target.value as any)}
+                          className="h-7 text-[11px] bg-background border border-emerald-500/30 rounded px-2 text-foreground focus:ring-1 focus:ring-emerald-500 outline-none flex-1"
+                        >
+                          <option value="elevenlabs_indian_male">🇮🇳 Indian Male (ElevenLabs - Ultra-Realistic)</option>
+                          <option value="openai_echo">🎙️ Indian Male (OpenAI Echo HD)</option>
+                          <option value="openai_onyx">🎙️ Indian Male (OpenAI Onyx Deep HD)</option>
+                        </select>
+
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          disabled={isPlayingWsSample}
+                          className="h-7 text-[11px] border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 gap-1.5 whitespace-nowrap" 
+                          onClick={(e) => { e.stopPropagation(); playWebSocketSample(); }}
+                        >
+                          <Volume2 size={12} className={isPlayingWsSample ? "animate-spin" : ""} /> 
+                          {isPlayingWsSample ? "Playing..." : "🔊 Test Male Voice"}
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </div>
