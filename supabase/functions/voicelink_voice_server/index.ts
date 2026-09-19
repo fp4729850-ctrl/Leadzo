@@ -172,7 +172,12 @@ serve(async (req) => {
         JSON.stringify({
           status: "online",
           engine: "Leadzo In-House VoiceLink WebSocket Server",
-          version: "1.1.0",
+          version: "1.2.0",
+          features: {
+            telephony_engine: "VoiceLink Bidirectional WebSocket",
+            ambient_background_sound: "office_reception (Vapi Style)",
+            interruption_handling: "Barge-in clear support"
+          },
           supported_voices: [
             { id: "elevenlabs_indian_male", name: "Indian Male (ElevenLabs Multilingual v2)", quality: "Ultra-Realistic" },
             { id: "openai_echo", name: "Male Voice - Echo (OpenAI Studio HD)", quality: "Studio HD" },

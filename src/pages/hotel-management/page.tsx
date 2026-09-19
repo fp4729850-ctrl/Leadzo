@@ -1682,12 +1682,106 @@ export default function HotelLeadManagerPage() {
   });
   const [isPlayingWsSample, setIsPlayingWsSample] = useState(false);
   const [selectedMaleVoice, setSelectedMaleVoice] = useState<"elevenlabs_indian_male" | "openai_echo" | "openai_onyx">("elevenlabs_indian_male");
+  const [officeBgSound, setOfficeBgSound] = useState<boolean>(() => {
+    const saved = localStorage.getItem("leadzo_office_bg_sound");
+    return saved !== null ? saved === "true" : true;
+  });
+  const audioContextOfficeRef = useRef<AudioContext | null>(null);
+
+  // Vapi-Style Realistic Office / Reception Ambiance Synthesizer (Room tone + soft typing/desk clicks)
+  const startOfficeAmbiance = (audioCtx: AudioContext) => {
+    try {
+      const masterAmbianceGain = audioCtx.createGain();
+      // Subtle 8% volume so speech remains crystal clear
+      masterAmbianceGain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+      masterAmbianceGain.connect(audioCtx.destination);
+
+      // 1. Room Tone / HVAC Presence (Filtered brown noise)
+      const bufferSize = audioCtx.sampleRate * 3;
+      const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+      const output = noiseBuffer.getChannelData(0);
+      let lastOut = 0.0;
+      for (let i = 0; i < bufferSize; i++) {
+        const white = Math.random() * 2 - 1;
+        output[i] = (lastOut + (0.02 * white)) / 1.02;
+        lastOut = output[i];
+        output[i] *= 2.2;
+      }
+
+      const noiseSource = audioCtx.createBufferSource();
+      noiseSource.buffer = noiseBuffer;
+      noiseSource.loop = true;
+
+      const lowpass = audioCtx.createBiquadFilter();
+      lowpass.type = "lowpass";
+      lowpass.frequency.setValueAtTime(260, audioCtx.currentTime);
+
+      const roomGain = audioCtx.createGain();
+      roomGain.gain.setValueAtTime(0.35, audioCtx.currentTime);
+
+      noiseSource.connect(lowpass);
+      lowpass.connect(roomGain);
+      roomGain.connect(masterAmbianceGain);
+      noiseSource.start();
+
+      // 2. Soft Keyboard / Front-desk computer typing clicks
+      const clickBufferSize = audioCtx.sampleRate * 2;
+      const clickBuffer = audioCtx.createBuffer(1, clickBufferSize, audioCtx.sampleRate);
+      const clickData = clickBuffer.getChannelData(0);
+      for (let i = 0; i < clickBufferSize; i++) clickData[i] = 0;
+
+      const clickPoints = [0.15, 0.35, 0.55, 1.05, 1.25, 1.65];
+      clickPoints.forEach(pos => {
+        const startIdx = Math.floor(pos * audioCtx.sampleRate);
+        for (let j = 0; j < 140; j++) {
+          if (startIdx + j < clickBufferSize) {
+            const decay = Math.exp(-j / 18);
+            clickData[startIdx + j] = (Math.random() * 2 - 1) * decay * 0.22;
+          }
+        }
+      });
+
+      const clickSource = audioCtx.createBufferSource();
+      clickSource.buffer = clickBuffer;
+      clickSource.loop = true;
+
+      const clickFilter = audioCtx.createBiquadFilter();
+      clickFilter.type = "bandpass";
+      clickFilter.frequency.setValueAtTime(2300, audioCtx.currentTime);
+      clickFilter.Q.setValueAtTime(1.6, audioCtx.currentTime);
+
+      const clickGain = audioCtx.createGain();
+      clickGain.gain.setValueAtTime(0.28, audioCtx.currentTime);
+
+      clickSource.connect(clickFilter);
+      clickFilter.connect(clickGain);
+      clickGain.connect(masterAmbianceGain);
+      clickSource.start();
+
+      return {
+        stop: () => {
+          try {
+            masterAmbianceGain.gain.linearRampToValueAtTime(0.001, audioCtx.currentTime + 0.35);
+            setTimeout(() => {
+              try { noiseSource.stop(); } catch(e) {}
+              try { clickSource.stop(); } catch(e) {}
+              try { noiseSource.disconnect(); } catch(e) {}
+              try { clickSource.disconnect(); } catch(e) {}
+            }, 380);
+          } catch(e) {}
+        }
+      };
+    } catch(e) {
+      console.warn("Office ambiance init error:", e);
+      return { stop: () => {} };
+    }
+  };
 
   const playWebSocketSample = async (voiceOverride?: "elevenlabs_indian_male" | "openai_echo" | "openai_onyx") => {
     try {
       setIsPlayingWsSample(true);
       const voiceToUse = voiceOverride || selectedMaleVoice;
-      toast.info("Synthesizing Indian Male voice sample...", { id: "ws-sample" });
+      toast.info("Synthesizing Indian Male voice with Office Ambiance...", { id: "ws-sample" });
       const res = await fetch("https://stbqeiapgdaklktrlrjm.supabase.co/functions/v1/voicelink_voice_server", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1700,9 +1794,34 @@ export default function HotelLeadManagerPage() {
       const blob = await res.blob();
       const audioUrl = URL.createObjectURL(blob);
       const audio = new Audio(audioUrl);
-      toast.success("🔊 Playing In-House Indian Male Voice!", { id: "ws-sample" });
-      audio.onended = () => setIsPlayingWsSample(false);
-      audio.onerror = () => setIsPlayingWsSample(false);
+
+      // Start realistic Vapi-style Office Background Sound if enabled
+      let ambianceController: { stop: () => void } | null = null;
+      if (officeBgSound) {
+        try {
+          const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+          audioContextOfficeRef.current = audioCtx;
+          ambianceController = startOfficeAmbiance(audioCtx);
+        } catch(ctxErr) {
+          console.warn("AudioContext creation error:", ctxErr);
+        }
+      }
+
+      toast.success(officeBgSound ? "🔊 Playing Male Voice with 🏢 Office Ambiance!" : "🔊 Playing In-House Indian Male Voice!", { id: "ws-sample" });
+      
+      const cleanUp = () => {
+        setIsPlayingWsSample(false);
+        ambianceController?.stop();
+        if (audioContextOfficeRef.current) {
+          setTimeout(() => {
+            try { audioContextOfficeRef.current?.close(); } catch(e) {}
+            audioContextOfficeRef.current = null;
+          }, 450);
+        }
+      };
+
+      audio.onended = cleanUp;
+      audio.onerror = cleanUp;
       await audio.play();
     } catch (e: any) {
       setIsPlayingWsSample(false);
@@ -5980,6 +6099,34 @@ export default function HotelLeadManagerPage() {
                           <Volume2 size={12} className={isPlayingWsSample ? "animate-spin" : ""} /> 
                           {isPlayingWsSample ? "Playing..." : "🔊 Test Male Voice"}
                         </Button>
+                      </div>
+
+                      {/* Vapi-Style Office Background Sound Toggle */}
+                      <div className="flex items-center justify-between pt-1 text-[11px]">
+                        <div 
+                          className="flex items-center gap-1.5 cursor-pointer select-none"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const next = !officeBgSound;
+                            setOfficeBgSound(next);
+                            localStorage.setItem("leadzo_office_bg_sound", String(next));
+                            toast.info(next ? "🏢 Office Background Sound: ON (Vapi Style)" : "🏢 Office Background Sound: OFF");
+                          }}
+                        >
+                          <Building2 size={12} className={officeBgSound ? "text-amber-400" : "text-muted-foreground"} />
+                          <span className="text-muted-foreground">Office Background Sound:</span>
+                          <Badge 
+                            variant={officeBgSound ? "default" : "outline"} 
+                            className={`text-[9px] h-4 px-1.5 transition-all ${
+                              officeBgSound 
+                                ? "bg-amber-600 hover:bg-amber-500 text-white font-medium" 
+                                : "text-muted-foreground border-border"
+                            }`}
+                          >
+                            {officeBgSound ? "🏢 Active (Vapi Style)" : "Off"}
+                          </Badge>
+                        </div>
+                        <span className="text-[10px] text-muted-foreground/80 italic">Room tone & desk typing clicks</span>
                       </div>
                     </div>
                   </div>
