@@ -29,9 +29,36 @@ serve(async (req) => {
     if (message.type === 'assistant-request') {
       const callerNumber = message.call?.customer?.number || '';
       const callerDigits = callerNumber.replace(/\D/g, '');
-      const isBoss = callerDigits.includes('9726846660');
 
-      console.log(`assistant-request event | caller: ${callerNumber} | isBoss: ${isBoss}`);
+      // Dynamically query Supabase users table for saved Boss personal phone numbers
+      const bossNumbers = ['9726846660']; // default fallback
+      try {
+        const supabaseAdmin = createClient(
+          Deno.env.get('SUPABASE_URL') ?? '',
+          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+        );
+
+        const { data: usersWithPhone } = await supabaseAdmin
+          .from('users')
+          .select('phone')
+          .not('phone', 'is', null);
+
+        if (usersWithPhone && usersWithPhone.length > 0) {
+          for (const u of usersWithPhone) {
+            if (u.phone) {
+              const digits = u.phone.replace(/\D/g, '');
+              const last10 = digits.length > 10 ? digits.slice(-10) : digits;
+              if (last10 && !bossNumbers.includes(last10)) bossNumbers.push(last10);
+            }
+          }
+        }
+      } catch (err: any) {
+        console.error("Failed to query boss phone from DB:", err.message);
+      }
+
+      const isBoss = bossNumbers.some(num => callerDigits.includes(num));
+
+      console.log(`assistant-request event | caller: ${callerNumber} | isBoss: ${isBoss} | activeBossNumbers:`, bossNumbers);
 
       const firstMessage = isBoss
         ? "नमस्ते बॉस! King Villa का क्या स्टेटस देखना है?"
