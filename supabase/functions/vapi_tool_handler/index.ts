@@ -33,18 +33,11 @@ serve(async (req) => {
 
       console.log(`assistant-request event | caller: ${callerNumber} | isBoss: ${isBoss}`);
 
-      if (isBoss) {
-        return new Response(
-          JSON.stringify({
-            assistant: {
-              firstMessage: "नमस्ते बॉस! King Villa का क्या स्टेटस देखना है?",
-              model: {
-                provider: "openai",
-                model: "gpt-4o",
-                messages: [
-                  {
-                    role: "system",
-                    content: `You are the AI Executive Assistant exclusively for your BOSS (Hotel Owner) of King Villa Resort & Suites, Daman.
+      const firstMessage = isBoss
+        ? "नमस्ते बॉस! King Villa का क्या स्टेटस देखना है?"
+        : "नमस्ते! King Villa Resort & Suites में आपका स्वागत है। मैं आपकी room booking में क्या सहायता कर सकता हूँ?";
+
+      const bossSystemPrompt = `You are the AI Executive Assistant exclusively for your BOSS (Hotel Owner) of King Villa Resort & Suites, Daman.
 The caller IS YOUR BOSS (${callerNumber}).
 
 PERMANENT BOSS LOCK (CRITICAL):
@@ -56,42 +49,22 @@ PERMANENT BOSS LOCK (CRITICAL):
   -> IMMEDIATELY call the 'hotel_get_occupancy' tool. Read the live report from the database and tell Boss clearly which rooms are vacant and which are booked.
 - When Boss asks to block a room ("Room 4 block kar do"):
   -> IMMEDIATELY call the 'hotel_block_room_voice' tool.
-- Speak in respectful, polite Hindi ("जी बॉस", "हाँजी बॉस"). Keep replies crisp and short (1-2 sentences).`
-                  }
-                ]
-              },
-              transcriber: {
-                provider: "deepgram",
-                model: "nova-2",
-                language: "hi",
-                smartFormat: true,
-                endpointing: 250
-              },
-              stopSpeakingPlan: {
-                numWords: 1,
-                voiceSeconds: 0.2,
-                backoffSeconds: 0.8
-              },
-              startSpeakingPlan: {
-                waitSeconds: 0.35,
-                smartEndpointingEnabled: true
-              },
-              voice: {
-                provider: "vapi",
-                voiceId: "Sagar"
-              }
-            }
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
+- Speak in respectful, polite Hindi ("जी बॉस", "हाँजी बॉस"). Keep replies crisp and short (1-2 sentences).`;
 
-      const firstMessage = "नमस्ते! King Villa Resort & Suites में आपका स्वागत है। मैं आपकी room booking में क्या सहायता कर सकता हूँ?";
+      const guestSystemPrompt = `You are the AI Hotel Receptionist for King Villa Resort & Suites, Daman.
+CRITICAL RULES:
+- The caller is a prospective GUEST / CUSTOMER.
+- Greet and assist them politely with room booking, pricing, check-in 12 PM, check-out 11 AM, amenities, and location near Devka Beach.
+- Speak in natural, polite Hindi. Keep replies crisp and short (1-2 sentences).
+- If guest asks about room availability, call the 'hotel_get_occupancy' tool to check.
+- Never treat guests as Boss.`;
 
       return new Response(
         JSON.stringify({
-          assistant: {
-            firstMessage,
+          assistantId: "c72d5615-bd69-4776-bd5d-d3ded56e1687",
+          assistantOverrides: {
+            firstMessage: firstMessage,
+            firstMessageMode: "assistant-speaks-first",
             transcriber: {
               provider: "deepgram",
               model: "nova-2",
@@ -111,6 +84,16 @@ PERMANENT BOSS LOCK (CRITICAL):
             voice: {
               provider: "vapi",
               voiceId: "Sagar"
+            },
+            model: {
+              provider: "openai",
+              model: "gpt-4o",
+              messages: [
+                {
+                  role: "system",
+                  content: isBoss ? bossSystemPrompt : guestSystemPrompt
+                }
+              ]
             }
           }
         }),
