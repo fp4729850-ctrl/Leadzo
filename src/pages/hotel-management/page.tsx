@@ -1686,88 +1686,39 @@ export default function HotelLeadManagerPage() {
     const saved = localStorage.getItem("leadzo_office_bg_sound");
     return saved !== null ? saved === "true" : true;
   });
-  const audioContextOfficeRef = useRef<AudioContext | null>(null);
+  const bgOfficeAudioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Vapi-Style Realistic Office / Reception Ambiance Synthesizer (Room tone + soft typing/desk clicks)
-  const startOfficeAmbiance = (audioCtx: AudioContext) => {
+  // Vapi-Style Authentic Office / Reception Ambiance (Real human chatter & keyboard typing audio)
+  const startOfficeAmbiance = () => {
     try {
-      const masterAmbianceGain = audioCtx.createGain();
-      // Subtle 8% volume so speech remains crystal clear
-      masterAmbianceGain.gain.setValueAtTime(0.08, audioCtx.currentTime);
-      masterAmbianceGain.connect(audioCtx.destination);
-
-      // 1. Room Tone / HVAC Presence (Filtered brown noise)
-      const bufferSize = audioCtx.sampleRate * 3;
-      const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-      const output = noiseBuffer.getChannelData(0);
-      let lastOut = 0.0;
-      for (let i = 0; i < bufferSize; i++) {
-        const white = Math.random() * 2 - 1;
-        output[i] = (lastOut + (0.02 * white)) / 1.02;
-        lastOut = output[i];
-        output[i] *= 2.2;
+      if (bgOfficeAudioRef.current) {
+        bgOfficeAudioRef.current.pause();
+        bgOfficeAudioRef.current = null;
       }
-
-      const noiseSource = audioCtx.createBufferSource();
-      noiseSource.buffer = noiseBuffer;
-      noiseSource.loop = true;
-
-      const lowpass = audioCtx.createBiquadFilter();
-      lowpass.type = "lowpass";
-      lowpass.frequency.setValueAtTime(260, audioCtx.currentTime);
-
-      const roomGain = audioCtx.createGain();
-      roomGain.gain.setValueAtTime(0.35, audioCtx.currentTime);
-
-      noiseSource.connect(lowpass);
-      lowpass.connect(roomGain);
-      roomGain.connect(masterAmbianceGain);
-      noiseSource.start();
-
-      // 2. Soft Keyboard / Front-desk computer typing clicks
-      const clickBufferSize = audioCtx.sampleRate * 2;
-      const clickBuffer = audioCtx.createBuffer(1, clickBufferSize, audioCtx.sampleRate);
-      const clickData = clickBuffer.getChannelData(0);
-      for (let i = 0; i < clickBufferSize; i++) clickData[i] = 0;
-
-      const clickPoints = [0.15, 0.35, 0.55, 1.05, 1.25, 1.65];
-      clickPoints.forEach(pos => {
-        const startIdx = Math.floor(pos * audioCtx.sampleRate);
-        for (let j = 0; j < 140; j++) {
-          if (startIdx + j < clickBufferSize) {
-            const decay = Math.exp(-j / 18);
-            clickData[startIdx + j] = (Math.random() * 2 - 1) * decay * 0.22;
-          }
-        }
-      });
-
-      const clickSource = audioCtx.createBufferSource();
-      clickSource.buffer = clickBuffer;
-      clickSource.loop = true;
-
-      const clickFilter = audioCtx.createBiquadFilter();
-      clickFilter.type = "bandpass";
-      clickFilter.frequency.setValueAtTime(2300, audioCtx.currentTime);
-      clickFilter.Q.setValueAtTime(1.6, audioCtx.currentTime);
-
-      const clickGain = audioCtx.createGain();
-      clickGain.gain.setValueAtTime(0.28, audioCtx.currentTime);
-
-      clickSource.connect(clickFilter);
-      clickFilter.connect(clickGain);
-      clickGain.connect(masterAmbianceGain);
-      clickSource.start();
+      const bgAudio = new Audio("/office_ambiance.mp3");
+      bgAudio.loop = true;
+      bgAudio.volume = 0.12; // 12% subtle realistic volume
+      bgOfficeAudioRef.current = bgAudio;
+      bgAudio.play().catch(e => console.warn("Office ambiance play error:", e));
 
       return {
         stop: () => {
           try {
-            masterAmbianceGain.gain.linearRampToValueAtTime(0.001, audioCtx.currentTime + 0.35);
-            setTimeout(() => {
-              try { noiseSource.stop(); } catch(e) {}
-              try { clickSource.stop(); } catch(e) {}
-              try { noiseSource.disconnect(); } catch(e) {}
-              try { clickSource.disconnect(); } catch(e) {}
-            }, 380);
+            if (bgOfficeAudioRef.current) {
+              const audioRef = bgOfficeAudioRef.current;
+              let vol = audioRef.volume;
+              const fade = setInterval(() => {
+                vol = Math.max(0, vol - 0.03);
+                try { audioRef.volume = vol; } catch(e) {}
+                if (vol <= 0.01) {
+                  clearInterval(fade);
+                  try { audioRef.pause(); } catch(e) {}
+                  if (bgOfficeAudioRef.current === audioRef) {
+                    bgOfficeAudioRef.current = null;
+                  }
+                }
+              }, 35);
+            }
           } catch(e) {}
         }
       };
@@ -1795,16 +1746,10 @@ export default function HotelLeadManagerPage() {
       const audioUrl = URL.createObjectURL(blob);
       const audio = new Audio(audioUrl);
 
-      // Start realistic Vapi-style Office Background Sound if enabled
+      // Start authentic Vapi-style Office Background Sound with real human chatter & typing
       let ambianceController: { stop: () => void } | null = null;
       if (officeBgSound) {
-        try {
-          const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-          audioContextOfficeRef.current = audioCtx;
-          ambianceController = startOfficeAmbiance(audioCtx);
-        } catch(ctxErr) {
-          console.warn("AudioContext creation error:", ctxErr);
-        }
+        ambianceController = startOfficeAmbiance();
       }
 
       toast.success(officeBgSound ? "🔊 Playing Male Voice with 🏢 Office Ambiance!" : "🔊 Playing In-House Indian Male Voice!", { id: "ws-sample" });
@@ -1812,12 +1757,6 @@ export default function HotelLeadManagerPage() {
       const cleanUp = () => {
         setIsPlayingWsSample(false);
         ambianceController?.stop();
-        if (audioContextOfficeRef.current) {
-          setTimeout(() => {
-            try { audioContextOfficeRef.current?.close(); } catch(e) {}
-            audioContextOfficeRef.current = null;
-          }, 450);
-        }
       };
 
       audio.onended = cleanUp;
@@ -6126,7 +6065,7 @@ export default function HotelLeadManagerPage() {
                             {officeBgSound ? "🏢 Active (Vapi Style)" : "Off"}
                           </Badge>
                         </div>
-                        <span className="text-[10px] text-muted-foreground/80 italic">Room tone & desk typing clicks</span>
+                        <span className="text-[10px] text-muted-foreground/80 italic">Real human chatter & desk typing</span>
                       </div>
                     </div>
                   </div>
