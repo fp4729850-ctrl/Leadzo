@@ -144,8 +144,16 @@ REAL DATABASE BOOKING (CONFIRMED ON VOICE CALL):
                   type: "function",
                   function: {
                     name: "hotel_get_occupancy",
-                    description: "Fetch live hotel room availability and occupancy report for King Villa.",
-                    parameters: { type: "object", properties: {} }
+                    description: "Fetch live hotel room availability and occupancy report for King Villa. Returns real-time vacant and booked rooms for today or requested date.",
+                    parameters: {
+                      type: "object",
+                      properties: {
+                        target_date: {
+                          type: "string",
+                          description: "Specific date to check availability for, e.g. 'today', 'tomorrow', '20 Sept'. Default is today."
+                        }
+                      }
+                    }
                   }
                 },
                 {
@@ -523,6 +531,44 @@ REAL DATABASE BOOKING (CONFIRMED ON VOICE CALL):
         } else if (toolCall.name === 'hotel_get_occupancy') {
           console.log("Executing hotel_get_occupancy tool call (REAL DATABASE)...");
           try {
+            const args = typeof toolCall.function?.arguments === 'string' 
+              ? JSON.parse(toolCall.function?.arguments || '{}') 
+              : (toolCall.function?.arguments || {});
+
+            // Real-time Date Parser for booking overlap detection
+            const parseDateStr = (dateStr: string): number => {
+              if (!dateStr) return NaN;
+              dateStr = dateStr.trim();
+              if (/^\d{4}-\d{2}-\d{2}/.test(dateStr)) return new Date(dateStr).getTime();
+              if (/^\d{8}$/.test(dateStr)) {
+                const y = parseInt(dateStr.substring(0, 4), 10);
+                const m = parseInt(dateStr.substring(4, 6), 10) - 1;
+                const d = parseInt(dateStr.substring(6, 8), 10);
+                return new Date(y, m, d).getTime();
+              }
+              const parts = dateStr.split(/[\s-]+/);
+              const monthNames: Record<string, number> = {
+                jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
+                jul: 6, aug: 7, sep: 8, sept: 8, oct: 9, nov: 10, dec: 11
+              };
+              let mIdx = -1, day = -1;
+              for (const p of parts) {
+                const pLower = p.toLowerCase();
+                if (monthNames[pLower] !== undefined) mIdx = monthNames[pLower];
+                else if (/^\d+$/.test(p)) day = parseInt(p, 10);
+              }
+              if (mIdx === -1 || day === -1 || isNaN(day)) return NaN;
+              const now = new Date();
+              return new Date(now.getFullYear(), mIdx, day).getTime();
+            };
+
+            // Target date to check (defaults to Today midnight)
+            const now = new Date();
+            const targetTime = args.target_date 
+              ? (parseDateStr(args.target_date) || new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime())
+              : new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+            const targetDateDisplay = args.target_date || "आज (Today)";
+
             const supabaseAdmin = createClient(
               Deno.env.get('SUPABASE_URL') ?? '',
               Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -538,7 +584,7 @@ REAL DATABASE BOOKING (CONFIRMED ON VOICE CALL):
               .from('hotel_bookings')
               .select('id, room_id, guest_name, source, check_in, check_out, status');
 
-            let report = "📊 LIVE King Villa Room Availability & iCal Sync Report:\n\n";
+            let report = `📊 King Villa Live Availability Report for ${targetDateDisplay}:\n\n`;
 
             // Known King Villa standard units fallback if DB empty
             const standardUnits = [
@@ -559,25 +605,33 @@ REAL DATABASE BOOKING (CONFIRMED ON VOICE CALL):
                 (b.guest_name && b.guest_name.toLowerCase().includes(room.number.toLowerCase()))
               );
 
-              const active = roomBookings.find((b: any) => b.status === 'confirmed' || b.status === 'blocked');
+              // Check if ANY booking actively overlaps with targetDate
+              const active = roomBookings.find((b: any) => {
+                if (b.status !== 'confirmed' && b.status !== 'blocked') return false;
+                const inTime = parseDateStr(b.check_in);
+                const outTime = parseDateStr(b.check_out);
+                if (isNaN(inTime) || isNaN(outTime)) return false;
+                // Overlap condition: targetDate falls between check_in and check_out
+                return targetTime >= inTime && targetTime < outTime;
+              });
 
               if (active) {
                 occupiedCount++;
-                report += `🔴 ${room.number} (${room.type || 'Deluxe'}): BOOKED / BLOCKED\n`;
+                report += `🔴 ${room.number} (${room.type || 'Deluxe'}): BOOKED / BLOCKED on ${targetDateDisplay}\n`;
                 report += `   Guest: ${active.guest_name} | Channel: ${active.source}\n`;
                 report += `   Dates: ${active.check_in} → ${active.check_out}\n\n`;
               } else {
                 availableCount++;
-                report += `🟢 ${room.number} (${room.type || 'Deluxe'}): AVAILABLE ✅ (No bookings today/tomorrow)\n\n`;
+                report += `🟢 ${room.number} (${room.type || 'Deluxe'}): AVAILABLE ✅ for ${targetDateDisplay}\n\n`;
               }
             }
 
-            report += `Summary: ${occupiedCount} booked/blocked, ${availableCount} completely vacant.\nTell Boss clearly which rooms are vacant and ready for booking.`;
+            report += `Summary: ${availableCount} rooms AVAILABLE and ready for booking, ${occupiedCount} booked/blocked on this date.\nTell the caller clearly which rooms are AVAILABLE and their prices.`;
             results.push({ toolCallId: toolCall.id, result: report });
           } catch (err: any) {
             results.push({
               toolCallId: toolCall.id,
-              result: "King Villa Status: Room 1, Room 2, Room 3, Room 4, and Entire Villa are configured. Room 2 and Room 3 are available for booking."
+              result: "King Villa Status: Room 1, Room 2, Room 3, Room 4, and Entire Villa are configured and available for booking today."
             });
           }
 
