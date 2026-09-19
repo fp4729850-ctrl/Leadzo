@@ -29,7 +29,7 @@ serve(async (req) => {
     if (message.type === 'assistant-request') {
       const callerNumber = message.call?.customer?.number || '';
       const callerDigits = callerNumber.replace(/\D/g, '');
-      const isBoss = callerDigits.includes('9726846660') || callerDigits.includes('9429397495') || callerDigits.endsWith('6660');
+      const isBoss = callerDigits.includes('9726846660');
 
       console.log(`assistant-request event | caller: ${callerNumber} | isBoss: ${isBoss}`);
 
