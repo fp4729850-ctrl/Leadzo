@@ -1,11 +1,41 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.44.0";
+import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, upgrade",
   "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
 };
+
+// ── ITU-T G.711 mu-law (PCMU) Standard Telephony Codec ──
+function linearToMuLaw(pcmSample: number): number {
+  const BIAS = 0x84;
+  const CLIP = 32635;
+  let sign = (pcmSample >> 8) & 0x80;
+  if (sign !== 0) pcmSample = -pcmSample;
+  if (pcmSample > CLIP) pcmSample = CLIP;
+  pcmSample = (pcmSample + BIAS) >> 2;
+  let exponent = 7;
+  for (let expMask = 0x4000; (pcmSample & expMask) === 0 && exponent > 0; expMask >>= 1, exponent--) {}
+  let mantissa = (pcmSample >> (exponent === 0 ? 4 : (exponent + 3))) & 0x0F;
+  return ~(sign | (exponent << 4) | mantissa) & 0xFF;
+}
+
+// Convert 24kHz 16-bit Linear PCM (OpenAI standard) to 8kHz G.711 mu-law (Telephony standard)
+function convertPcm24kToMulaw8k(pcm24kBuffer: ArrayBuffer): Uint8Array {
+  const pcmView = new DataView(pcm24kBuffer);
+  const totalSamples = Math.floor(pcmView.byteLength / 2);
+  const mulawLength = Math.floor(totalSamples / 3); // 3:1 integer downsampling
+  const mulawArray = new Uint8Array(mulawLength);
+
+  for (let i = 0; i < mulawLength; i++) {
+    const sampleIdx = i * 3;
+    const pcmSample = pcmView.getInt16(sampleIdx * 2, true); // little-endian
+    mulawArray[i] = linearToMuLaw(pcmSample);
+  }
+  return mulawArray;
+}
 
 serve(async (req) => {
   // CORS Preflight
@@ -42,11 +72,11 @@ serve(async (req) => {
       try {
         const data = JSON.parse(event.data);
 
-        // EVENT: START (Call Connected)
-        if (data.event === "start") {
-          streamSid = data.start?.stream_sid || data.stream_sid || "";
-          callSid = data.start?.call_sid || data.call_sid || "";
-          callerNumber = data.start?.from || "";
+        // EVENT: START / CONNECTED (Call Connected)
+        if (data.event === "start" || data.event === "connected") {
+          streamSid = data.start?.streamSid || data.start?.stream_sid || data.streamSid || data.stream_sid || "";
+          callSid = data.start?.callSid || data.start?.call_sid || data.callSid || data.call_sid || "";
+          callerNumber = data.start?.from || data.from || "";
 
           // Check if caller is Boss (9726846660)
           const cleanCaller = callerNumber.replace(/[^0-9]/g, "");
@@ -56,9 +86,9 @@ serve(async (req) => {
             ? "नमस्ते बॉस! King Villa का क्या स्टेटस देखना है?"
             : "नमस्ते! King Villa Resort & Suites में आपका स्वागत है। मैं आपकी room booking में क्या सहायता कर सकता हूँ?";
 
-          console.log(`Call started: ${callSid} | Caller: ${callerNumber} | isBoss: ${isBoss}`);
+          console.log(`📞 Call started: ${callSid} | Stream: ${streamSid} | Caller: ${callerNumber} | isBoss: ${isBoss}`);
 
-          // Synthesize and stream first greeting audio back to caller using OpenAI Onyx HD
+          // Synthesize and stream first greeting audio back to caller using OpenAI Onyx HD in 8kHz mu-law
           try {
             if (openAiKey) {
               const ttsRes = await fetch("https://api.openai.com/v1/audio/speech", {
@@ -78,25 +108,50 @@ serve(async (req) => {
 
               if (ttsRes.ok) {
                 const audioBuffer = await ttsRes.arrayBuffer();
-                const base64Audio = btoa(String.fromCharCode(...new Uint8Array(audioBuffer)));
+                console.log(`TTS generation success: ${audioBuffer.byteLength} bytes raw 24kHz PCM`);
 
-                socket.send(JSON.stringify({
-                  event: "media",
-                  stream_sid: streamSid,
-                  media: { payload: base64Audio }
-                }));
+                // Convert 24kHz PCM to 8kHz G.711 mu-law for VoiceLink telecom network
+                const mulawData = convertPcm24kToMulaw8k(audioBuffer);
+                console.log(`Converted to 8kHz G.711 mu-law: ${mulawData.length} bytes`);
+
+                // Stream in 80ms chunks (640 bytes) with precise timing
+                const CHUNK_SIZE = 640;
+                for (let i = 0; i < mulawData.length; i += CHUNK_SIZE) {
+                  const end = Math.min(i + CHUNK_SIZE, mulawData.length);
+                  const chunk = mulawData.subarray(i, end);
+                  const payload = base64Encode(chunk);
+
+                  socket.send(JSON.stringify({
+                    event: "media",
+                    streamSid: streamSid,
+                    stream_sid: streamSid,
+                    media: { payload }
+                  }));
+
+                  // 70ms pacing simulates realtime telephony voice packets
+                  await new Promise(r => setTimeout(r, 70));
+                }
 
                 socket.send(JSON.stringify({
                   event: "mark",
+                  streamSid: streamSid,
                   stream_sid: streamSid,
                   mark: { name: "greeting_done" }
                 }));
+                console.log("Greeting audio stream completed!");
                 return;
+              } else {
+                console.error("OpenAI TTS failed:", await ttsRes.text());
               }
             }
           } catch (ttsErr) {
             console.error("Error synthesizing initial greeting with Onyx HD:", ttsErr);
           }
+        }
+
+        // EVENT: MEDIA (Incoming audio from caller)
+        if (data.event === "media") {
+          // Caller speech received
         }
 
         // EVENT: CLEAR (Caller interrupted / barge-in)
