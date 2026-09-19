@@ -1678,10 +1678,10 @@ export default function HotelLeadManagerPage() {
   };
 
   const [voiceEngineMode, setVoiceEngineMode] = useState<"vapi" | "voicelink_ws">(() => {
-    return (localStorage.getItem("leadzo_voice_engine_mode") as any) || "vapi";
+    return (localStorage.getItem("leadzo_voice_engine_mode") as any) || "voicelink_ws";
   });
   const [isPlayingWsSample, setIsPlayingWsSample] = useState(false);
-  const [selectedMaleVoice, setSelectedMaleVoice] = useState<"elevenlabs_indian_male" | "openai_echo" | "openai_onyx">("elevenlabs_indian_male");
+  const [selectedMaleVoice, setSelectedMaleVoice] = useState<"elevenlabs_indian_male" | "openai_echo" | "openai_onyx">("openai_onyx");
   const [officeBgSound, setOfficeBgSound] = useState<boolean>(() => {
     const saved = localStorage.getItem("leadzo_office_bg_sound");
     return saved !== null ? saved === "true" : true;

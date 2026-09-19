@@ -58,44 +58,8 @@ serve(async (req) => {
 
           console.log(`Call started: ${callSid} | Caller: ${callerNumber} | isBoss: ${isBoss}`);
 
-          // Synthesize and stream first greeting audio back to caller
-          // Try ElevenLabs Indian Male first, fallback to OpenAI Echo HD
+          // Synthesize and stream first greeting audio back to caller using OpenAI Onyx HD
           try {
-            if (elevenLabsKey) {
-              const elRes = await fetch("https://api.elevenlabs.io/v1/text-to-speech/kQvSCFzCwO6z2RCFMNRE/stream?output_format=ulaw_8000", {
-                method: "POST",
-                headers: {
-                  "xi-api-key": elevenLabsKey,
-                  "Content-Type": "application/json",
-                  "accept": "audio/wav-mulaw"
-                },
-                body: JSON.stringify({
-                  text: initialGreeting,
-                  model_id: "eleven_multilingual_v2",
-                  voice_settings: { stability: 0.55, similarity_boost: 0.8 }
-                })
-              });
-
-              if (elRes.ok) {
-                const audioBuffer = await elRes.arrayBuffer();
-                const base64Audio = btoa(String.fromCharCode(...new Uint8Array(audioBuffer)));
-
-                socket.send(JSON.stringify({
-                  event: "media",
-                  stream_sid: streamSid,
-                  media: { payload: base64Audio }
-                }));
-
-                socket.send(JSON.stringify({
-                  event: "mark",
-                  stream_sid: streamSid,
-                  mark: { name: "greeting_done" }
-                }));
-                return;
-              }
-            }
-
-            // Fallback to OpenAI Echo HD
             if (openAiKey) {
               const ttsRes = await fetch("https://api.openai.com/v1/audio/speech", {
                 method: "POST",
@@ -106,7 +70,7 @@ serve(async (req) => {
                 body: JSON.stringify({
                   model: "tts-1-hd",
                   input: initialGreeting,
-                  voice: "echo",
+                  voice: "onyx",
                   response_format: "pcm",
                   speed: 1.0
                 })
@@ -127,10 +91,11 @@ serve(async (req) => {
                   stream_sid: streamSid,
                   mark: { name: "greeting_done" }
                 }));
+                return;
               }
             }
           } catch (ttsErr) {
-            console.error("Error synthesizing initial greeting:", ttsErr);
+            console.error("Error synthesizing initial greeting with Onyx HD:", ttsErr);
           }
         }
 
